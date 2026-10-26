@@ -1,7 +1,15 @@
 import React from 'react';
 import { ShieldAlert, ShieldCheck, Youtube, Video, Camera, Clock, CheckCircle2, XCircle } from 'lucide-react';
 
-export const RiskBadge: React.FC<{ level?: string }> = ({ level = 'RENDAH' }) => {
+export const RiskBadge: React.FC<{ level?: string | null }> = ({ level }) => {
+  if (!level) {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+        <Clock className="w-3.5 h-3.5" />
+        Belum Dinilai
+      </span>
+    );
+  }
   const norm = level.toUpperCase();
   if (norm === 'TINGGI') {
     return (
