@@ -40,6 +40,8 @@ services:
     env_file: .env
     volumes:
       - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
       - ./storage:/app/storage
     ports:
       - "8000:8000"
@@ -60,6 +62,8 @@ services:
     env_file: .env
     volumes:
       - ./app:/app/app
+      - ./migrations:/app/migrations
+      - ./alembic.ini:/app/alembic.ini
       - ./storage:/app/storage
     depends_on:
       db:

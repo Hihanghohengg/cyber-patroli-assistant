@@ -18,32 +18,51 @@ except ImportError:
         class JWTError(Exception):
             pass
 
-# Password hasher: try passlib first, then fallback to SHA-256
+# Password hasher: try bcrypt first, then passlib, then fallback to SHA-256
 try:
-    from passlib.context import CryptContext  # type: ignore
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    import bcrypt  # type: ignore
 
     def hash_password(password: str) -> str:
         """Hash a plain text password using bcrypt."""
-        return pwd_context.hash(password)
+        pwd_bytes = password[:72].encode("utf-8")
+        return bcrypt.hashpw(pwd_bytes, bcrypt.gensalt()).decode("utf-8")
 
     def verify_password(plain_password: str, hashed_password: str) -> bool:
         """Verify a plain password against a hash."""
+        if not hashed_password:
+            return False
         if hashed_password.startswith("sha256$"):
             return hashed_password == ("sha256$" + hashlib.sha256(plain_password.encode()).hexdigest())
         try:
-            return pwd_context.verify(plain_password, hashed_password)
+            pwd_bytes = plain_password[:72].encode("utf-8")
+            hash_bytes = hashed_password.encode("utf-8")
+            return bcrypt.checkpw(pwd_bytes, hash_bytes)
         except Exception:
             return False
 
 except ImportError:
-    def hash_password(password: str) -> str:
-        """Fallback SHA-256 password hashing."""
-        return "sha256$" + hashlib.sha256(password.encode()).hexdigest()
+    try:
+        from passlib.context import CryptContext  # type: ignore
+        pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Verify plain password against fallback hash."""
-        return hashed_password == ("sha256$" + hashlib.sha256(plain_password.encode()).hexdigest())
+        def hash_password(password: str) -> str:
+            return pwd_context.hash(password)
+
+        def verify_password(plain_password: str, hashed_password: str) -> bool:
+            if hashed_password.startswith("sha256$"):
+                return hashed_password == ("sha256$" + hashlib.sha256(plain_password.encode()).hexdigest())
+            try:
+                return pwd_context.verify(plain_password, hashed_password)
+            except Exception:
+                return False
+    except ImportError:
+        def hash_password(password: str) -> str:
+            """Fallback SHA-256 password hashing."""
+            return "sha256$" + hashlib.sha256(password.encode()).hexdigest()
+
+        def verify_password(plain_password: str, hashed_password: str) -> bool:
+            """Verify plain password against fallback hash."""
+            return hashed_password == ("sha256$" + hashlib.sha256(plain_password.encode()).hexdigest())
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
