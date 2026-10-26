@@ -43,6 +43,8 @@ services:
       - ./migrations:/app/migrations
       - ./alembic.ini:/app/alembic.ini
       - ./storage:/app/storage
+      - ./dashboard/dist:/app/dashboard/dist
+      - ./extension:/app/extension
     ports:
       - "8000:8000"
     depends_on:

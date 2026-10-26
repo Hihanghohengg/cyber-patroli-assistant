@@ -136,6 +136,8 @@ async def submit_patrol(request: PatrolRequest):
             url=request.url,
             reporter_telegram_id=request.reporter_telegram_id,
             ticket_number=ticket,
+            source_channel=request.source_channel,
+            reporter_identifier=request.reporter_identifier or (f"Telegram:{request.reporter_telegram_id}" if request.reporter_telegram_id else request.source_channel),
         )
     except Exception as e:
         logger.warning("Celery enqueue failed (%s), pipeline will not run in background.", e)
@@ -143,7 +145,8 @@ async def submit_patrol(request: PatrolRequest):
     return {
         "ticket_number": ticket,
         "status": "QUEUED",
-        "message": f"Patrol task for {platform} URL has been queued.",
+        "channel": request.source_channel,
+        "message": f"Patrol task for {platform} URL has been queued via {request.source_channel}.",
     }
 
 

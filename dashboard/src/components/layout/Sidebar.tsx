@@ -5,7 +5,7 @@ import {
   Flame,
   Search,
   BarChart2,
-  Send,
+  Bot,
   ExternalLink,
   ShieldAlert,
   Database,
@@ -36,6 +36,11 @@ export const Sidebar: React.FC = () => {
       to: '/analytics',
       label: 'Statistik & Tren',
       icon: <BarChart2 className="w-4 h-4" />,
+    },
+    {
+      to: '/assistant',
+      label: 'Asisten Multi-Kanal',
+      icon: <Bot className="w-4 h-4" />,
     },
     ...(isAdmin
       ? [
@@ -75,15 +80,26 @@ export const Sidebar: React.FC = () => {
           </nav>
         </div>
 
-        {/* Telegram Operasional Box */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-b from-slate-900 to-[#070b14] border border-slate-800">
+        {/* Omnichannel Assistant Status Box */}
+        <div className="p-3.5 rounded-xl bg-gradient-to-b from-slate-900 to-[#070b14] border border-cyan-900/40">
           <div className="flex items-center gap-2 text-cyan-400 mb-2">
-            <Send className="w-4 h-4" />
-            <span className="text-xs font-semibold">Integrasi Bot Telegram</span>
+            <Bot className="w-4 h-4" />
+            <span className="text-xs font-semibold">Omnichannel Gateway</span>
           </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Patroli lapangan berjalan otomatis via Telegram Bot. Hasil triase tersinkron langsung ke dashboard ini.
-          </p>
+          <div className="text-[11px] text-slate-400 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span>🤖 Telegram Bot</span>
+              <span className="text-emerald-400 font-mono text-[10px] font-semibold">Online</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>🧩 Browser Agent</span>
+              <span className="text-blue-400 font-mono text-[10px] font-semibold">Active (V3)</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>💬 WhatsApp GW</span>
+              <span className="text-emerald-400 font-mono text-[10px] font-semibold">Ready</span>
+            </div>
+          </div>
         </div>
       </div>
 

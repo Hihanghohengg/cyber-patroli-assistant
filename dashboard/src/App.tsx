@@ -10,6 +10,7 @@ import { ContentExplorerPage } from './pages/ContentExplorer';
 import { ContentDetailPage } from './pages/ContentDetail';
 import { AnalyticsPage } from './pages/Analytics';
 import { CurationPage } from './pages/Curation';
+import { OmnichannelAssistantPage } from './pages/OmnichannelAssistant';
 import { LoginPage } from './pages/Login';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -51,6 +52,7 @@ export const App: React.FC = () => {
             <Route path="contents" element={<ContentExplorerPage />} />
             <Route path="contents/:id" element={<ContentDetailPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="assistant" element={<OmnichannelAssistantPage />} />
             <Route path="curation" element={<CurationPage />} />
           </Route>
 

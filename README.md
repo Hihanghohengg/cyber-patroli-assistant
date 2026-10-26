@@ -1,52 +1,55 @@
-# 🛡️ Asisten Patroli Siber & Social Intelligence v2.2
-### *(Enterprise / Open-Source Cyber Intelligence Edition)*
+# 🛡️ Asisten Patroli Siber & Social Intelligence v3.0
+### *(Enterprise Omnichannel Edition: Telegram, Browser Extension & WhatsApp)*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.3+-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
+[![Extension](https://img.shields.io/badge/Chrome_&_Edge-Manifest_V3-4285F4?style=flat&logo=googlechrome&logoColor=white)](extension/)
+[![WhatsApp](https://img.shields.io/badge/WhatsApp-Gateway_Ready-25D366?style=flat&logo=whatsapp&logoColor=white)](app/api/v1/assistant.py)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_+_pgvector-336791?style=flat&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
-[![SQLite](https://img.shields.io/badge/SQLite-Auto--Fallback-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-Multimodal_+_Embeddings-4285F4?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Playwright](https://img.shields.io/badge/Playwright-Headless_Full_HD-2EAD33?style=flat&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![Status](https://img.shields.io/badge/Status-Production_Ready-10b981?style=flat)]()
 
-> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence** — Platform terpadu analisis ancaman konten digital, penegakan integritas bukti forensik digital, pemantauan isu viral, dan triase cerdas berbasis AI Multimodal dengan arsitektur 11 Tabel Fisik.
+> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence** — Platform terpadu analisis ancaman konten digital, penegakan integritas bukti forensik digital, pemantauan isu viral, dan triase cerdas berbasis AI Multimodal dengan arsitektur modular **Omnichannel Assistant**.
 > 
-> Dilengkapi **Dual-Engine Database** (PostgreSQL 16 + pgvector untuk produksi/Docker dan Auto-Fallback SQLite untuk pengujian lokal mandiri), **RAG Preseden Fail-Open Murni**, Mesin Scraper Playwright anti-blank (>20 KB), Analisis Intelijen **5W+1H Multimodal**, Validasi **Human-in-the-Loop** berjejak, serta **Web Dashboard Cyber-Dark Console** dengan 4 Kartu KPI dan 8 Visualisasi Interaktif Drill-Down.
+> Didukung oleh **Omnichannel Client Gateway** (Bot Telegram, Ekstensi Peramban Chrome/Edge Manifest V3, WhatsApp Business Gateway, serta Web Command Console), **Dual-Engine Database** (PostgreSQL 16 + pgvector dan Auto-Fallback SQLite), **RAG Preseden Fail-Open Murni**, Analisis **5W+1H Multimodal Gemini**, serta Validasi **Human-in-the-Loop** berjejak.
 
 ---
 
 ## 📑 Daftar Isi
 
-- [Arsitektur Sistem (v2.2)](#-arsitektur-sistem-v22)
+- [Arsitektur Sistem Omnichannel (v3.0)](#-arsitektur-sistem-omnichannel-v30)
+- [Kanal Antarmuka Asisten (Omnichannel Gateway)](#-kanal-antarmuka-asisten-omnichannel-gateway)
 - [Matriks Penyelarasan Kebutuhan Proposal](#-matriks-penyelarasan-kebutuhan-proposal)
 - [Skema Basis Data 11 Tabel Fisik Resmi](#-skema-basis-data-11-tabel-fisik-resmi)
+- [Panduan Pemasangan Ekstensi Browser Chrome/Edge](#-panduan-pemasangan-ekstensi-browser-chromeedge)
 - [Panduan Cepat Menjalankan Sistem](#-panduan-cepat-menjalankan-sistem)
-  - [Opsi A: Menggunakan Docker Compose (Mode Produksi Lengkap)](#opsi-a-menggunakan-docker-compose-mode-produksi-lengkap)
-  - [Opsi B: Pengujian Lokal Mandiri (Auto-Fallback SQLite)](#opsi-b-pengujian-lokal-mandiri-auto-fallback-sqlite)
-- [Panduan Operasional Telegram Bot](#-panduan-operasional-telegram-bot)
+- [Panduan Operasional Telegram Bot & WhatsApp](#-panduan-operasional-telegram-bot--whatsapp)
 - [Fitur Utama Web Dashboard Analitik](#-fitur-utama-web-dashboard-analitik)
 - [Struktur Direktori Proyek](#-struktur-direktori-proyek)
-- [Pengujian Otomatis & Validasi Artefak](#-pengujian-otomatis--validasi-artefak)
-- [Keamanan & Integritas Forensik](#-keamanan--integritas-forensik)
 
 ---
 
-## 🏗️ Arsitektur Sistem (v2.2)
+## 🏗️ Arsitektur Sistem Omnichannel (v3.0)
 
-Sistem mengintegrasikan jalur taktis operasional (Telegram Bot) dan analitik strategis eksekutif (Web Dashboard) di atas arsitektur basis data dual-engine yang tangguh:
+Sistem dirancang dengan arsitektur **Decoupled API-First**, di mana antarmuka pengguna tidak terkunci pada satu aplikasi saja, melainkan modular ke berbagai kanal:
 
 ```
-[ Petugas Piket / Operator / Analis ]                  [ Pengguna Dashboard (USER / ADMIN) ]
-         │                                                             │
-         ├───► 1. Kirim URL (YouTube/TikTok/IG)                        ▼
-         │                                                   [ Web Dashboard Analitik ]
-         └───► 2. Kirim Foto / Tangkapan Layar               - Bar Filter Utama (Date, Platform, Cat, Risk)
-                      │                                      - 4 Kartu KPI Ringkasan (L3.18)
-                      ▼                                      - 8 Visualisasi Grafis + Fitur Drill-Down
-          [ FastAPI & Bot Gateway ]                          - Panel Kurasi RAG & Entitas/Alias
-                      │                                      - Ekspor CSV Aman (Bearer Blob) & DOCX
-                      ▼                                                │
-               [ Redis Queue ] ────────────► [ REST API v1 (/api/v1/dashboard & /admin) ]
+[ KANAL ASISTEN & CLIENT GATEWAY ]
+  ├── 1. Telegram Bot (Operasional Lapangan & Approval Inline)
+  ├── 2. Chrome & Edge Browser Extension (1-Click Capture saat Patroli Web)
+  ├── 3. WhatsApp Business Gateway (Inbound Webhook & Mobile Chat)
+  └── 4. Web Command Console (Intake Langsung & Verifikasi Data)
+                      │
+                      ▼
+         [ FastAPI Central Service ]
+   - /api/v1/assistant/intake (Unified Intake)
+   - /api/v1/assistant/channels (Monitoring Kanal)
+   - /api/v1/assistant/whatsapp/webhook (WA Bridge)
+   - /api/v1/dashboard & /admin (Analitik & Kurasi)
+                      │
+                      ▼
+               [ Redis Queue ]
                       │
                       ▼
               [ Celery Worker ]
@@ -74,10 +77,12 @@ Sistem mengintegrasikan jalur taktis operasional (Telegram Bot) dan analitik str
         - 11 Tabel Fisik Resmi (Termasuk report_actors)
                       │
                       ▼
-       [ Kartu Analis Telegram & HITL ]
-       - Preview Bukti Berstempel & Metadata
-       - Rekomendasi AI + Rujukan Preseden RAG
-       - Tombol: [SETUJU] / [UBAH + Catatan] / [BUKAN PELANGGARAN + Alasan]
+   [ Notifikasi & Rekapitulasi Multikanal ]
+   - Sinkronisasi instan ke Web Dashboard
+   - Kartu Analis Telegram (Tombol Validasi HITL)
+   - Respon Otomatis WhatsApp Terformat
+   - Generator Rekapitulasi Dinas Harian DOCX
+```
        - 7 Status Tiket: PENDING_ANALYSIS s.d. VALIDATED/MODIFIED/REJECTED
                       │
                       ▼

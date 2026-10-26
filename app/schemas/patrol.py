@@ -13,10 +13,13 @@ class TicketStatus(str, Enum):
 
 
 class PatrolRequest(BaseModel):
-    """Incoming patrol request — a URL submitted by an operator."""
+    """Incoming patrol request — submitted via Telegram, WhatsApp, Browser Extension, or Web."""
     url: str = Field(..., description="URL postingan publik yang akan dianalisis.")
-    reporter_telegram_id: int = Field(..., description="Telegram user ID pengirim laporan.")
+    reporter_telegram_id: Optional[int] = Field(default=None, description="Telegram user ID pengirim laporan jika dari Telegram.")
+    source_channel: str = Field(default="TELEGRAM", description="Kanal asal: TELEGRAM, WHATSAPP, BROWSER_EXTENSION, WEB_DASHBOARD, API.")
+    reporter_identifier: Optional[str] = Field(default=None, description="Pengenal pelapor (nomor WA, username analis, ID ekstensi browser).")
     intake_type: str = Field(default="LINK", description="Tipe intake: LINK atau MANUAL_SCREENSHOT.")
+    notes: Optional[str] = Field(default=None, description="Catatan ringkas analis saat intake.")
 
 
 class AccountSnapshot(BaseModel):

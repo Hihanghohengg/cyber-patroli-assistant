@@ -64,7 +64,14 @@ def _run_async(coro):
 
 
 @celery_app.task(bind=True, max_retries=3, default_retry_delay=30)
-def process_patrol_url(self, url: str, reporter_telegram_id: int, ticket_number: str):
+def process_patrol_url(
+    self,
+    url: str,
+    reporter_telegram_id: int | None = None,
+    ticket_number: str = "",
+    source_channel: str = "TELEGRAM",
+    reporter_identifier: str | None = None,
+):
     """Full async patrol pipeline executed in a Celery worker.
 
     Steps:
@@ -124,9 +131,12 @@ def process_patrol_url(self, url: str, reporter_telegram_id: int, ticket_number:
             db.flush()
 
         # ── Step 4: Report ──
+        effective_identifier = reporter_identifier or (str(reporter_telegram_id) if reporter_telegram_id else source_channel)
         report = Report(
             ticket_number=ticket_number,
             reporter_telegram_id=reporter_telegram_id,
+            source_channel=source_channel,
+            reporter_identifier=effective_identifier,
             content_id=content.content_id,
             intake_type="LINK",
             status="PENDING_ANALYSIS",
@@ -152,9 +162,10 @@ def process_patrol_url(self, url: str, reporter_telegram_id: int, ticket_number:
                 AuditLog(
                     action="MANUAL_FALLBACK",
                     actor_telegram_id=reporter_telegram_id,
+                    actor_username=effective_identifier,
                     entity_type="Report",
                     entity_id=str(report.report_id),
-                    details={"error": str(scrap_err), "url": url},
+                    details={"error": str(scrap_err), "url": url, "channel": source_channel},
                 )
             )
             db.commit()
@@ -253,9 +264,10 @@ def process_patrol_url(self, url: str, reporter_telegram_id: int, ticket_number:
             AuditLog(
                 action="REPORT_CREATED",
                 actor_telegram_id=reporter_telegram_id,
+                actor_username=effective_identifier,
                 entity_type="Report",
                 entity_id=str(report.report_id),
-                details={"ticket": ticket_number, "platform": platform, "url": url},
+                details={"ticket": ticket_number, "platform": platform, "url": url, "channel": source_channel},
             )
         )
         db.commit()

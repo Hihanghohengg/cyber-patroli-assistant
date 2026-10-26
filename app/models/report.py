@@ -77,7 +77,9 @@ class Report(Base):
 
     report_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     ticket_number = Column(String(50), unique=True, nullable=False)  # e.g. PS-20261022-001
-    reporter_telegram_id = Column(BigInteger, nullable=False)
+    reporter_telegram_id = Column(BigInteger, nullable=True)
+    source_channel = Column(String(50), default="TELEGRAM")  # TELEGRAM, WHATSAPP, BROWSER_EXTENSION, WEB_DASHBOARD
+    reporter_identifier = Column(String(255), nullable=True)  # Phone number, extension ID, or username
     content_id = Column(UUID(as_uuid=True), ForeignKey("contents.content_id"), nullable=False)
     intake_type = Column(String(50), default="LINK")  # LINK or MANUAL_SCREENSHOT
     status = Column(String(50), default="PENDING_ANALYSIS")
