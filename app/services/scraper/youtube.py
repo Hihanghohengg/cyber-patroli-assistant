@@ -3,8 +3,15 @@ import asyncio
 import logging
 from datetime import datetime
 
-import yt_dlp  # type: ignore
-from playwright.async_api import async_playwright
+try:
+    import yt_dlp  # type: ignore
+except ImportError:
+    yt_dlp = None
+
+try:
+    from playwright.async_api import async_playwright
+except ImportError:
+    async_playwright = None
 
 from app.services.scraper.base import BaseScraper
 from app.services.crypto_service import CryptoService

@@ -3,7 +3,10 @@ import re
 import asyncio
 import logging
 
-from playwright.async_api import async_playwright
+try:
+    from playwright.async_api import async_playwright
+except ImportError:
+    async_playwright = None
 
 from app.services.scraper.base import BaseScraper
 from app.services.crypto_service import CryptoService

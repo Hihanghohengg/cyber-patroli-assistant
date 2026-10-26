@@ -19,7 +19,6 @@ from sqlalchemy import func
 from app.database import get_db
 from app.models.report import Report
 from app.services.scraper.base import BaseScraper
-from app.workers.tasks import process_patrol_url
 
 router = APIRouter(prefix="/assistant", tags=["Omnichannel Assistant"])
 
@@ -107,6 +106,7 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
 
     # Enqueue background pipeline
     try:
+        from app.workers.tasks import process_patrol_url
         process_patrol_url.delay(
             url=payload.url,
             reporter_telegram_id=payload.reporter_telegram_id,
@@ -165,6 +165,7 @@ def receive_whatsapp_message(payload: WhatsAppWebhookPayload, db: Session = Depe
     ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
 
     try:
+        from app.workers.tasks import process_patrol_url
         process_patrol_url.delay(
             url=target_url,
             reporter_telegram_id=None,
