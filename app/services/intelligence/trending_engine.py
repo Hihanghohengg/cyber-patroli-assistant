@@ -12,11 +12,11 @@ from typing import Dict, List, Optional
 import uuid
 
 from sqlalchemy.orm import Session
-from sqlalchemy import func, distinct, desc
+from sqlalchemy import func
 
 from app.config import settings
 from app.models.intelligence import IssueCluster, IssueContent, TopicSnapshot, ContentAnalysis
-from app.models.report import Content, Account
+from app.models.report import Content
 
 logger = logging.getLogger(__name__)
 

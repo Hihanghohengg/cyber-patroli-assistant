@@ -9,17 +9,17 @@ Provides curation tools for:
 """
 
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, or_
+from sqlalchemy import or_
 
 from app.database import get_db
 from app.models.knowledge import KnowledgeEntry
-from app.models.entities import Entity, EntityAlias
+from app.models.entities import Entity
 from app.models.intelligence import DashboardUser
 from app.models.user import PatrolUser
 from app.models.audit import AuditLog

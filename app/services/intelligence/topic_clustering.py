@@ -10,7 +10,7 @@ from typing import List, Optional, Tuple
 import uuid
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, desc
+from sqlalchemy import desc
 
 from app.models.intelligence import IssueCluster, IssueContent, ContentAnalysis
 from app.models.report import Content

@@ -1,5 +1,4 @@
-"""Human-in-the-Loop validation endpoints for Web Dashboard."""
-
+import logging
 from datetime import datetime
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,6 +10,8 @@ from app.models.audit import AuditLog
 from app.models.intelligence import ContentAnalysis, IssueCluster, IssueContent
 from app.auth.dependencies import get_current_user
 from app.schemas.dashboard import ValidationRequest, ReclassifyRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/contents", tags=["Dashboard Human-in-the-Loop Validation"])
 

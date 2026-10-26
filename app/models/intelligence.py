@@ -12,7 +12,7 @@ from sqlalchemy import (
     Column, String, Text, Integer, BigInteger, Float, Boolean,
     DateTime, ForeignKey, Index, UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 
 from app.database import Base

@@ -20,7 +20,7 @@ def _init_engine():
                 pool_pre_ping=True,
                 connect_args={"connect_timeout": 3},
             )
-            with test_engine.connect() as conn:
+            with test_engine.connect():
                 logger.info("Connected to PostgreSQL database successfully.")
                 return test_engine
         except Exception as e:
@@ -55,7 +55,7 @@ def compile_uuid_sqlite(type_, compiler, **kw):
     return "CHAR(36)"
 
 try:
-    from pgvector.sqlalchemy import Vector
+    from pgvector.sqlalchemy import Vector  # type: ignore
     @compiles(Vector, "sqlite")
     def compile_vector_sqlite(type_, compiler, **kw):
         return "TEXT"
@@ -76,13 +76,22 @@ def get_db():
 
 def init_db():
     """Create all tables defined by SQLAlchemy models and ensure admin is seeded."""
-    import app.models.report  # noqa: F401
-    import app.models.evidence  # noqa: F401
-    import app.models.user  # noqa: F401
-    import app.models.audit  # noqa: F401
-    import app.models.intelligence  # noqa: F401
-    import app.models.entities  # noqa: F401
-    import app.models.knowledge  # noqa: F401
+    import app.models.report
+    import app.models.evidence
+    import app.models.user
+    import app.models.audit
+    import app.models.intelligence
+    import app.models.entities
+    import app.models.knowledge
+    _ = (
+        app.models.report,
+        app.models.evidence,
+        app.models.user,
+        app.models.audit,
+        app.models.intelligence,
+        app.models.entities,
+        app.models.knowledge,
+    )
     Base.metadata.create_all(bind=engine)
 
     try:

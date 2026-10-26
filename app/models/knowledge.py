@@ -20,7 +20,7 @@ from sqlalchemy.types import TypeDecorator, Text as SqlText
 
 # Gracefully support pgvector or fallback type with SQLite JSON serialization
 try:
-    from pgvector.sqlalchemy import Vector as PgVector
+    from pgvector.sqlalchemy import Vector as PgVector  # type: ignore
 except ImportError:
     PgVector = None
 

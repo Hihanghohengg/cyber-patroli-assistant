@@ -5,9 +5,9 @@ import re
 import uuid
 from datetime import datetime, date
 
-from telegram import Update, InputFile
-from telegram.request import HTTPXRequest
-from telegram.ext import (
+from telegram import Update, InputFile  # type: ignore
+from telegram.request import HTTPXRequest  # type: ignore
+from telegram.ext import (  # type: ignore
     Application,
     CommandHandler,
     MessageHandler,
@@ -27,6 +27,7 @@ from app.services.scraper.youtube import YouTubeScraper
 from app.services.scraper.tiktok import TikTokScraper
 from app.services.scraper.instagram import InstagramScraper
 from app.services.ai_service import AIService
+from app.services.crypto_service import CryptoService
 from app.services.report_service import ReportService
 from app.services.rag_service import RAGService
 from app.services.entity_service import EntityService
@@ -151,7 +152,7 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role = _get_patrol_user_role(user_id) or "OPERATOR"
 
     role_lines = [
-        f"🛡️ *Asisten Patroli Siber & Profiling Akun* (v2.2)\n",
+        "🛡️ *Asisten Patroli Siber & Profiling Akun* (v2.2)\n",
         f"Peran Anda saat ini: *{role}*\n",
         "Metode input patroli:",
         "1. 🔗 *Kirim Tautan*: Kirim URL postingan YouTube, TikTok, atau Instagram.",

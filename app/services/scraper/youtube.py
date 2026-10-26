@@ -1,10 +1,9 @@
 import os
-import re
 import asyncio
 import logging
 from datetime import datetime
 
-import yt_dlp
+import yt_dlp  # type: ignore
 from playwright.async_api import async_playwright
 
 from app.services.scraper.base import BaseScraper
@@ -57,7 +56,6 @@ class YouTubeScraper(BaseScraper):
 
             # Channel / handle extraction
             uploader_id = info.get("uploader_id") or ""
-            channel_id = info.get("channel_id") or ""
             channel_name = info.get("uploader") or info.get("channel") or "YouTube Creator"
             channel_url = info.get("uploader_url") or info.get("channel_url") or ""
 

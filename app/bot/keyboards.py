@@ -1,4 +1,4 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup  # type: ignore
 
 
 def get_validation_keyboard(report_id: str) -> InlineKeyboardMarkup:

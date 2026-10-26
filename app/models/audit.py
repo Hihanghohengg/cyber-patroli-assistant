@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Text, BigInteger, DateTime
+from sqlalchemy import Column, String, BigInteger, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.database import Base
 

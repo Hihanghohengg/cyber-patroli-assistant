@@ -7,7 +7,7 @@ tokenization, keyword/hashtag extraction, and canonical slug generation.
 import re
 import unicodedata
 from collections import Counter
-from typing import List, Set, Tuple
+from typing import List, Set
 
 # Comprehensive Indonesian stopwords list
 INDONESIAN_STOPWORDS: Set[str] = {
@@ -54,7 +54,7 @@ INDONESIAN_STOPWORDS: Set[str] = {
 # Try loading Sastrawi stemmer if installed
 _STEMMER = None
 try:
-    from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
+    from Sastrawi.Stemmer.StemmerFactory import StemmerFactory  # type: ignore
     _STEMMER = StemmerFactory().create_stemmer()
 except Exception:
     _STEMMER = None

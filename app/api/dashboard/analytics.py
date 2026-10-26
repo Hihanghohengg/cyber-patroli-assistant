@@ -1,14 +1,14 @@
 """Analytics and Charts API endpoints for Web Dashboard."""
 
 from datetime import datetime, timedelta
-from typing import Dict, List
+from typing import Dict
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func
 
 from app.database import get_db
 from app.models.report import Content
-from app.models.intelligence import ContentAnalysis, IssueCluster
+from app.models.intelligence import ContentAnalysis
 from app.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["Dashboard Analytics"])

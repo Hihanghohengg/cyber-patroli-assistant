@@ -3,14 +3,12 @@
 import asyncio
 import unittest
 from uuid import uuid4
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 from httpx import ASGITransport, AsyncClient
 from app.main import api
 from app.database import SessionLocal, init_db
 from app.models.report import Report, Content, Account
-from app.models.entities import Entity, EntityAlias, ReportActor
-from app.models.knowledge import KnowledgeEntry
 from app.services.entity_service import EntityService
 from app.services.rag_service import RAGService
 

@@ -14,11 +14,10 @@ import uuid
 import numpy as np
 import google.generativeai as genai
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
 
 from app.config import settings
 from app.models.knowledge import KnowledgeEntry
-from app.models.report import Report, Content
+from app.models.report import Report
 from app.models.audit import AuditLog
 
 logger = logging.getLogger(__name__)

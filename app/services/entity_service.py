@@ -8,7 +8,7 @@ import re
 import uuid
 import difflib
 import logging
-from typing import List, Optional, Tuple, Any
+from typing import List, Optional, Any
 from sqlalchemy.orm import Session
 
 from app.models.entities import Entity, EntityAlias, ReportActor

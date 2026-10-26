@@ -1,18 +1,18 @@
 """JWT and password hashing utilities for Dashboard authentication."""
 
 from datetime import datetime, timedelta
-from typing import Optional, Any
+from typing import Optional
 import hashlib
 
 from app.config import settings
 
 # JWT library fallback: try python-jose first, then PyJWT
 try:
-    from jose import JWTError, jwt
+    from jose import JWTError, jwt  # type: ignore
 except ImportError:
     try:
-        import jwt
-        from jwt.exceptions import PyJWTError as JWTError
+        import jwt  # type: ignore
+        from jwt.exceptions import PyJWTError as JWTError  # type: ignore
     except ImportError:
         jwt = None
         class JWTError(Exception):
@@ -20,7 +20,7 @@ except ImportError:
 
 # Password hasher: try passlib first, then fallback to SHA-256
 try:
-    from passlib.context import CryptContext
+    from passlib.context import CryptContext  # type: ignore
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
     def hash_password(password: str) -> str:

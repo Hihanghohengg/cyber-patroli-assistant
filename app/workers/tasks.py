@@ -7,9 +7,8 @@ event loop.
 
 import asyncio
 import logging
-from datetime import datetime
 
-from celery import Celery
+from celery import Celery  # type: ignore
 
 from app.config import settings
 from app.database import SessionLocal

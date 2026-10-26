@@ -7,20 +7,22 @@ Strictly surfaces VALIDATED and MODIFIED reports with final labels and neutral d
 
 import csv
 import io
+import logging
 from datetime import datetime, timedelta
-from typing import Optional, List, Dict, Any
-from uuid import UUID
+from typing import Optional, Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func, desc, or_, and_
+from sqlalchemy import func, desc, or_
 
 from app.database import get_db
-from app.models.report import Report, Content, Account
+from app.models.report import Report, Content
 from app.models.entities import Entity, ReportActor
 from app.models.intelligence import DashboardUser
 from app.models.audit import AuditLog
 from app.auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard v1"])
 
