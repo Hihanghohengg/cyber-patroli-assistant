@@ -1,16 +1,16 @@
 ================================================================================
-DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK (PRD v2.2 - PROPOSAL-COMPLIANT EDITION)
+DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK (PRD v2.2 - ENTERPRISE EDITION)
 DATA FLOW DIAGRAM (DFD LEVEL 0–2), DAN ARSITEKTUR BASIS DATA 11 TABEL FISIK
 SISTEM ASISTEN PATROLI SIBER DENGAN RAG DAN DASHBOARD ANALITIK SOCIAL INTELLIGENCE
-POLITEKNIK SIBER DAN SANDI NEGARA / BADAN SIBER DAN SANDI NEGARA (BSSN)
+TIM TANGGAP INSIDEN SIBER & INTELIJEN SOSIAL (CSIRT / SOC)
 ================================================================================
 
 0. METADATA DOKUMEN & RIWAYAT VERSI
 --------------------------------------------------------------------------------
 Judul Dokumen     : Spesifikasi Kebutuhan Produk & Desain Arsitektur Sistem v2.2
-Instansi Penguji  : Badan Siber dan Sandi Negara (BSSN) / Poltek SSN
-Versi Rilis       : v2.2 (Proposal-Compliant Edition)
-Status Dokumen    : Finalized & Aligned with Internship Proposal
+Lingkup Sistem    : Operasional Pusat Komando Keamanan Siber (SOC) & Intelijen Sosial
+Versi Rilis       : v2.2 (Enterprise Edition)
+Status Dokumen    : Finalized & Standardized Operational Specification
 Arsitektur DB     : Dual-Engine (PostgreSQL 16 + pgvector Production / Auto-Fallback SQLite)
 Desain UI         : Cyber-Dark Premium Console (Glassmorphism & Neon HSL Palette)
 Metode Analisis   : 5W+1H Multimodal Reasoning & Retrieval-Augmented Generation (RAG)
@@ -19,7 +19,7 @@ Riwayat Perubahan Dokumen:
 - v1.0: Fondasi awal sistem triase patroli siber berbasis bot Telegram dan fine-tuning.
 - v2.0: Integrasi RAG preseden analis (pgvector), Web Dashboard Social Intelligence,
         ekstraksi entitas 3 pilar (Topik, Aktor, Sumber), dan Chain of Custody SHA-256.
-- v2.2: Penyelarasan Penuh Standar Proposal BSSN/Poltek SSN (FR-01 s.d. FR-12, NFR-01 s.d.
+- v2.2: Penyelarasan Penuh Standar Operasional Enterprise CSIRT/SOC (FR-01 s.d. FR-12, NFR-01 s.d.
         NFR-07):
         1. Skema Basis Data 11 Tabel Fisik Resmi (penambahan tabel relasi `report_actors`).
         2. Versioning berjejak Knowledge Base (NFR-07: `is_active`, `deactivated_at`, tanpa
@@ -32,7 +32,7 @@ Riwayat Perubahan Dokumen:
            berstempel disclaimer simulasi.
         7. Web Dashboard Analitik: Bar Filter Utama, 4 Kartu KPI Ringkasan, 8 Grafik Visual
            Wajib berfitur drill-down, Banner Netralitas permanen, serta RBAC USER vs ADMIN.
-        8. Seeder 10 Data Dummy Uji Standar Proposal Halaman 43–44.
+        8. Seeder 10 Data Dummy Uji Standar Operasional (Benchmark Dataset).
 
 
 ================================================================================
@@ -199,7 +199,7 @@ Uraian 11 Proses DFD Level 1:
 
 ---
 
-2.3 DFD LEVEL 2 (RINCIAN PROSES KRUSIAL PROPOSAL)
+2.3 DFD LEVEL 2 (RINCIAN PROSES KRUSIAL SISTEM)
 --------------------------------------------------------------------------------
 
 ### DFD Level 2 - Proses 2.0 (Intake & Scraper Headless):
@@ -439,7 +439,7 @@ Halaman Utama Dashboard menyajikan komponen operasional terpadu:
    - Filter Risiko: `Semua Risiko`, `TINGGI`, `SEDANG`, `RENDAH`.
    - Tombol `Reset Filter` dan Tombol `Ekspor CSV` (Menggunakan request `fetch` dengan Authorization Bearer header, diunduh sebagai file Blob).
 
-2. `4 Kartu KPI Ringkasan (Sesuai Gambar L3.18 Proposal)`:
+2. `4 Kartu KPI Ringkasan (Executive Metrics)`:
    - Kartu 1: `Total Laporan` — Jumlah keseluruhan tiket laporan yang masuk ke sistem.
    - Kartu 2: `Temuan Tervalidasi` — Total temuan yang dikonfirmasi analis (status `VALIDATED` + `MODIFIED`).
    - Kartu 3: `Koreksi Analis` — Total temuan di mana analis mengoreksi hasil rekomendasi AI (status `MODIFIED`).
@@ -493,13 +493,13 @@ Halaman Utama Dashboard menyajikan komponen operasional terpadu:
 
 
 ================================================================================
-BAGIAN 5: DATA SEEDING SIMULASI 10 LAPORAN STANDAR PROPOSAL (HALAMAN 43–44)
+BAGIAN 5: DATA SEEDING SIMULASI 10 LAPORAN STANDAR OPERASIONAL (BENCHMARK DATASET)
 ================================================================================
 Untuk memenuhi kebutuhan demonstrasi, validasi fungsional, dan pengujian artefak
-resmi BSSN/Poltek SSN, sistem dilengkapi modul seeder otomatis (`app/services/seeder.py`)
-yang mengeksekusi 10 laporan simulasi fiktif persis sesuai data uji pada Proposal:
+operasional standar, sistem dilengkapi modul seeder otomatis (`app/services/seeder.py`)
+yang mengeksekusi 10 laporan simulasi fiktif persis sesuai data uji acuan:
 
-Karakteristik Data Uji 10 Laporan Proposal:
+Karakteristik Data Uji 10 Laporan Acuan:
 1. `Total Laporan`: 10 Laporan.
 2. `Distribusi Status Akhir`:
    - 9 Temuan Tervalidasi (Terdiri dari 6 `VALIDATED` dan 3 `MODIFIED`).
@@ -561,7 +561,7 @@ Kredensial Default Web Dashboard:
 Sistem secara cerdas mendeteksi lingkungan lokal dan mengaktifkan engine SQLite
 secara mandiri tanpa memerlukan instalasi service PostgreSQL maupun Redis:
 
-1. Inisialisasi Database & Seeding 10 Data Uji Proposal:
+1. Inisialisasi Database & Seeding 10 Data Uji Acuan:
    `python -c "from app.database import init_db; init_db()"`
 
 2. Menjalankan Backend Server & Telegram Bot Terintegrasi:
@@ -578,5 +578,5 @@ secara mandiri tanpa memerlukan instalasi service PostgreSQL maupun Redis:
    `python -m unittest discover -s tests`
 
 ================================================================================
-AKHIR DOKUMEN SPESIFIKASI PRODUK PRD v2.2 (PROPOSAL-COMPLIANT EDITION)
+AKHIR DOKUMEN SPESIFIKASI PRODUK PRD v2.2 (ENTERPRISE EDITION)
 ================================================================================

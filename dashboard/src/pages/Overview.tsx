@@ -240,11 +240,11 @@ export const OverviewPage: React.FC = () => {
               Dashboard Analitik Patroli Siber & Profiling Akun
             </h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-500/30">
-              v2.2 Proposal Edition
+              v2.2 Enterprise Edition
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Visualisasi operasional patroli siber terintegrasi BSSN / Poltek SSN (FR-01 s.d. FR-12, DFD 0–2, ERD 11 Tabel).
+            Visualisasi operasional patroli siber terintegrasi (FR-01 s.d. FR-12, DFD Level 0–2, ERD 11 Tabel Fisik).
           </p>
         </div>
 

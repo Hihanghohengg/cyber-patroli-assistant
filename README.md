@@ -1,5 +1,5 @@
 # 🛡️ Asisten Patroli Siber & Social Intelligence v2.2
-### *(Proposal-Compliant Edition — BSSN / Poltek SSN)*
+### *(Enterprise / Open-Source Cyber Intelligence Edition)*
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.3+-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
@@ -7,9 +7,9 @@
 [![SQLite](https://img.shields.io/badge/SQLite-Auto--Fallback-003B57?style=flat&logo=sqlite&logoColor=white)](https://sqlite.org)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-Multimodal_+_Embeddings-4285F4?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Playwright](https://img.shields.io/badge/Playwright-Headless_Full_HD-2EAD33?style=flat&logo=playwright&logoColor=white)](https://playwright.dev/)
-[![Status](https://img.shields.io/badge/Artifact_Status-100%25_Proposal_Compliant-10b981?style=flat)]()
+[![Status](https://img.shields.io/badge/Status-Production_Ready-10b981?style=flat)]()
 
-> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence** — Dibangun khusus untuk memenuhi 100% spesifikasi kebutuhan resmi **Proposal Magang BSSN / Poltek SSN** (FR-01 s.d. FR-12, NFR-01 s.d. NFR-07, DFD Level 0–2, serta Skema Basis Data 11 Tabel Fisik).
+> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence** — Platform terpadu analisis ancaman konten digital, penegakan integritas bukti forensik digital, pemantauan isu viral, dan triase cerdas berbasis AI Multimodal dengan arsitektur 11 Tabel Fisik.
 > 
 > Dilengkapi **Dual-Engine Database** (PostgreSQL 16 + pgvector untuk produksi/Docker dan Auto-Fallback SQLite untuk pengujian lokal mandiri), **RAG Preseden Fail-Open Murni**, Mesin Scraper Playwright anti-blank (>20 KB), Analisis Intelijen **5W+1H Multimodal**, Validasi **Human-in-the-Loop** berjejak, serta **Web Dashboard Cyber-Dark Console** dengan 4 Kartu KPI dan 8 Visualisasi Interaktif Drill-Down.
 
@@ -89,9 +89,9 @@ Sistem mengintegrasikan jalur taktis operasional (Telegram Bot) dan analitik str
 
 ---
 
-## 📋 Matriks Penyelarasan Kebutuhan Proposal
+## 📋 Matriks Penyelarasan Kebutuhan Sistem
 
-Sistem telah diuji dan memenuhi seluruh butir spesifikasi dokumen Proposal BSSN / Poltek SSN:
+Sistem telah diuji dan memenuhi seluruh butir spesifikasi standar operasional patroli siber:
 
 ### Kebutuhan Fungsional (FR-01 s.d. FR-12)
 | ID | Nama Fitur | Spesifikasi Terimplementasi | Status |
@@ -319,7 +319,7 @@ cyber-patrol-assistant/
 │   │   ├── entity_service.py # Resolusi alias, fuzzy match Levenshtein, & merger entitas
 │   │   ├── crypto_service.py # Penghitungan sidik jari kriptografi SHA-256
 │   │   ├── report_service.py # Generator rekapitulasi harian DOCX berstempel dinas
-│   │   ├── seeder.py         # Inisialisasi 10 data simulasi standar Proposal BSSN
+│   │   ├── seeder.py         # Inisialisasi 10 data simulasi operasional standar
 │   │   └── scraper/          # Scraper Playwright Full HD (>20 KB check & 1x retry)
 │   ├── api/
 │   │   ├── v1/               # Endpoint REST API v1 (Dashboard Summary, Admin, Kurasi)
@@ -381,4 +381,4 @@ dist/assets/index-Cqlw0vKn.js   351.36 kB │ gzip: 99.43 kB
 
 ---
 
-**Asisten Patroli Siber v2.2** | *Subdirektorat Operasi Siber / Unit Piket Patroli Siber — BSSN & Poltek SSN.*
+**Asisten Patroli Siber v2.2** | *Subdirektorat Operasi Siber / Tim Tanggap Insiden Keamanan Siber (CSIRT / SOC).*

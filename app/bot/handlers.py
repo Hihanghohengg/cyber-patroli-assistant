@@ -583,7 +583,7 @@ async def url_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ *KENDALA AKSES JARINGAN SIBER* | `{ticket}`\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🌐 Platform: *{platform.upper()}*\n"
-                f"Koneksi scraping ke server {platform.title()} mengalami timeout/pemblokiran oleh firewall jaringan lokal (`dns.poltekssn.ac.id`).\n\n"
+                f"Koneksi scraping ke server {platform.title()} mengalami timeout atau pemblokiran oleh firewall jaringan lokal.\n\n"
                 f"👉 *Solusi Handal (Piket Lapangan)*:\n"
                 f"Silakan ambil tangkapan layar (screenshot) postingan ini di HP atau komputer Anda, lalu **kirimkan fotonya langsung ke chat bot ini** (bisa sertakan link postingan di caption foto). Sistem akan memproses dan memvalidasi temuan secara otomatis.",
             )
