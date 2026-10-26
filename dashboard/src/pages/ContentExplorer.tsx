@@ -54,7 +54,7 @@ export const ContentExplorerPage: React.FC = () => {
           Penjelajah Konten & Bukti Digital Patroli
         </h2>
         <p className="text-xs text-slate-400 mt-1">
-          Eksplorasi seluruh konten yang diunggah dan dianalisis melalui Telegram Bot maupun API.
+          Eksplorasi seluruh konten yang diunggah dan dianalisis melalui Ekstensi Browser, WhatsApp, Telegram Bot, maupun API.
         </p>
       </div>
 

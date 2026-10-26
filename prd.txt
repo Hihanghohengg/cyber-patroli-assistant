@@ -1,38 +1,40 @@
 ================================================================================
-DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK (PRD v2.2 - ENTERPRISE EDITION)
+DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK (PRD v3.0 - ENTERPRISE OMNICHANNEL EDITION)
 DATA FLOW DIAGRAM (DFD LEVEL 0–2), DAN ARSITEKTUR BASIS DATA 11 TABEL FISIK
-SISTEM ASISTEN PATROLI SIBER DENGAN RAG DAN DASHBOARD ANALITIK SOCIAL INTELLIGENCE
+SISTEM ASISTEN PATROLI SIBER BERBASIS EKSTENSI PERAMBAN (BROWSER AGENT),
+OMNICHANNEL GATEWAY, DAN DASHBOARD ANALITIK SOCIAL INTELLIGENCE
 TIM TANGGAP INSIDEN SIBER & INTELIJEN SOSIAL (CSIRT / SOC)
 ================================================================================
 
 0. METADATA DOKUMEN & RIWAYAT VERSI
 --------------------------------------------------------------------------------
-Judul Dokumen     : Spesifikasi Kebutuhan Produk & Desain Arsitektur Sistem v2.2
+Judul Dokumen     : Spesifikasi Kebutuhan Produk & Desain Arsitektur Sistem v3.0
 Lingkup Sistem    : Operasional Pusat Komando Keamanan Siber (SOC) & Intelijen Sosial
-Versi Rilis       : v2.2 (Enterprise Edition)
+Versi Rilis       : v3.0 (Enterprise Omnichannel Edition)
 Status Dokumen    : Finalized & Standardized Operational Specification
 Arsitektur DB     : Dual-Engine (PostgreSQL 16 + pgvector Production / Auto-Fallback SQLite)
-Desain UI         : Cyber-Dark Premium Console (Glassmorphism & Neon HSL Palette)
+Antarmuka Utama   : Chrome & Edge Browser Extension (Workstation) + Web Command Console
+Kanal Pendukung   : WhatsApp Business Gateway & Telegram Bot Assistant
 Metode Analisis   : 5W+1H Multimodal Reasoning & Retrieval-Augmented Generation (RAG)
 
 Riwayat Perubahan Dokumen:
 - v1.0: Fondasi awal sistem triase patroli siber berbasis bot Telegram dan fine-tuning.
 - v2.0: Integrasi RAG preseden analis (pgvector), Web Dashboard Social Intelligence,
         ekstraksi entitas 3 pilar (Topik, Aktor, Sumber), dan Chain of Custody SHA-256.
-- v2.2: Penyelarasan Penuh Standar Operasional Enterprise CSIRT/SOC (FR-01 s.d. FR-12, NFR-01 s.d.
-        NFR-07):
-        1. Skema Basis Data 11 Tabel Fisik Resmi (penambahan tabel relasi `report_actors`).
-        2. Versioning berjejak Knowledge Base (NFR-07: `is_active`, `deactivated_at`, tanpa
-           hard-delete, partial unique index).
-        3. 7 Siklus Status Tiket Patroli resmi (`PENDING_ANALYSIS`, `WAITING_VALIDATION`,
-           `MANUAL_FALLBACK`, `FAILED`, `VALIDATED`, `MODIFIED`, `REJECTED`).
-        4. Validasi scraper anti-blank > 20 KB dengan 1x retry & fallback interaktif.
-        5. RAG Fail-Open murni berstandar forensik (penghapusan total vektor palsu/acak).
-        6. Telegram Bot RBAC 3-Peran (`OPERATOR`, `ANALYST`, `ADMIN`) & Rekap Harian DOCX
-           berstempel disclaimer simulasi.
-        7. Web Dashboard Analitik: Bar Filter Utama, 4 Kartu KPI Ringkasan, 8 Grafik Visual
-           Wajib berfitur drill-down, Banner Netralitas permanen, serta RBAC USER vs ADMIN.
-        8. Seeder 10 Data Dummy Uji Standar Operasional (Benchmark Dataset).
+- v2.2: Penyelarasan Penuh Standar Operasional Enterprise CSIRT/SOC (FR-01 s.d. FR-12).
+- v3.0: Refactoring ke Arsitektur Asisten Utama Berbasis Ekstensi Peramban (Browser Agent)
+        dan Omnichannel Gateway (Menjawab Kebutuhan Alur Kerja Riil Personel Lapangan):
+        1. Ekstensi Peramban (Chrome & Edge Manifest V3) ditetapkan sebagai Antarmuka
+           Operasional Utama (Primary Workstation Assistant) bagi seluruh personel piket
+           saat berselancar di medsos (1-click triage, floating action button, context menu).
+        2. Perombakan arsitektur intake menjadi Omnichannel Decoupled Assistant:
+           - Kanal 1 (Utama): Browser Extension Agent di workstation dinas (100% personel).
+           - Kanal 2 (Manajemen): Web Command Console (Dashboard React).
+           - Kanal 3 (Gateway Chat): WhatsApp Business Gateway (/whatsapp/webhook).
+           - Kanal 4 (Mobile Operasional): Telegram Bot dengan tombol validasi HITL.
+        3. Penyelarasan FR-01 (Omnichannel Intake & In-Browser Triage) dan FR-08 (Tata Kelola
+           Hak Akses Personel Multikanal).
+        4. Pembaruan skema `reports` dengan field `source_channel` dan `reporter_identifier`.
 
 
 ================================================================================
@@ -43,14 +45,14 @@ BAGIAN 1: MATRIKS KEBUTUHAN SISTEM (FR-01 s.d. FR-12 & NFR-01 s.d. NFR-07)
 --------------------------------------------------------------------------------
 | ID    | Nama Kebutuhan | Deskripsi Spesifikasi Fungsional |
 |-------|----------------|----------------------------------|
-| FR-01 | Intake URL & Media | Sistem menerima input laporan konten mencurigakan melalui bot Telegram berupa tautan URL (YouTube, TikTok, Instagram) maupun unggahan foto tangkapan layar langsung (manual). |
+| FR-01 | Intake Konten & Triase Multi-Kanal (Utama: Ekstensi Peramban) | Sistem menerima input laporan konten mencurigakan utamanya melalui Ekstensi Peramban (Chrome & Edge Extension Manifest V3) secara 1-klik saat personel berselancar di media sosial (YouTube, TikTok, Instagram, X), serta mendukung kanal perpesanan (WhatsApp Business Gateway dan Telegram Bot) maupun input konsol Web Dashboard. |
 | FR-02 | Scraper Otomatis & Manual Fallback | Sistem mengambil tangkapan layar Full HD (1920x1080) dan metadata konten menggunakan Playwright headless. File bukti divalidasi harus berukuran > 20 KB. Jika gagal atau berukuran <= 20 KB, sistem melakukan maksimal 1 kali retry. Jika tetap gagal atau terhalang login-wall, tiket otomatis dialihkan ke status `MANUAL_FALLBACK` dan bot meminta operator mengunggah tangkapan layar manual. |
 | FR-03 | Integritas Bukti Digital (Chain of Custody) | Setiap berkas tangkapan layar (scraper maupun manual) dihitung nilai hash kriptografi SHA-256 (tepat 64 karakter heksadesimal) seketika saat disimpan di storage lokal/volume, dicatat di tabel `evidences`, dan tidak dapat diubah (immutable). |
 | FR-04 | RAG Preseden Analis Fail-Open | Sistem mencari preseden kasus serupa pada tabel `knowledge_entries` (hanya entri `is_active = True`) menggunakan Google Gemini `text-embedding-004` (768 dimensi) dan Cosine Similarity dengan threshold >= 0.75 dan top_k = 5. Jika API embedding offline/gagal atau tidak ada hasil relevan, sistem menerapkan RAG Fail-Open: mengembalikan konteks kosong, mencatat `RAG_FALLBACK_EMPTY` ke audit log, dan melanjutkan triase tanpa menghentikan pipeline. |
 | FR-05 | Triase Cerdas Multimodal 5W+1H | AI Gemini Vision menganalisis gambar bukti dan konteks teks untuk mengekstrak struktur intelijen 5W+1H (Who, What, Where, When, Why, How), rekomendasi kategori (`HOAKS`, `DI_LUAR_KONTEKS`, `UJARAN_KEBENCIAN`, `PROVOKASI_SARA`), tingkat risiko (`RENDAH`, `SEDANG`, `TINGGI`), confidence score, raw entities (topik, aktor target, sumber), serta sitasi preseden RAG. |
 | FR-06 | Human-in-the-Loop & Siklus Hidup Tiket | Tiket laporan diproses melalui 7 status siklus hidup: `PENDING_ANALYSIS`, `WAITING_VALIDATION`, `MANUAL_FALLBACK`, `FAILED`, `VALIDATED`, `MODIFIED`, `REJECTED`. Analis memiliki wewenang memvalidasi melalui tombol Telegram atau Dashboard: Setuju (`VALIDATED`), Ubah (`MODIFIED`), atau Bukan Pelanggaran (`REJECTED`). Jika memilih `MODIFIED` atau `REJECTED`, kolom `analyst_notes` wajib diisi. Pada status `REJECTED`, nilai `final_risk` dinetralkan menjadi NULL / None. |
 | FR-07 | Generator Rekapitulasi Harian DOCX | Sistem menyediakan generator dokumen laporan dinas berformat Microsoft Word (.docx) dengan tabel berstempel waktu yang hanya memuat laporan berstatus final (`VALIDATED` dan `MODIFIED`). Dokumen menyertakan disclaimer resmi: "DOKUMEN SIMULASI PROTOTIPE — Rekapitulasi berbasis keputusan analis, bukan penetapan hukum otomatis". |
-| FR-08 | Kontrol Bot Telegram & Whitelist RBAC | Akses Telegram Bot dikendalikan melalui whitelist tabel `patrol_users` dengan 3 peran berjenjang: `OPERATOR` (intake link/foto & `/status`), `ANALYST` (hak Operator + validasi tombol putusan + `/rekap_harian`), dan `ADMIN` (hak Analyst + kelola whitelist `/whitelist`). |
+| FR-08 | Kontrol Hak Akses & Whitelist Personel Multikanal | Akses sistem dikendalikan melalui tabel `patrol_users` dan `dashboard_users` dengan 3 peran berjenjang: `OPERATOR` (intake browser/chat & cek status), `ANALYST` (hak Operator + validasi putusan + ekspor laporan), dan `ADMIN` (hak Analyst + kelola whitelist/personel `/whitelist`). |
 | FR-09 | Normalisasi & Resolusi Entitas Kanonikal | Sistem menormalisasi entitas hasil ekstraksi AI ke dalam 3 domain (`TOPIC`, `ACTOR`, `SOURCE`), melakukan resolusi alias berbasis pencocokan eksak dan kemiripan fuzzy Levenshtein (threshold >= 0.85), menghubungkan laporan ke aktor via tabel relasi `report_actors`, serta menyediakan antarmuka bagi Admin untuk menyetujui (`APPROVED`) atau menggabungkan entitas duplikat (`MERGED`). |
 | FR-10 | Versioning Berjejak Knowledge Base (NFR-07) | Setiap keputusan validasi atau pembaharuan tiket menyematkan pengetahuan baru ke `knowledge_entries`. Sistem dilarang melakukan hard-delete (`DELETE`). Entri lama dinonaktifkan secara logis (`is_active = False`, `deactivated_at = NOW()`), dan entri baru dibuat berstatus `is_active = True`. Sistem menjamin maksimal 1 entri aktif per `report_id`. |
 | FR-11 | Web Dashboard Analitik Social Intelligence | Dashboard analitik web bertema Cyber-Dark menyajikan: Bar Filter Utama (Rentang Tanggal, Platform, Kategori, Risiko), 4 Kartu KPI Ringkasan (L3.18), 8 Grafik Visual Wajib (Tren Waktu, Platform, Kategori, Risiko, Topik Teratas, Aktor Target Teratas, Sumber Teratas, Kesepakatan AI vs Analis) berfitur interaktif drill-down, Banner Disclaimer Netralitas permanen, serta Tab Analisis 5W+1H & Trending Issues. |
@@ -78,11 +80,12 @@ BAGIAN 2: DATA FLOW DIAGRAM (DFD) LENGKAP
 2.1 DFD LEVEL 0 (CONTEXT DIAGRAM)
 --------------------------------------------------------------------------------
 Sistem Asisten Patroli Siber berinteraksi dengan 4 Entitas Eksternal:
-1. `Petugas Piket / Analis`: Mengirimkan tautan URL atau berkas foto tangkapan layar,
-   melakukan pengecekan status tugas, memvalidasi rekomendasi triase (Setuju/Ubah/Tolak),
-   mengisi catatan reasoning, dan menerima notifikasi serta rekapitulasi harian DOCX.
-2. `Platform Media Sosial (YouTube, TikTok, Instagram)`: Sumber konten publik daring
-   yang diambil tangkapan layar dan metadata publiknya oleh mesin scraper headless.
+1. `Petugas Piket / Analis`: Berpatroli di workstation menggunakan Ekstensi Peramban
+   (Chrome & Edge) untuk 1-click intake saat berselancar di media sosial, atau melalui
+   kanal perpesanan (WhatsApp Gateway / Telegram Bot), memvalidasi rekomendasi triase
+   (Setuju/Ubah/Tolak), mengisi catatan reasoning, dan menerima rekapitulasi harian DOCX.
+2. `Platform Media Sosial (YouTube, TikTok, Instagram, X)`: Sumber konten publik daring
+   yang diambil tangkapan layar dan metadata publiknya oleh mesin scraper headless dan DOM capture.
 3. `Google Gemini AI`: Penyedia layanan kecerdasan buatan eksternal untuk pembentukan
    vektor embedding semantik (`text-embedding-004`) dan analisis multimodal 5W+1H
    (`gemini-flash-latest` / model multi-tier failover).
@@ -93,26 +96,27 @@ Sistem Asisten Patroli Siber berinteraksi dengan 4 Entitas Eksternal:
 Diagram Kontekstual Level 0:
 
                      [ Platform Media Sosial ]
-                     (YouTube, TikTok, Instagram)
+                    (YouTube, TikTok, Instagram, X)
                            ▲             │
                Permintaan  │             │ Tangkapan Layar Full HD
                Akses [F02] │             │ & Metadata Publik [F03]
                            │             ▼
  [ Petugas Piket /   ┌─────────────────────────────────────┐   Prompt 5W+1H & Teks   [ Google Gemini AI ]
      Analis ]        │                                     │   Embedding [F04]       (Embeddings & Vision)
-        │            │                                     │ ──────────────────────►       │
-        │ Kirim URL/ │                                     │                               │
-        │ Foto [F01] │                                     │ ◄──────────────────────       │
-        ├───────────►│                                     │   Vektor 768-D & Hasil        │
-        │            │     SISTEM ASISTEN PATROLI SIBER    │   Triase Multimodal [F05]     │
-        │ Putusan &  │             & ANALITIK              │                               │
-        │ Notes[F07] │     SOCIAL INTELLIGENCE v2.2        │                               │
+  (Browser / Chat)   │                                     │ ──────────────────────►       │
+        │            │                                     │                               │
+        │ Intake URL/│                                     │ ◄──────────────────────       │
+        │ Ext [F01]  │                                     │   Vektor 768-D & Hasil        │
+        ├───────────►│                                     │   Triase Multimodal [F05]     │
+        │            │     SISTEM ASISTEN PATROLI SIBER    │                               │
+        │ Putusan &  │         OMNICHANNEL ASSISTANT       │                               │
+        │ Notes[F07] │         & SOCIAL INTELLIGENCE       │                               │
         ├───────────►│                                     │                               │
         │            │                                     │                               │
         │◄───────────┤                                     │                               │
-        │ Notifikasi │                                     │                               │
-        │ Tiket/DOCX │                                     │                               │
-        │   [F06]    │                                     │                               │
+        │ Status/Tiket                                     │                               │
+        │ Notif[F06] │                                     │                               │
+        │            │                                     │                               │
                      └─────────────────────────────────────┘
                                ▲                 │
                                │ Auth JWT,       │ Data Agregasi,
@@ -125,14 +129,15 @@ Diagram Kontekstual Level 0:
 Tabel Balancing Arus Data DFD Level 0:
 | Kode | Arah Aliran Data | Deskripsi Paket Data |
 |------|------------------|----------------------|
-| F01  | Petugas Piket -> Sistem | Tautan URL media sosial, berkas foto screenshot manual, perintah Telegram (`/start`, `/status`, `/rekap_harian`, `/whitelist`). |
+| F01  | Petugas Piket -> Sistem | Tautan URL media sosial, tangkapan DOM/layar via Ekstensi Peramban (1-Click Triage), pesan WhatsApp, atau interaksi Telegram. |
 | F02  | Sistem -> Media Sosial | Request navigasi browser headless Playwright dengan viewport 1920x1080 dan user-agent mobile/desktop resmi. |
 | F03  | Media Sosial -> Sistem | Tangkapan layar biner Full HD dan metadata teks/caption/author dari konten publik. |
 | F04  | Sistem -> Gemini AI | Teks judul, caption, OCR awal untuk Gemini Embedding (768-D), serta gambar bukti + prompt 5W+1H + konteks preseden RAG. |
 | F05  | Gemini AI -> Sistem | Vektor representasi semantik 768 dimensi dan payload JSON struktur intelijen 5W+1H (kategori, risiko, aktor, topik, narasi). |
-| F06  | Sistem -> Petugas Piket | Kartu Analis Telegram interaktif, notifikasi tiket antrean, pemberitahuan fallback manual, dan berkas rekapitulasi DOCX. |
-| F07  | Petugas Piket -> Sistem | Aksi callback validasi (`VALIDATED`, `MODIFIED`, `REJECTED`) beserta string catatan analis wajib (`analyst_notes`). |
+| F06  | Sistem -> Petugas Piket | Status tiket pada Ekstensi Peramban, balasan WhatsApp terformat, kartu analis Telegram, dan berkas rekapitulasi DOCX. |
+| F07  | Petugas Piket -> Sistem | Aksi validasi (`VALIDATED`, `MODIFIED`, `REJECTED`) beserta string catatan analis wajib (`analyst_notes`). |
 | F08  | Pengguna Dashboard <-> Sistem | Kredensial login, token JWT Bearer, parameter kueri filter & drill-down, mutasi kurasi entitas, soft-deactivate KB, dan stream file CSV/DOCX. |
+
 
 ---
 

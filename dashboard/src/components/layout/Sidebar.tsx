@@ -88,16 +88,16 @@ export const Sidebar: React.FC = () => {
           </div>
           <div className="text-[11px] text-slate-400 space-y-1.5">
             <div className="flex items-center justify-between">
-              <span>🤖 Telegram Bot</span>
-              <span className="text-emerald-400 font-mono text-[10px] font-semibold">Online</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>🧩 Browser Agent</span>
-              <span className="text-blue-400 font-mono text-[10px] font-semibold">Active (V3)</span>
+              <span className="text-white font-medium">🧩 Browser Agent</span>
+              <span className="text-cyan-400 font-mono text-[10px] font-bold">Utama (V3)</span>
             </div>
             <div className="flex items-center justify-between">
               <span>💬 WhatsApp GW</span>
               <span className="text-emerald-400 font-mono text-[10px] font-semibold">Ready</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span>🤖 Telegram Bot</span>
+              <span className="text-slate-400 font-mono text-[10px]">Mobile</span>
             </div>
           </div>
         </div>

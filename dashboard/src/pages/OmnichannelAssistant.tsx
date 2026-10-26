@@ -111,54 +111,29 @@ export const OmnichannelAssistantPage: React.FC = () => {
 
       {/* Grid Kanal */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Telegram */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-cyan-500/30 shadow-lg shadow-cyan-950/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full blur-xl pointer-events-none" />
+        {/* Chrome Extension - PRIMARY */}
+        <div className="p-4 rounded-xl bg-gradient-to-b from-blue-950/40 to-slate-900 border-2 border-cyan-400 shadow-xl shadow-cyan-950/30 relative overflow-hidden ring-1 ring-cyan-400/50">
+          <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-400/10 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Send className="w-5 h-5" />
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              ONLINE
-            </span>
-          </div>
-          <h3 className="font-semibold text-white text-sm">Telegram Bot</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Kanal operasional lapangan untuk pelaporan cepat, approval tombol inline, dan rekapitulasi DOCX.
-          </p>
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
-            <div className="flex justify-between">
-              <span>Peran RBAC:</span>
-              <span className="text-cyan-300 font-mono">3 Level (Op/An/Adm)</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Status:</span>
-              <span className="text-emerald-400 font-medium">Long-Polling Aktif</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Chrome Extension */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-blue-500/30 shadow-lg shadow-blue-950/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <div className="p-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
               <Chrome className="w-5 h-5" />
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-              EKSTENSI AKTIF
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />
+              UTAMA (WORKSTATION)
             </span>
           </div>
-          <h3 className="font-semibold text-white text-sm">Browser Extension</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Ekstensi Chrome/Edge Manifest V3: 1-click capture, floating triage button, dan context menu di medsos.
+          <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
+            Browser Extension
+            <span className="text-[10px] text-cyan-400 font-mono">v3.0</span>
+          </h3>
+          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+            Asisten utama bagi seluruh personel piket saat berselancar di Chrome/Edge (1-click triage & in-page floating button).
           </p>
           <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>Mode:</span>
-              <span className="text-blue-300 font-mono">Manifest V3</span>
+              <span>Status Personel:</span>
+              <span className="text-cyan-300 font-semibold">100% Menggunakan Browser</span>
             </div>
             <div className="flex justify-between">
               <span>Platform Target:</span>
@@ -167,7 +142,35 @@ export const OmnichannelAssistantPage: React.FC = () => {
           </div>
         </div>
 
-        {/* WhatsApp */}
+        {/* Web Command Console */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-purple-500/30 shadow-lg shadow-purple-950/20 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+              <LayoutDashboard className="w-5 h-5" />
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+              COMMAND CONSOLE
+            </span>
+          </div>
+          <h3 className="font-semibold text-white text-sm">Web Dashboard</h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Konsol web terpusat untuk eksplorasi visual, drill-down analitik, validasi analis, dan kurasi data.
+          </p>
+          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+            <div className="flex justify-between">
+              <span>Tampilan:</span>
+              <span className="text-purple-300 font-mono">React + Vite</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Hak Akses:</span>
+              <span className="text-slate-300 font-medium">USER vs ADMIN</span>
+            </div>
+          </div>
+        </div>
+
+        {/* WhatsApp Gateway */}
         <div className="p-4 rounded-xl bg-slate-900/60 border border-emerald-500/30 shadow-lg shadow-emerald-950/20 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
           <div className="flex items-center justify-between mb-3">
@@ -195,30 +198,29 @@ export const OmnichannelAssistantPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Web Console */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-purple-500/30 shadow-lg shadow-purple-950/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
+        {/* Telegram Bot */}
+        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 shadow-lg shadow-slate-950/20 relative overflow-hidden">
           <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <LayoutDashboard className="w-5 h-5" />
+            <div className="p-2.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
+              <Send className="w-5 h-5" />
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              CONNECTED
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              OPSIONAL (MOBILE)
             </span>
           </div>
-          <h3 className="font-semibold text-white text-sm">Web Command Console</h3>
+          <h3 className="font-semibold text-white text-sm">Telegram Bot</h3>
           <p className="text-xs text-slate-400 mt-1">
-            Konsol web terpusat untuk eksplorasi visual, drill-down analitik, validasi analis, dan kurasi data.
+            Kanal mobile pelengkap untuk pelaporan lapangan, approval tombol inline, dan rekapitulasi DOCX.
           </p>
           <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>Tampilan:</span>
-              <span className="text-purple-300 font-mono">React + Vite</span>
+              <span>Status:</span>
+              <span className="text-slate-300 font-medium">Long-Polling Aktif</span>
             </div>
             <div className="flex justify-between">
-              <span>Hak Akses:</span>
-              <span className="text-slate-300 font-medium">USER vs ADMIN</span>
+              <span>Peran:</span>
+              <span className="text-slate-400">Mobile Backup</span>
             </div>
           </div>
         </div>
