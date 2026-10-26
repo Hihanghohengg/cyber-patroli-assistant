@@ -1,0 +1,79 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: patrol_db
+    restart: always
+    environment:
+      POSTGRES_USER: patrol_user
+      POSTGRES_PASSWORD: patrol_pass
+      POSTGRES_DB: patrol_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - patrol_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U patrol_user -d patrol_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: patrol_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - patrol_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: patrol_app
+    restart: always
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./storage:/app/storage
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - patrol_net
+    command: >
+      sh -c "python -m app.main"
+
+  worker:
+    build: .
+    container_name: patrol_worker
+    restart: always
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./storage:/app/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - patrol_net
+    command: >
+      sh -c "celery -A app.workers.tasks worker --beat --loglevel=info --concurrency=2"
+
+networks:
+  patrol_net:
+    driver: bridge
+
+volumes:
+  postgres_data:

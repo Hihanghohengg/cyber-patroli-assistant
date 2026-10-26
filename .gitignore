@@ -1,0 +1,70 @@
+# Environment variables & secrets
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Playwright & Browsers
+.playwright/
+
+# Storage - Evidences & Reports (keep directories via .gitkeep, ignore generated files)
+storage/evidences/*
+!storage/evidences/.gitkeep
+storage/reports/*
+!storage/reports/.gitkeep
+*.db
+storage/*.db
+
+# Node / Frontend Dashboard
+node_modules/
+dashboard/node_modules/
+dashboard/dist/
+dist/
+.eslintcache
+
+# IDEs & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Logs
+*.log
+

@@ -1,0 +1,582 @@
+================================================================================
+DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK (PRD v2.2 - PROPOSAL-COMPLIANT EDITION)
+DATA FLOW DIAGRAM (DFD LEVEL 0–2), DAN ARSITEKTUR BASIS DATA 11 TABEL FISIK
+SISTEM ASISTEN PATROLI SIBER DENGAN RAG DAN DASHBOARD ANALITIK SOCIAL INTELLIGENCE
+POLITEKNIK SIBER DAN SANDI NEGARA / BADAN SIBER DAN SANDI NEGARA (BSSN)
+================================================================================
+
+0. METADATA DOKUMEN & RIWAYAT VERSI
+--------------------------------------------------------------------------------
+Judul Dokumen     : Spesifikasi Kebutuhan Produk & Desain Arsitektur Sistem v2.2
+Instansi Penguji  : Badan Siber dan Sandi Negara (BSSN) / Poltek SSN
+Versi Rilis       : v2.2 (Proposal-Compliant Edition)
+Status Dokumen    : Finalized & Aligned with Internship Proposal
+Arsitektur DB     : Dual-Engine (PostgreSQL 16 + pgvector Production / Auto-Fallback SQLite)
+Desain UI         : Cyber-Dark Premium Console (Glassmorphism & Neon HSL Palette)
+Metode Analisis   : 5W+1H Multimodal Reasoning & Retrieval-Augmented Generation (RAG)
+
+Riwayat Perubahan Dokumen:
+- v1.0: Fondasi awal sistem triase patroli siber berbasis bot Telegram dan fine-tuning.
+- v2.0: Integrasi RAG preseden analis (pgvector), Web Dashboard Social Intelligence,
+        ekstraksi entitas 3 pilar (Topik, Aktor, Sumber), dan Chain of Custody SHA-256.
+- v2.2: Penyelarasan Penuh Standar Proposal BSSN/Poltek SSN (FR-01 s.d. FR-12, NFR-01 s.d.
+        NFR-07):
+        1. Skema Basis Data 11 Tabel Fisik Resmi (penambahan tabel relasi `report_actors`).
+        2. Versioning berjejak Knowledge Base (NFR-07: `is_active`, `deactivated_at`, tanpa
+           hard-delete, partial unique index).
+        3. 7 Siklus Status Tiket Patroli resmi (`PENDING_ANALYSIS`, `WAITING_VALIDATION`,
+           `MANUAL_FALLBACK`, `FAILED`, `VALIDATED`, `MODIFIED`, `REJECTED`).
+        4. Validasi scraper anti-blank > 20 KB dengan 1x retry & fallback interaktif.
+        5. RAG Fail-Open murni berstandar forensik (penghapusan total vektor palsu/acak).
+        6. Telegram Bot RBAC 3-Peran (`OPERATOR`, `ANALYST`, `ADMIN`) & Rekap Harian DOCX
+           berstempel disclaimer simulasi.
+        7. Web Dashboard Analitik: Bar Filter Utama, 4 Kartu KPI Ringkasan, 8 Grafik Visual
+           Wajib berfitur drill-down, Banner Netralitas permanen, serta RBAC USER vs ADMIN.
+        8. Seeder 10 Data Dummy Uji Standar Proposal Halaman 43–44.
+
+
+================================================================================
+BAGIAN 1: MATRIKS KEBUTUHAN SISTEM (FR-01 s.d. FR-12 & NFR-01 s.d. NFR-07)
+================================================================================
+
+1.1 KEBUTUHAN FUNGSIONAL (FUNCTIONAL REQUIREMENTS / FR)
+--------------------------------------------------------------------------------
+| ID    | Nama Kebutuhan | Deskripsi Spesifikasi Fungsional |
+|-------|----------------|----------------------------------|
+| FR-01 | Intake URL & Media | Sistem menerima input laporan konten mencurigakan melalui bot Telegram berupa tautan URL (YouTube, TikTok, Instagram) maupun unggahan foto tangkapan layar langsung (manual). |
+| FR-02 | Scraper Otomatis & Manual Fallback | Sistem mengambil tangkapan layar Full HD (1920x1080) dan metadata konten menggunakan Playwright headless. File bukti divalidasi harus berukuran > 20 KB. Jika gagal atau berukuran <= 20 KB, sistem melakukan maksimal 1 kali retry. Jika tetap gagal atau terhalang login-wall, tiket otomatis dialihkan ke status `MANUAL_FALLBACK` dan bot meminta operator mengunggah tangkapan layar manual. |
+| FR-03 | Integritas Bukti Digital (Chain of Custody) | Setiap berkas tangkapan layar (scraper maupun manual) dihitung nilai hash kriptografi SHA-256 (tepat 64 karakter heksadesimal) seketika saat disimpan di storage lokal/volume, dicatat di tabel `evidences`, dan tidak dapat diubah (immutable). |
+| FR-04 | RAG Preseden Analis Fail-Open | Sistem mencari preseden kasus serupa pada tabel `knowledge_entries` (hanya entri `is_active = True`) menggunakan Google Gemini `text-embedding-004` (768 dimensi) dan Cosine Similarity dengan threshold >= 0.75 dan top_k = 5. Jika API embedding offline/gagal atau tidak ada hasil relevan, sistem menerapkan RAG Fail-Open: mengembalikan konteks kosong, mencatat `RAG_FALLBACK_EMPTY` ke audit log, dan melanjutkan triase tanpa menghentikan pipeline. |
+| FR-05 | Triase Cerdas Multimodal 5W+1H | AI Gemini Vision menganalisis gambar bukti dan konteks teks untuk mengekstrak struktur intelijen 5W+1H (Who, What, Where, When, Why, How), rekomendasi kategori (`HOAKS`, `DI_LUAR_KONTEKS`, `UJARAN_KEBENCIAN`, `PROVOKASI_SARA`), tingkat risiko (`RENDAH`, `SEDANG`, `TINGGI`), confidence score, raw entities (topik, aktor target, sumber), serta sitasi preseden RAG. |
+| FR-06 | Human-in-the-Loop & Siklus Hidup Tiket | Tiket laporan diproses melalui 7 status siklus hidup: `PENDING_ANALYSIS`, `WAITING_VALIDATION`, `MANUAL_FALLBACK`, `FAILED`, `VALIDATED`, `MODIFIED`, `REJECTED`. Analis memiliki wewenang memvalidasi melalui tombol Telegram atau Dashboard: Setuju (`VALIDATED`), Ubah (`MODIFIED`), atau Bukan Pelanggaran (`REJECTED`). Jika memilih `MODIFIED` atau `REJECTED`, kolom `analyst_notes` wajib diisi. Pada status `REJECTED`, nilai `final_risk` dinetralkan menjadi NULL / None. |
+| FR-07 | Generator Rekapitulasi Harian DOCX | Sistem menyediakan generator dokumen laporan dinas berformat Microsoft Word (.docx) dengan tabel berstempel waktu yang hanya memuat laporan berstatus final (`VALIDATED` dan `MODIFIED`). Dokumen menyertakan disclaimer resmi: "DOKUMEN SIMULASI PROTOTIPE — Rekapitulasi berbasis keputusan analis, bukan penetapan hukum otomatis". |
+| FR-08 | Kontrol Bot Telegram & Whitelist RBAC | Akses Telegram Bot dikendalikan melalui whitelist tabel `patrol_users` dengan 3 peran berjenjang: `OPERATOR` (intake link/foto & `/status`), `ANALYST` (hak Operator + validasi tombol putusan + `/rekap_harian`), dan `ADMIN` (hak Analyst + kelola whitelist `/whitelist`). |
+| FR-09 | Normalisasi & Resolusi Entitas Kanonikal | Sistem menormalisasi entitas hasil ekstraksi AI ke dalam 3 domain (`TOPIC`, `ACTOR`, `SOURCE`), melakukan resolusi alias berbasis pencocokan eksak dan kemiripan fuzzy Levenshtein (threshold >= 0.85), menghubungkan laporan ke aktor via tabel relasi `report_actors`, serta menyediakan antarmuka bagi Admin untuk menyetujui (`APPROVED`) atau menggabungkan entitas duplikat (`MERGED`). |
+| FR-10 | Versioning Berjejak Knowledge Base (NFR-07) | Setiap keputusan validasi atau pembaharuan tiket menyematkan pengetahuan baru ke `knowledge_entries`. Sistem dilarang melakukan hard-delete (`DELETE`). Entri lama dinonaktifkan secara logis (`is_active = False`, `deactivated_at = NOW()`), dan entri baru dibuat berstatus `is_active = True`. Sistem menjamin maksimal 1 entri aktif per `report_id`. |
+| FR-11 | Web Dashboard Analitik Social Intelligence | Dashboard analitik web bertema Cyber-Dark menyajikan: Bar Filter Utama (Rentang Tanggal, Platform, Kategori, Risiko), 4 Kartu KPI Ringkasan (L3.18), 8 Grafik Visual Wajib (Tren Waktu, Platform, Kategori, Risiko, Topik Teratas, Aktor Target Teratas, Sumber Teratas, Kesepakatan AI vs Analis) berfitur interaktif drill-down, Banner Disclaimer Netralitas permanen, serta Tab Analisis 5W+1H & Trending Issues. |
+| FR-12 | Tata Kelola Pengguna & Ekspor Aman | Sistem membedakan hak akses Dashboard antara `USER` (read-only, eksplorasi grafik, filter, drill-down, dan ekspor) dan `ADMIN` (manajemen user, whitelist, entitas, knowledge base, dan review audit log). Ekspor CSV dilakukan secara aman via HTTP Authorization Header Bearer token (tanpa token di query string) dan dicatat ke `audit_logs`. |
+
+---
+
+1.2 KEBUTUHAN NON-FUNGSIONAL (NON-FUNCTIONAL REQUIREMENTS / NFR)
+--------------------------------------------------------------------------------
+| ID     | Parameter | Spesifikasi Standar Kualitas |
+|--------|-----------|------------------------------|
+| NFR-01 | Performa Respons Triase | Waktu pemrosesan dari penerimaan intake URL/foto hingga penerbitan kartu rekomendasi awal AI pada bot Telegram tidak melebihi 30 detik pada kondisi jaringan normal. |
+| NFR-02 | Ketersediaan & Dual-Engine | Sistem dirancang dengan arsitektur Dual-Engine: PostgreSQL 16 + pgvector untuk lingkungan produksi/Docker, dan Auto-Fallback SQLite untuk pengujian lokal mandiri tanpa ketergantungan eksternal. Kegagalan subsistem RAG atau Scraper tidak menyebabkan crash pada backend (Fail-Open/Graceful Degradation). |
+| NFR-03 | Integritas Data & Audit Forensik | Integritas artefak bukti digital dijamin melalui hash SHA-256 (64 hex). Setiap aktivitas krusial (intake, fallback scraper, fallback RAG, validasi analis, kurasi entitas, ekspor data, mutasi akun) dicatat secara kekal (immutable) pada tabel `audit_logs`. |
+| NFR-04 | Validitas Forensik Semantik | Sistem dilarang keras menghasilkan atau menggunakan vektor palsu/pseudo-deterministik/acak saat model embedding tidak tersedia. Kegagalan pencarian semantik wajib menghasilkan konteks kosong yang tercatat di audit log. |
+| NFR-05 | Keamanan Sistem & Hak Akses | Sistem menerapkan proteksi RBAC berlapis. Kata sandi di-hash menggunakan algoritma Bcrypt. Komunikasi API diamankan menggunakan JSON Web Token (JWT) berbasis Bearer Token pada Authorization header. Parameter token dilarang diekspos pada URL query string. Akses Telegram dibatasi oleh Whitelist Telegram User ID. |
+| NFR-06 | Netralitas Hukum & Etika Forensik | Seluruh antarmuka visualisasi grafis Dashboard dan berkas ekspor wajib memuat banner disclaimer netralitas permanen: "Label: frekuensi kemunculan topik, aktor, dan sumber tidak menunjukkan kesalahan pihak mana pun. Status tiket dan keputusan analis bukan penetapan hukum otomatis." |
+| NFR-07 | Jejak Audit Knowledge Base (No Hard-Delete) | Basis pengetahuan preseden RAG tidak boleh kehilangan jejak historis. Perubahan keputusan analis atau penonaktifan entri oleh Admin diimplementasikan melalui soft-deactivation (`is_active = False`, `deactivated_at = NOW()`), dengan partial unique index di PostgreSQL dan validasi aplikasi di SQLite. |
+
+
+================================================================================
+BAGIAN 2: DATA FLOW DIAGRAM (DFD) LENGKAP
+================================================================================
+
+2.1 DFD LEVEL 0 (CONTEXT DIAGRAM)
+--------------------------------------------------------------------------------
+Sistem Asisten Patroli Siber berinteraksi dengan 4 Entitas Eksternal:
+1. `Petugas Piket / Analis`: Mengirimkan tautan URL atau berkas foto tangkapan layar,
+   melakukan pengecekan status tugas, memvalidasi rekomendasi triase (Setuju/Ubah/Tolak),
+   mengisi catatan reasoning, dan menerima notifikasi serta rekapitulasi harian DOCX.
+2. `Platform Media Sosial (YouTube, TikTok, Instagram)`: Sumber konten publik daring
+   yang diambil tangkapan layar dan metadata publiknya oleh mesin scraper headless.
+3. `Google Gemini AI`: Penyedia layanan kecerdasan buatan eksternal untuk pembentukan
+   vektor embedding semantik (`text-embedding-004`) dan analisis multimodal 5W+1H
+   (`gemini-flash-latest` / model multi-tier failover).
+4. `Pengguna Dashboard (USER / ADMIN)`: Analis, pimpinan, dan administrator sistem yang
+   mengakses antarmuka Web Dashboard untuk eksplorasi visual, filter drill-down,
+   manajemen entitas, kurasi basis pengetahuan, administrasi pengguna, dan ekspor data.
+
+Diagram Kontekstual Level 0:
+
+                     [ Platform Media Sosial ]
+                     (YouTube, TikTok, Instagram)
+                           ▲             │
+               Permintaan  │             │ Tangkapan Layar Full HD
+               Akses [F02] │             │ & Metadata Publik [F03]
+                           │             ▼
+ [ Petugas Piket /   ┌─────────────────────────────────────┐   Prompt 5W+1H & Teks   [ Google Gemini AI ]
+     Analis ]        │                                     │   Embedding [F04]       (Embeddings & Vision)
+        │            │                                     │ ──────────────────────►       │
+        │ Kirim URL/ │                                     │                               │
+        │ Foto [F01] │                                     │ ◄──────────────────────       │
+        ├───────────►│                                     │   Vektor 768-D & Hasil        │
+        │            │     SISTEM ASISTEN PATROLI SIBER    │   Triase Multimodal [F05]     │
+        │ Putusan &  │             & ANALITIK              │                               │
+        │ Notes[F07] │     SOCIAL INTELLIGENCE v2.2        │                               │
+        ├───────────►│                                     │                               │
+        │            │                                     │                               │
+        │◄───────────┤                                     │                               │
+        │ Notifikasi │                                     │                               │
+        │ Tiket/DOCX │                                     │                               │
+        │   [F06]    │                                     │                               │
+                     └─────────────────────────────────────┘
+                               ▲                 │
+                               │ Auth JWT,       │ Data Agregasi,
+                               │ Filter, Drill,  │ Visualisasi Grafik,
+                               │ Kurasi [F08a]   │ & Berkas Ekspor [F08b]
+                               │                 ▼
+                            [ Pengguna Dashboard ]
+                                (USER / ADMIN)
+
+Tabel Balancing Arus Data DFD Level 0:
+| Kode | Arah Aliran Data | Deskripsi Paket Data |
+|------|------------------|----------------------|
+| F01  | Petugas Piket -> Sistem | Tautan URL media sosial, berkas foto screenshot manual, perintah Telegram (`/start`, `/status`, `/rekap_harian`, `/whitelist`). |
+| F02  | Sistem -> Media Sosial | Request navigasi browser headless Playwright dengan viewport 1920x1080 dan user-agent mobile/desktop resmi. |
+| F03  | Media Sosial -> Sistem | Tangkapan layar biner Full HD dan metadata teks/caption/author dari konten publik. |
+| F04  | Sistem -> Gemini AI | Teks judul, caption, OCR awal untuk Gemini Embedding (768-D), serta gambar bukti + prompt 5W+1H + konteks preseden RAG. |
+| F05  | Gemini AI -> Sistem | Vektor representasi semantik 768 dimensi dan payload JSON struktur intelijen 5W+1H (kategori, risiko, aktor, topik, narasi). |
+| F06  | Sistem -> Petugas Piket | Kartu Analis Telegram interaktif, notifikasi tiket antrean, pemberitahuan fallback manual, dan berkas rekapitulasi DOCX. |
+| F07  | Petugas Piket -> Sistem | Aksi callback validasi (`VALIDATED`, `MODIFIED`, `REJECTED`) beserta string catatan analis wajib (`analyst_notes`). |
+| F08  | Pengguna Dashboard <-> Sistem | Kredensial login, token JWT Bearer, parameter kueri filter & drill-down, mutasi kurasi entitas, soft-deactivate KB, dan stream file CSV/DOCX. |
+
+---
+
+2.2 DFD LEVEL 1 (DEKOMPOSISI 11 PROSES UTAMA & 10 DATA STORE)
+--------------------------------------------------------------------------------
+Sistem didekomposisi menjadi 11 proses utama yang terhubung ke 10 Data Store fisik:
+
+Daftar Data Store:
+- `D1: Akun Media Sosial` (`accounts`)
+- `D2: Konten Media Sosial` (`contents`)
+- `D3: Laporan & Tiket Patroli` (`reports`)
+- `D4: Berkas Bukti Digital` (`evidences`)
+- `D5: Entitas, Alias & Aktor Target` (`entities`, `entity_aliases`, `report_actors`)
+- `D6: Basis Pengetahuan Preseden RAG` (`knowledge_entries`)
+- `D7: Pengguna & Whitelist` (`dashboard_users`, `patrol_users`)
+- `D8: Log Audit Forensik` (`audit_logs`)
+- `D9: Agregasi Tren Isu` (`trending_topics`)
+- `D10: Storage Berkas Fisik` (`storage/evidences/`, `storage/reports/`)
+
+Uraian 11 Proses DFD Level 1:
+- `1.0 Otentikasi & Verifikasi Hak Akses`:
+  * Memverifikasi whitelist Telegram ID pengguna terhadap tabel `D7 (patrol_users)` untuk peran `OPERATOR`, `ANALYST`, atau `ADMIN`.
+  * Memvalidasi otentikasi login Web Dashboard (Bcrypt) dan menerbitkan JWT token untuk peran `USER` atau `ADMIN`.
+- `2.0 Intake Konten & Pengambilan Bukti Headless`:
+  * Menerima input URL media sosial atau foto langsung.
+  * Menjalankan Playwright Chromium Full HD untuk menangkap screenshot biner.
+  * Menulis metadata akun ke `D1` dan metadata postingan ke `D2`.
+- `3.0 Penjaminan Rantai Bukti Forensik (Chain of Custody)`:
+  * Menghitung nilai hash kriptografi SHA-256 (64 hex) seketika terhadap biner gambar tangkapan layar.
+  * Menyimpan file bukti ke direktori `D10` dan metadata hash ke `D4`.
+  * Membuka tiket laporan baru berstatus `PENDING_ANALYSIS` pada `D3`.
+- `4.0 Penelusuran Preseden Semantik (RAG Retrieval)`:
+  * Mengekstrak teks gabungan (judul + caption + OCR awal).
+  * Memanggil Gemini Embedding API (`text-embedding-004`).
+  * Melakukan Cosine Similarity search terhadap entri aktif (`is_active = True`) pada `D6` dengan threshold >= 0.75.
+  * Menerapkan fail-open bila terjadi kendala atau threshold tidak terpenuhi, serta mencatat ke `D8`.
+- `5.0 Triase Cerdas Multimodal 5W+1H`:
+  * Mengirimkan gambar bukti `D4`, teks konten `D2`, dan blok rujukan preseden `D6` ke model Gemini Multimodal.
+  * Menghasilkan struktur intelijen 5W+1H, rekomendasi kategori, tingkat risiko, dan raw entities.
+  * Memperbarui tiket `D3` ke status `WAITING_VALIDATION` dengan payload mentah AI (`ai_output`).
+- `6.0 Diseminasi Rekomendasi & Antarmuka Interaktif Analis`:
+  * Memformat kartu analis Telegram interaktif yang memuat ringkasan 5W+1H, level risiko, confidence, dan 3 tombol aksi.
+  * Mengirimkan notifikasi tiket kepada petugas piket / analis yang berwenang.
+- `7.0 Validasi Keputusan & Pembelajaran Preseden Berjejak`:
+  * Menerima putusan analis: `VALIDATED`, `MODIFIED`, atau `REJECTED`.
+  * Memvalidasi kewajiban pengisian `analyst_notes` pada status `MODIFIED` dan `REJECTED`.
+  * Menonaktifkan entri preseden lama pada `D6` (`is_active = False`, `deactivated_at = NOW()`).
+  * Menerbitkan entri preseden baru berstatus aktif (`is_active = True`) pada `D6` dan mencatat jejak ke `D8`.
+- `8.0 Ekstraksi, Resolusi Alias & Tata Kelola Entitas Kanonikal`:
+  * Memetakan raw entities (topik, aktor, sumber) ke tabel `D5`.
+  * Menghubungkan aktor target ke tiket laporan melalui tabel `report_actors`.
+  * Menyediakan fitur bagi Admin untuk menyetujui atau menggabungkan entitas (Merge).
+- `9.0 Agregasi Social Intelligence & Deteksi Trending Issues`:
+  * Menghitung frekuensi topik harian, mendeteksi lonjakan anomali, dan memperbarui tabel tren `D9`.
+  * Mengagregasi matriks 5W+1H untuk pemantauan sebaran aktor dan kanal sumber informasi.
+- `10.0 Visualisasi Dashboard Analitik & Fitur Drill-Down`:
+  * Melayani kueri multi-kriteria dashboard dari tabel `D1`, `D2`, `D3`, `D5`, dan `D9`.
+  * Menyajikan 4 kartu KPI ringkasan dan 8 grafik visual wajib dengan interaktivitas drill-down ke tabel laporan.
+  * Menampilkan banner disclaimer netralitas permanen (NFR-06).
+- `11.0 Pembangkitan Laporan Dinas Resmi & Rekam Jejak Audit`:
+  * Membaca tiket berstatus `VALIDATED` dan `MODIFIED` dari `D3` serta gambar bukti dari `D10`.
+  * Menghasilkan dokumen rekapitulasi harian dinas format DOCX dan ekspor data CSV.
+  * Mencatat seluruh aktivitas ekspor dan mutasi sistem ke log audit `D8`.
+
+---
+
+2.3 DFD LEVEL 2 (RINCIAN PROSES KRUSIAL PROPOSAL)
+--------------------------------------------------------------------------------
+
+### DFD Level 2 - Proses 2.0 (Intake & Scraper Headless):
+- `2.1`: Parser URL memeriksa domain (`youtube.com`, `tiktok.com`, `instagram.com`). Jika input adalah foto biner Telegram, alihkan langsung ke sub-proses `2.6`.
+- `2.2`: Inisialisasi Playwright Chromium headless dengan resolusi 1920x1080, injeksi bypass user-agent, dan navigasi ke URL target dengan timeout 25 detik.
+- `2.3`: Ekstraksi biner screenshot Full HD dan pemeriksaan ukuran berkas:
+  * Syarat kelayakan: Ukuran berkas biner > 20 KB.
+- `2.4`: Evaluasi Ambang Batas & Retry Engine:
+  * Jika ukuran berkas <= 20 KB atau navigasi gagal/timeout: jalankan tepat 1 kali retry dengan delay 3 detik.
+- `2.5`: Penanganan Kegagalan / Login-Wall:
+  * Jika setelah retry ukuran tetap <= 20 KB atau terhadang login-wall:
+    - Set status tiket laporan di `D3` menjadi `'MANUAL_FALLBACK'`.
+    - Catat insiden ke `D8 (audit_logs)` dengan action `'SCRAPER_MANUAL_FALLBACK'`.
+    - Kirim pesan peringatan via bot Telegram ke Operator untuk meminta unggahan foto screenshot manual.
+- `2.6`: Jika berkas biner > 20 KB: teruskan biner gambar ke Proses 3.0 untuk hashing dan penyimpanan fisik.
+
+### DFD Level 2 - Proses 4.0 (RAG Retrieval Semantik Preseden):
+- `4.1`: Ekstraksi teks korpus dari konten: gabungan dari judul postingan, caption, dan hasil OCR awal (jika foto tanpa caption).
+- `4.2`: Panggilan API Google Gemini Embedding (`text-embedding-004`) untuk menghasilkan vektor dense 768 dimensi.
+- `4.3`: Kueri pencarian kesamaan semantik (Cosine Similarity) terhadap tabel `D6 (knowledge_entries)` dengan filter ketat `is_active == True`, parameter `similarity_threshold = 0.75`, dan `top_k = 5` (ADR-04).
+- `4.4`: Evaluasi Hasil Preseden:
+  * Jika ditemukan preseden dengan similarity score >= 0.75: susun blok referensi terstruktur (nomor tiket preseden, label putusan, skor kemiripan, ringkasan kasus, dan catatan analis sebelumnya) sebagai konteks non-otoritatif untuk prompt multimodal.
+- `4.5`: RAG Fail-Open Handler (DFD 4.5 & NFR-04):
+  * Jika API Embedding gagal/timeout, kuota habis, ATAU tidak ada satupun entri yang mencapai threshold >= 0.75 (`cold start`):
+    - Dilarang keras membuat atau menginjeksikan vektor acak/palsu.
+    - Kembalikan konteks referensi kosong (`empty context`).
+    - Catat kejadian ke `D8 (audit_logs)` dengan action `'RAG_FALLBACK_EMPTY'` beserta detail alasannya.
+    - Tetap lanjutkan alur triase ke Proses 5.0 tanpa menghentikan pipeline.
+
+### DFD Level 2 - Proses 7.0 (Validasi Analis & Versioning Berjejak Knowledge Base):
+- `7.1`: Petugas Analis memilih aksi pada tombol Telegram atau Web Dashboard: `[SETUJU]` (`VALIDATED`), `[UBAH]` (`MODIFIED`), atau `[BUKAN PELANGGARAN]` (`REJECTED`).
+- `7.2`: Pemeriksaan Constraint Aturan Bisnis:
+  * Jika status adalah `MODIFIED` atau `REJECTED`: periksa input `analyst_notes`. Jika kosong, tolak transaksi dengan pesan kesalahan / HTTP 400.
+  * Jika status adalah `REJECTED`: tetapkan nilai `final_risk` menjadi `None` (NULL) atau `'TIDAK_BERLAKU'`.
+- `7.3`: Pemutakhiran Status Tiket Laporan:
+  * Perbarui record di `D3 (reports)` dengan status baru, `final_label`, `final_risk`, `analyst_notes`, ID analis penelaah, dan stempel waktu validasi.
+- `7.4`: Penonaktifan Logis Entri Preseden Lama (NFR-07):
+  * Cari seluruh entri pada `D6 (knowledge_entries)` yang memiliki `report_id` sama dan berstatus `is_active = True`.
+  * Lakukan pembaruan logis: set `is_active = False` dan `deactivated_at = NOW()`. Dilarang melakukan hard-delete (`DELETE`).
+- `7.5`: Pembuatan Entri Preseden Baru:
+  * Bentuk embedding vektor 768 dimensi dari ringkasan narasi kasus dan catatan analis baru.
+  * Simpan baris baru ke `D6` dengan `is_active = True`, `created_at = NOW()`, serta tautan `report_id`.
+- `7.6`: Audit Logging:
+  * Catat seluruh kronologi mutasi ke `D8 (audit_logs)` dengan metadata lengkap (identitas analis, status lama, status baru, catatan).
+
+
+================================================================================
+BAGIAN 3: SKEMA BASIS DATA 11 TABEL FISIK RESMI & ARSITEKTUR DUAL-ENGINE
+================================================================================
+
+3.1 DUKUNGAN BASIS DATA DUAL-ENGINE (POSTGRESQL 16 & AUTO-FALLBACK SQLITE)
+--------------------------------------------------------------------------------
+Sistem mendukung arsitektur basis data adaptif untuk menjamin portabilitas pengujian
+dan keandalan operasional tingkat dinas:
+1. `Mode Produksi / Docker (PostgreSQL 16 + pgvector)`:
+   - Menggunakan tipe data `vector(768)` dengan indeks HNSW / IVFFlat untuk pencarian
+     Cosine Distance berkecepatan tinggi.
+   - Menggunakan tipe data `JSONB` native untuk query metadata dan atribut dinamis.
+   - Menggunakan tipe data `TIMESTAMPTZ` dan partial unique index:
+     `CREATE UNIQUE INDEX uq_active_kb_per_report ON knowledge_entries (report_id) WHERE is_active = TRUE;`
+2. `Mode Pengujian Lokal / Standalone (Auto-Fallback SQLite)`:
+   - Terpicu otomatis jika koneksi PostgreSQL tidak terdeteksi atau dikonfigurasi ke SQLite.
+   - Vektor embedding disimpan sebagai blob biner / serialized JSON dengan perhitungan
+     Cosine Similarity in-memory murni berbasis pustaka numerik Python (numpy / math).
+   - Validasi partial unique constraint dan aturan bisnis dieksekusi secara ketat pada layer
+     aplikasi SQLAlchemy sebelum transaksi di-commit.
+   - Menghasilkan berkas database mandiri `storage/patrol.db` yang siap dijalankan langsung
+     tanpa memerlukan instalasi service database eksternal.
+
+---
+
+3.2 SPESIFIKASI 11 TABEL FISIK RESMI
+--------------------------------------------------------------------------------
+
+1. `dashboard_users` (Manajemen Akun Web Dashboard):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `username` : VARCHAR(64), Unique, Indexed, Not Null
+   - `hashed_password` : VARCHAR(255), Not Null (Bcrypt Hash)
+   - `full_name` : VARCHAR(128), Not Null
+   - `role` : VARCHAR(32), Default 'USER' ('USER' atau 'ADMIN')
+   - `is_active` : BOOLEAN, Default True
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+   - `updated_at` : TIMESTAMPTZ, Default NOW()
+
+2. `patrol_users` (Whitelist & Otorisasi Pengguna Bot Telegram):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `telegram_id` : BIGINT, Unique, Indexed, Not Null
+   - `username` : VARCHAR(64), Nullable
+   - `full_name` : VARCHAR(128), Nullable
+   - `role` : VARCHAR(32), Default 'OPERATOR' ('OPERATOR', 'ANALYST', 'ADMIN')
+   - `is_active` : BOOLEAN, Default True
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+   - `updated_at` : TIMESTAMPTZ, Default NOW()
+
+3. `accounts` (Profil Akun Media Sosial Sumber Konten):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `platform` : VARCHAR(32), Indexed, Not Null ('YOUTUBE', 'TIKTOK', 'INSTAGRAM')
+   - `username` : VARCHAR(128), Indexed, Not Null
+   - `account_id` : VARCHAR(128), Nullable
+   - `account_created_at` : TIMESTAMPTZ, Nullable (Stempel waktu pembentukan akun sosmed)
+   - `follower_count` : INTEGER, Nullable
+   - `is_verified` : BOOLEAN, Default False
+   - `profile_url` : TEXT, Nullable
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+   - `updated_at` : TIMESTAMPTZ, Default NOW()
+
+4. `contents` (Metadata Konten Media Sosial yang Dipatroli):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `account_id` : UUID, Foreign Key -> `accounts.id`, Nullable
+   - `url` : TEXT, Indexed, Not Null
+   - `canonical_url` : TEXT, Nullable (Bersifat nullable agar intake foto langsung tetap valid)
+   - `platform` : VARCHAR(32), Indexed, Not Null
+   - `content_type` : VARCHAR(32), Default 'POST' ('POST', 'VIDEO', 'REEL', 'SHORT', 'PHOTO')
+   - `text_caption` : TEXT, Nullable
+   - `metadata` : JSONB, Nullable (Disimpan di model SQLAlchemy sebagai `extra_metadata`)
+   - `published_at` : TIMESTAMPTZ, Nullable
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+
+5. `evidences` (Artefak Bukti Digital & Rantai Keabsahan Forensik):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `report_id` : UUID, Foreign Key -> `reports.id`, Nullable, Indexed
+   - `file_path` : TEXT, Not Null (Jalur direktori relatif)
+   - `storage_path` : TEXT, Nullable (Jalur absolut/volume storage)
+   - `file_hash_sha256` : CHAR(64), Indexed, Not Null (Tepat 64 karakter heksadesimal)
+   - `file_size_bytes` : BIGINT, Not Null
+   - `mime_type` : VARCHAR(64), Default 'image/png'
+   - `resolution` : VARCHAR(32), Default '1920x1080'
+   - `source_type` : VARCHAR(32), Default 'SCRAPER_SCREENSHOT' ('SCRAPER_SCREENSHOT' / 'MANUAL_UPLOAD')
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+
+6. `reports` (Laporan Tiket Patroli & Rekam Jejak Siklus Hidup):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `ticket_number` : VARCHAR(32), Unique, Indexed, Not Null (Format: `PTR-YYYYMMDD-XXXX`)
+   - `content_id` : UUID, Foreign Key -> `contents.id`, Nullable
+   - `reporter_id` : UUID, Foreign Key -> `patrol_users.id`, Nullable
+   - `intake_type` : VARCHAR(32), Default 'LINK' ('LINK' atau 'PHOTO')
+   - `ai_category` : VARCHAR(64), Nullable ('HOAKS', 'DI_LUAR_KONTEKS', 'UJARAN_KEBENCIAN', 'PROVOKASI_SARA')
+   - `ai_risk_level` : VARCHAR(32), Nullable ('RENDAH', 'SEDANG', 'TINGGI')
+   - `ai_confidence` : FLOAT, Nullable
+   - `ai_narrative` : TEXT, Nullable (Ringkasan analisis intelijen 5W+1H)
+   - `ai_topic_raw` : VARCHAR(255), Nullable
+   - `ai_actors_raw` : JSONB, Nullable (Daftar aktor target yang diekstrak AI)
+   - `ai_source_raw` : VARCHAR(255), Nullable
+   - `ai_source_type` : VARCHAR(64), Nullable
+   - `ai_output` : JSONB, Nullable (Struktur JSON mentah lengkap dari respons Gemini AI)
+   - `topic_id` : UUID, Foreign Key -> `entities.id`, Nullable
+   - `source_id` : UUID, Foreign Key -> `entities.id`, Nullable
+   - `final_category` / `final_label` : VARCHAR(64), Nullable (Putusan akhir analis)
+   - `final_risk_level` / `final_risk` : VARCHAR(32), Nullable (Dinulllkan jika status REJECTED)
+   - `analyst_notes` : TEXT, Nullable (Wajib diisi jika status MODIFIED atau REJECTED)
+   - `status` : VARCHAR(32), Default 'PENDING_ANALYSIS', Indexed (Mendukung tepat 7 status:
+     'PENDING_ANALYSIS', 'WAITING_VALIDATION', 'MANUAL_FALLBACK', 'FAILED', 'VALIDATED', 'MODIFIED', 'REJECTED')
+   - `verified_by_id` : UUID, Foreign Key -> `patrol_users.id`, Nullable
+   - `verified_at` : TIMESTAMPTZ, Nullable
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+   - `updated_at` : TIMESTAMPTZ, Default NOW()
+
+7. `entities` (Katalog Entitas Kanonikal):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `name` : VARCHAR(255), Indexed, Not Null
+   - `canonical_name` : VARCHAR(255), Indexed, Nullable
+   - `category` : VARCHAR(32), Indexed, Not Null ('TOPIC', 'ACTOR', 'SOURCE')
+   - `status` : VARCHAR(32), Default 'PENDING_REVIEW' ('PENDING_REVIEW', 'APPROVED', 'MERGED')
+   - `merged_into_id` : UUID, Foreign Key -> `entities.id`, Nullable
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+   - `updated_at` : TIMESTAMPTZ, Default NOW()
+
+8. `entity_aliases` (Kamus Varian Ejaan & Alias Entitas):
+   - `id` : UUID, Primary Key, Default uuid4
+   - `entity_id` : UUID, Foreign Key -> `entities.id`, Indexed, Not Null
+   - `alias` : VARCHAR(255), Indexed, Not Null
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+
+9. `report_actors` (Tabel Ke-11: Junction Relasi Laporan & Aktor Target):
+   - `report_id` : UUID, Primary Key, Foreign Key -> `reports.id` (ON DELETE CASCADE)
+   - `entity_id` : UUID, Primary Key, Foreign Key -> `entities.id` (ON DELETE CASCADE)
+   - `role` : VARCHAR(64), Default 'TARGET' ('TARGET', 'MENTIONED', 'PERPETRATOR')
+   - `created_at` : TIMESTAMPTZ, Default NOW()
+
+10. `knowledge_entries` (Basis Pengetahuan Preseden RAG & Versioning Berjejak):
+    - `entry_id` / `id` : UUID, Primary Key, Default uuid4
+    - `report_id` : UUID, Foreign Key -> `reports.id`, Indexed, Not Null
+    - `content_summary` : TEXT, Not Null (Ringkasan narasi kasus preseden)
+    - `notes` : TEXT, Nullable (Catatan reasoning analis pembentuk preseden)
+    - `embedding` : VECTOR(768), Not Null (Vektor embedding Gemini `text-embedding-004`)
+    - `final_category` / `final_label` : VARCHAR(64), Indexed, Not Null
+    - `final_risk_level` / `final_risk` : VARCHAR(32), Nullable
+    - `analyst_notes` : TEXT, Nullable
+    - `decision` : VARCHAR(32), Nullable ('VALIDATED', 'MODIFIED', 'REJECTED')
+    - `is_active` : BOOLEAN, Default True, Indexed, Not Null (Status aktif preseden)
+    - `deactivated_at` : TIMESTAMPTZ, Nullable (Stempel waktu saat entri dinonaktifkan logis)
+    - `created_at` : TIMESTAMPTZ, Default NOW()
+    - `updated_at` : TIMESTAMPTZ, Default NOW()
+    - *Constraint Partial Unique*: Maksimal 1 baris berstatus `is_active = True` per `report_id`.
+      Dilarang keras melakukan penghapusan fisik (`DELETE`).
+
+11. `audit_logs` (Rekam Jejak Forensik & Audit Trail Immutable):
+    - `id` : UUID, Primary Key, Default uuid4
+    - `user_id` : UUID, Nullable
+    - `actor_username` : VARCHAR(64), Nullable (Nama pengguna pemicu aksi)
+    - `action` : VARCHAR(64), Indexed, Not Null ('INTAKE_SUBMITTED', 'SCRAPER_MANUAL_FALLBACK',
+      'RAG_FALLBACK_EMPTY', 'REPORT_VALIDATED', 'REPORT_MODIFIED', 'REPORT_REJECTED',
+      'KB_ENTRY_DEACTIVATED', 'ENTITY_MERGED', 'DATA_EXPORT_CSV', dll.)
+    - `entity_type` : VARCHAR(64), Not Null
+    - `entity_id` : VARCHAR(128), Not Null
+    - `details` : JSONB, Nullable (Payload kontekstual detail perubahan dan alasan)
+    - `ip_address` : VARCHAR(45), Nullable
+    - `timestamp` / `created_at` : TIMESTAMPTZ, Default NOW(), Indexed
+
+
+================================================================================
+BAGIAN 4: SPESIFIKASI WEB DASHBOARD ANALITIK (FR-11, FR-12, WIREFRAME L3.18–L3.22)
+================================================================================
+
+4.1 TEMA VISUAL & DESAIN CYBER-DARK CONSOLE
+--------------------------------------------------------------------------------
+Web Dashboard menggunakan palet warna Cyber-Dark bertaraf enterprise:
+- Background Utama: Slate Dark (#0b0f19) dengan aksen grid sibernetik halus.
+- Surface Kartu: Dark Slate Glassmorphism (#111827 / #1e293b dengan border #334155).
+- Aksen Neon Semantik:
+  * Cyan Neon (#06b6d4): Aksen identitas sistem, data netral, dan total volume.
+  * Emerald (#10b981): Status VALIDATED / Temuan Tervalidasi / Risiko Rendah.
+  * Amber (#f59e0b): Status MODIFIED / Koreksi Analis / Risiko Sedang.
+  * Rose/Crimson (#f43f5e): Status REJECTED / Bukan Pelanggaran / Risiko Tinggi.
+  * Indigo/Violet (#818cf8): Entitas Topik & Aktor Target.
+
+---
+
+4.2 KOMPONEN HALAMAN UTAMA DASHBOARD ANALITIK (L3.18)
+--------------------------------------------------------------------------------
+Halaman Utama Dashboard menyajikan komponen operasional terpadu:
+
+1. `Bar Filter Utama (Sticky Header)`:
+   - Filter Rentang Tanggal: 7 Hari Terakhir, 14 Hari Terakhir, 30 Hari Terakhir (Default), 90 Hari, atau Semua Waktu.
+   - Filter Platform: `Semua Platform`, `Instagram`, `YouTube`, `TikTok`.
+   - Filter Kategori: `Semua Kategori`, `HOAKS`, `DI_LUAR_KONTEKS`, `UJARAN_KEBENCIAN`, `PROVOKASI_SARA`.
+   - Filter Risiko: `Semua Risiko`, `TINGGI`, `SEDANG`, `RENDAH`.
+   - Tombol `Reset Filter` dan Tombol `Ekspor CSV` (Menggunakan request `fetch` dengan Authorization Bearer header, diunduh sebagai file Blob).
+
+2. `4 Kartu KPI Ringkasan (Sesuai Gambar L3.18 Proposal)`:
+   - Kartu 1: `Total Laporan` — Jumlah keseluruhan tiket laporan yang masuk ke sistem.
+   - Kartu 2: `Temuan Tervalidasi` — Total temuan yang dikonfirmasi analis (status `VALIDATED` + `MODIFIED`).
+   - Kartu 3: `Koreksi Analis` — Total temuan di mana analis mengoreksi hasil rekomendasi AI (status `MODIFIED`).
+   - Kartu 4: `Bukan Pelanggaran` — Total temuan yang diputuskan tidak melanggar aturan / false positive (status `REJECTED`).
+   - *Interaktivitas*: Mengklik salah satu kartu KPI akan otomatis memfilter tabel laporan di bawahnya sesuai status terkait.
+
+3. `8 Grafik Visual Wajib (Berdasarkan Keputusan Final Analis)`:
+   - `Visual 1 (Tren Waktu Temuan Harian)`:
+     Dual-Line Chart interaktif yang membandingkan garis `Laporan Masuk` vs `Temuan Tervalidasi` per hari.
+   - `Visual 2 (Distribusi Per Platform)`:
+     Vertical Bar Chart perbandingan jumlah temuan terkonfirmasi pada platform `Instagram`, `YouTube`, dan `TikTok`.
+   - `Visual 3 (Distribusi Per Kategori Pelanggaran)`:
+     Horizontal Bar Chart perbandingan jumlah temuan pada `HOAKS`, `DI_LUAR_KONTEKS`, `UJARAN_KEBENCIAN`, dan `PROVOKASI_SARA`.
+   - `Visual 4 (Distribusi Tingkat Risiko)`:
+     Donut Chart proporsi tingkat risiko final: `SEDANG`, `TINGGI`, dan `RENDAH`.
+   - `Visual 5 (Topik Teratas)`:
+     Horizontal Bar List peringkat entitas kanonikal bertipe `TOPIC` yang paling banyak dianalisis.
+   - `Visual 6 (Aktor Target Teratas)`:
+     Horizontal Bar List peringkat entitas kanonikal bertipe `ACTOR` yang paling sering disasar (diambil dari relasi `report_actors`).
+   - `Visual 7 (Sumber Konten Teratas)`:
+     Horizontal Bar List peringkat entitas kanonikal bertipe `SOURCE` (kanal/akun pengunggah konten).
+   - `Visual 8 (Kesepakatan AI vs Keputusan Analis)`:
+     Vertical Bar Chart perbandingan jumlah tiket berstatus `VALIDATED` (Setuju), `MODIFIED` (Ubah), dan `REJECTED` (Tolak).
+
+4. `Fitur Drill-Down Interaktif`:
+   - Mengklik elemen batang grafik, irisan donut, atau baris entitas pada visual manapun akan langsung menerapkan filter kriteria tersebut pada Tabel Detail Laporan di bawah area grafik secara seketika.
+
+5. `Banner Disclaimer Netralitas Permanen (NFR-06)`:
+   - Tersemat secara permanen di bagian bawah area visualisasi grafis dengan teks wajib:
+     *"Label: frekuensi kemunculan topik, aktor, dan sumber tidak menunjukkan kesalahan pihak mana pun. Status tiket dan keputusan analis bukan penetapan hukum otomatis."*
+
+6. `Tabel Detail Laporan Terfilter & Tab Analisis Lanjutan`:
+   - Tabel menampilkan daftar tiket lengkap dengan nomor tiket, platform, kategori final, risiko final, status, stempel waktu, dan aksi detail.
+   - Tab sekunder `Trending Issues & 5W+1H`: Menampilkan radar visual analisis 5W+1H dan deteksi lonjakan anomali isu media sosial.
+
+---
+
+4.3 PEMISAHAN HAK AKSES RBAC PENGGUNA DASHBOARD (FR-12 & NFR-05)
+--------------------------------------------------------------------------------
+1. `Peran Pengguna USER (Read-Only)`:
+   - Memiliki hak penuh untuk melihat seluruh grafik visual, melakukan filter multi-kriteria, mengeksplorasi drill-down data tiket, dan mengekspor berkas rekapitulasi CSV/DOCX.
+   - Seluruh tombol mutasi data (Setujui Entitas, Gabung Entitas, Tambah Alias, Nonaktifkan KB, Kelola Pengguna, Kelola Whitelist) disembunyikan dari UI dan dilindungi HTTP 403 Forbidden pada backend REST API.
+2. `Peran Pengguna ADMIN (Full Control)`:
+   - Memiliki seluruh hak akses peran USER.
+   - Memiliki akses eksklusif ke Halaman Administrasi & Kurasi (`/curation` & `/admin`):
+     * Manajemen Whitelist Bot Telegram (`patrol_users`): Tambah, edit peran, dan cabut akses ID Telegram.
+     * Manajemen Pengguna Web Dashboard (`dashboard_users`): Tambah dan ubah status pengguna.
+     * Kurasi Knowledge Base Preseden RAG: Memantau preseden dan menonaktifkan entri usang (`is_active = False`) tanpa menghapus data fisik.
+     * Kurasi Entitas & Resolusi Alias: Menyetujui entitas `PENDING_REVIEW`, mendaftarkan alias baru, dan menggabungkan entitas duplikat (Merge).
+     * Review Jejak Audit Forensik (`audit_logs`): Memantau seluruh rekaman aktivitas sistem secara kronologis.
+
+
+================================================================================
+BAGIAN 5: DATA SEEDING SIMULASI 10 LAPORAN STANDAR PROPOSAL (HALAMAN 43–44)
+================================================================================
+Untuk memenuhi kebutuhan demonstrasi, validasi fungsional, dan pengujian artefak
+resmi BSSN/Poltek SSN, sistem dilengkapi modul seeder otomatis (`app/services/seeder.py`)
+yang mengeksekusi 10 laporan simulasi fiktif persis sesuai data uji pada Proposal:
+
+Karakteristik Data Uji 10 Laporan Proposal:
+1. `Total Laporan`: 10 Laporan.
+2. `Distribusi Status Akhir`:
+   - 9 Temuan Tervalidasi (Terdiri dari 6 `VALIDATED` dan 3 `MODIFIED`).
+   - 1 Bukan Pelanggaran (`REJECTED` / False Positive).
+3. `Distribusi Platform (dari 9 temuan tervalidasi)`:
+   - Instagram : 4 Laporan
+   - TikTok    : 3 Laporan
+   - YouTube   : 2 Laporan
+4. `Distribusi Kategori Final (dari 9 temuan tervalidasi)`:
+   - HOAKS             : 3 Laporan
+   - DI_LUAR_KONTEKS   : 3 Laporan
+   - UJARAN_KEBENCIAN  : 2 Laporan
+   - PROVOKASI_SARA    : 1 Laporan
+5. `Distribusi Tingkat Risiko Final (dari 9 temuan tervalidasi)`:
+   - SEDANG : 4 Laporan (44%)
+   - TINGGI : 3 Laporan (33%)
+   - RENDAH : 2 Laporan (22%)
+   - *Catatan*: 1 Laporan `REJECTED` memiliki tingkat risiko `None` (NULL) sesuai aturan bisnis.
+6. `Entitas Fiktif Netral Terdaftar`:
+   - Topik Kanonikal: Layanan Publik, Kesehatan Publik, Kerukunan Sosial, Pendidikan, Lingkungan, Kebencanaan.
+   - Aktor Target   : Unit Pelayanan A, Lembaga Kesehatan B, Kelompok Anonim D, Sekolah Fiktif E, Komunitas F, Unit Layanan G, Kelompok Anonim H.
+   - Sumber Konten  : Kanal informasi A, Kanal video B, Akun edukasi C, Akun diskusi D, Kanal warga E, Akun opini F, Kanal berita warga G, Akun komunitas H, Kanal opini publik I, Akun informasi publik J.
+7. `Integritas Bukti & Relasi`:
+   - Seluruh 10 berkas tangkapan layar biner dummy disimpan di `storage/evidences/` dengan ukuran biner > 20 KB.
+   - Seluruh 10 bukti memiliki nilai hash kriptografi SHA-256 tepat 64 karakter heksadesimal.
+   - Tabel `report_actors` terisi penuh dengan relasi 10 laporan ke entitas aktor target masing-masing (`role = 'TARGET'`).
+   - Tabel `knowledge_entries` memiliki 10 baris ter-link, dengan tepat 9 entri aktif (`is_active = True`) untuk temuan tervalidasi.
+
+
+================================================================================
+BAGIAN 6: PANDUAN EKSEKUSI & OPERASIONAL SISTEM (READY TO RUN)
+================================================================================
+
+6.1 MENJALANKAN DENGAN DOCKER COMPOSE (MODE PRODUKSI LENGKAP)
+--------------------------------------------------------------------------------
+1. Siapkan file konfigurasi environment:
+   `cp .env.example .env`
+   Pastikan variabel `TELEGRAM_BOT_TOKEN` dan `GEMINI_API_KEY` telah terisi.
+
+2. Jalankan seluruh container (PostgreSQL 16 pgvector, Redis, FastAPI Backend, Celery):
+   `docker-compose up -d --build`
+
+3. Periksa status operasional container:
+   `docker-compose ps`
+
+4. Akses Layanan:
+   - Web Dashboard Analitik : http://localhost:8000/dashboard/
+   - REST API Dokumentasi (Swagger) : http://localhost:8000/docs
+   - Telegram Bot : Kirim pesan `/start` ke bot patroli terdaftar.
+
+Kredensial Default Web Dashboard:
+- Akun Administrator : Username `admin` | Password `patroladmin2026` (Role ADMIN)
+- Akun Pengguna Biasa : Username `analyst` | Password `patrolanalyst2026` (Role USER)
+
+---
+
+6.2 MENJALANKAN SECARA MANUAL DI WINDOWS / PENGUJIAN LOKAL MANDIRI
+--------------------------------------------------------------------------------
+Sistem secara cerdas mendeteksi lingkungan lokal dan mengaktifkan engine SQLite
+secara mandiri tanpa memerlukan instalasi service PostgreSQL maupun Redis:
+
+1. Inisialisasi Database & Seeding 10 Data Uji Proposal:
+   `python -c "from app.database import init_db; init_db()"`
+
+2. Menjalankan Backend Server & Telegram Bot Terintegrasi:
+   `python -m app.main`
+   (Backend berjalan di `http://127.0.0.1:8000`)
+
+3. Menjalankan Web Dashboard React Console (Terminal Baru):
+   `cd dashboard`
+   `npm install`
+   `npm run dev`
+   (Dashboard berjalan di `http://localhost:5173`)
+
+4. Menjalankan Pengujian Otomatis Seluruh Fitur (Unit Test Suite):
+   `python -m unittest discover -s tests`
+
+================================================================================
+AKHIR DOKUMEN SPESIFIKASI PRODUK PRD v2.2 (PROPOSAL-COMPLIANT EDITION)
+================================================================================

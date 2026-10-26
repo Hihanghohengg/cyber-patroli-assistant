@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# Environment files
+.env.local
+
+# Dashboard node_modules & cache (keep dist/)
+dashboard/node_modules/
+dashboard/.git/
+
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Storage binaries (prevent baking test files into image)
+storage/evidences/*
+storage/reports/*
+!storage/evidences/.gitkeep
+!storage/reports/.gitkeep
