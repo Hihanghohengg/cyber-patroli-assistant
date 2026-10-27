@@ -6,10 +6,10 @@
 [![Extension](https://img.shields.io/badge/Browser_Extension-Manifest_V3-4285F4?style=flat&logo=googlechrome&logoColor=white)](extension/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16_+_pgvector-336791?style=flat&logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
 [![Gemini AI](https://img.shields.io/badge/Google_Gemini-Multimodal_+_Embeddings-4285F4?style=flat&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Forensics](https://img.shields.io/badge/Forensic_Chain-SHA--256_+_Hash--Chain-10b981?style=flat)](PRD%20v3.1%20-%20Asisten%20Patroli%20Siber%20%28Field-Aligned%20Final%29.md)
+[![Forensics](https://img.shields.io/badge/Forensic_Chain-SHA--256_+_Hash--Chain-10b981?style=flat)](PRD%20v3%20-%20Asisten%20Patroli%20Siber%20%28RAG%20Terukur%20+%20Dashboard%20Analitik%29.md)
 [![Status](https://img.shields.io/badge/Status-Field--Aligned_Production_Ready-10b981?style=flat)]()
 
-> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence (v3.1 Field-Aligned Final)**  
+> **Sistem Cerdas Operasional Piket Patroli Siber & Dasbor Analitik Social Intelligence (PRD v3 Field-Aligned Final)**  
 > **Lokus Penugasan:** Badan Siber dan Sandi Negara (BSSN) — Tim Pengendalian Operasi Informasi (Dalinfo), Sub Tim Analisis Intelijen Siber.  
 > 
 > Platform terpadu analisis konten digital bermasalah, akuisisi bukti web berstandar forensik digital, pemantauan isu viral strategis (8 Bidang IPOLEKSOSBUDHANKAM), triase cerdas berbasis AI Multimodal 5W+1H, dan memori institusional (*Multimodal RAG*) dengan evaluasi buta (*blind evaluation*).
@@ -24,8 +24,8 @@
 
 ## 📑 Daftar Isi
 
-- [Dokumen Spesifikasi Produk (PRD v3.1)](#-dokumen-spesifikasi-produk-prd-v31)
-- [Arsitektur Sistem (v3.1 Field-Aligned)](#-arsitektur-sistem-v31-field-aligned)
+- [Dokumen Spesifikasi Produk (PRD v3)](#-dokumen-spesifikasi-produk-prd-v3)
+- [Arsitektur Sistem](#-arsitektur-sistem)
 - [Matriks Penyelarasan Kebutuhan Lapangan (Notulensi D22)](#-matriks-penyelarasan-kebutuhan-lapangan-notulensi-d22)
 - [Skema Basis Data 11 Tabel Relasional Resmi](#-skema-basis-data-11-tabel-relasional-resmi)
 - [Panduan Pemasangan Ekstensi Browser (Chrome / Edge / Firefox)](#-panduan-pemasangan-ekstensi-browser-chrome--edge--firefox)
@@ -36,11 +36,10 @@
 
 ---
 
-## 📄 Dokumen Spesifikasi Produk (PRD v3.1)
+## 📄 Dokumen Spesifikasi Produk (PRD v3)
 
 Spesifikasi lengkap, model ancaman (T1–T8), DFD Level 0–2, arsitektur, dan 32 kriteria penerimaan (AC-01 s.d. AC-32) terdokumentasi secara rinci pada:
-- **[PRD v3.1 — DRAF FINAL (Field-Aligned Final)](PRD%20v3.1%20-%20Asisten%20Patroli%20Siber%20%28Field-Aligned%20Final%29.md)**
-- **[PRD v3 — Arsip Spesifikasi Lengkap](PRD%20v3%20-%20Asisten%20Patroli%20Siber%20%28RAG%20Terukur%20+%20Dashboard%20Analitik%29.md)**
+- **[PRD v3 — Asisten Patroli Siber (RAG Terukur + Dashboard Analitik)](PRD%20v3%20-%20Asisten%20Patroli%20Siber%20%28RAG%20Terukur%20+%20Dashboard%20Analitik%29.md)**
 
 ---
 
@@ -278,8 +277,7 @@ cyber-patrol-assistant/
 ├── Dockerfile                # Docker image (Python 3.11 + Playwright Chromium)
 ├── docker-compose.yml        # Orkestrasi 10 service modular terisolasi
 ├── requirements.txt          # Dependensi Python backend
-├── PRD v3.1 - Asisten Patroli Siber (Field-Aligned Final).md # Spesifikasi Kebutuhan Final Lapangan D22
-├── PRD v3 - Asisten Patroli Siber (RAG Terukur + Dashboard Analitik).md # Spesifikasi Lengkap Dosen & DFD
+├── PRD v3 - Asisten Patroli Siber (RAG Terukur + Dashboard Analitik).md # Spesifikasi Lengkap Kebutuhan Produk & DFD
 ├── README.md                 # Dokumentasi panduan operasional sistem
 ├── tests/                    # Test suite otomatis (18 unit tests terverifikasi)
 ├── extension/                # Browser Extension (Chrome/Edge/Firefox Manifest V3)
