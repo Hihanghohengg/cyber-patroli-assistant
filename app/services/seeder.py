@@ -403,12 +403,17 @@ def seed_proposal_data_if_needed(db: Session):
         filename = f"{item['ticket']}_post.png"
         filepath = os.path.join("storage", "evidences", filename)
         if not os.path.exists(filepath):
-            # Create a valid file > 20 KB (25,000 bytes) with header PNG
-            with open(filepath, "wb") as f:
-                # 8-byte PNG signature
-                f.write(b"\x89PNG\r\n\x1a\n")
-                # Padding to exceed 20 KB threshold
-                f.write(b"\x00" * 25000)
+            # Create a valid 1280x720 PNG image
+            from PIL import Image, ImageDraw
+            img = Image.new("RGB", (1280, 720), color=(15, 23, 42))
+            draw = ImageDraw.Draw(img)
+            draw.rectangle([(0, 0), (1280, 70)], fill=(30, 41, 59))
+            draw.text((40, 24), "CYBER PATROL DIGITAL EVIDENCE ARCHIVE", fill=(56, 189, 248))
+            draw.text((40, 110), f"Nomor Tiket : {item['ticket']}", fill=(241, 245, 249))
+            draw.text((40, 150), f"Platform    : {item['platform'].upper()}", fill=(241, 245, 249))
+            draw.text((40, 190), f"Judul       : {item['title']}", fill=(148, 163, 184))
+            draw.text((40, 230), f"Status      : DOKUMEN BUKTI FORENSIK DIGITAL RESMI", fill=(52, 211, 153))
+            img.save(filepath, "PNG")
 
         with open(filepath, "rb") as f:
             computed_sha = hashlib.sha256(f.read()).hexdigest()
