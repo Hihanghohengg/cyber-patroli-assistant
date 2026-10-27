@@ -1,847 +1,861 @@
-# PRD v3: Asisten Patroli Siber (RAG Terukur + Dashboard Analitik)
-
-Dokumen Spesifikasi Produk, Model Ancaman, DFD, dan Arsitektur Sistem. Revisi dari PRD v2 (Oktober 2026).
-Status: Draf untuk review pemilik produk. Tanggal: 27 Oktober 2026.
-Proses: disusun lewat 10 ronde kritik independen oleh reviewer skeptis (read-only); skor ronde terakhir 8,5/10 tanpa temuan blocker/major, dan seluruh temuan minor ronde itu sudah diperbaiki. Jejak keputusan ada di Lampiran A.
+# PRD v3.1 — DRAF FINAL
+## Asisten Patroli Siber
+### Browser Extension + Multimodal RAG + Dashboard Analitik, dengan Akuisisi Bukti Web Ber-SHA-256
 
 ---
 
-## 0. Ringkasan Perubahan dari v2
-
-Prinsip revisi: **keep it simple, efisien tapi efektif, kurangi risiko gagal.** Setiap fitur baru harus bisa diukur, bisa dimatikan, dan tidak boleh menghentikan triase jika gagal.
-
-| Area | v2 | v3 | Alasan |
-| --- | --- | --- | --- |
-| Evaluasi RAG | Ditunda, di luar PRD | **Evaluasi buta (blind eval) bawaan** dengan kriteria lulus yang ditetapkan sebelum data dilihat (FR-13) | Tanpa ini klaim "AI makin pintar" tidak bisa dibuktikan, dan RAG bisa memperkuat kesalahan |
-| Konteks RAG di prompt | Label, risiko, alasan AI, catatan | Hanya **keputusan analis** + cuplikan teks konten asli; **tidak ada teks buatan AI** (`ai_reasoning`, ringkasan AI, topik AI) | Mencegah AI "mengutip dirinya sendiri" dan mengurangi permukaan prompt injection |
-| Catatan analis | Free-text wajib untuk Ubah/Tolak | **Kode alasan wajib** (tombol) + catatan opsional (wajib hanya bila `LAINNYA`) | Free-text wajib di Telegram memicu catatan asal-asalan; kode alasan menghasilkan data terstruktur |
-| Koreksi topik/aktor/sumber | Sub-menu Telegram | **Dihapus dari Telegram**; koreksi lewat dashboard ADMIN | Mengurangi kompleksitas state percakapan bot |
-| Topik | Free-text AI + normalisasi fuzzy | **Daftar topik terkontrol** dipilih AI; usulan topik hanya ditampilkan sebagai daftar frekuensi untuk ADMIN | Free-text menghasilkan ribuan variasi; antrian merge tidak akan terkejar |
-| Aktor target | Semua nama tampil di dashboard | **Fail-closed**: nama hanya tampil jika entitas sudah disetujui ADMIN sebagai publik; individu privat tidak pernah masuk tabel entitas | UU PDP, perlindungan korban |
-| Sumber konten | Seluruhnya ditebak AI | Dipisah: **akun pengunggah** (deterministik dari scrape) dan **media asal** (AI, mis. watermark) | Data yang sudah pasti tidak perlu ditebak |
-| Duplikat | Tidak ditangani | **Deteksi duplikat** (URL kanonik, SHA-256, pHash) + `content_cluster_id` | Mencegah hitung ganda, kebocoran label saat retrieval, dan kerja ulang analis |
-| Identitas | `patrol_users` + `dashboard_users` terpisah | **Satu tabel identitas** dengan role VIEWER baru | Satu sumber kebenaran, satu titik nonaktifkan akun |
-| Sesi dashboard | JWT berumur pendek | **Sesi server-side di Redis** + TOTP wajib untuk ADMIN | Pencabutan instan, tanpa refresh token |
-| Indeks vektor | HNSW/IVFFlat | **Exact scan** (tanpa indeks ANN) | Volume kecil; ANN + filter `is_active` bisa mengembalikan < k hasil |
-| Teks OCR | Disebut, tanpa proses pembuat | **Langkah OCR deterministik** (Tesseract `ind+eng`) di worker | Embedding tidak boleh bergantung pada output AI |
-| Frontend | Service `web` opsional | **Disajikan dari `app`** (Jinja2 + HTMX + Chart.js lokal) | Satu service lebih sedikit |
-| Keamanan | NFR umum | **Model ancaman** (§1.8): SSRF scraper, poisoning KB, injection, kanal Telegram, insider | Celah terbesar v2 adalah SSRF lewat scraper |
-| Integritas audit | Audit log biasa | **Hash-chain** + jangkar harian di luar sistem (DOCX rekap) | Audit di DB yang sama bisa ditulis ulang oleh pemegang DB |
-| Operasional | Tidak diatur | **SLO, observabilitas, backup + uji restore, batas anggaran, migrasi v1** | Hal yang paling sering menggagalkan sistem di produksi |
-| Rilis | Sekaligus | **3 fase dengan gerbang go/no-go** (§4) | RAG baru aktif setelah ada data dan bukti |
-
-Yang tidak berubah: Dual Intake (link dan foto), scraper Playwright, SHA-256 dan Chain of Custody, Multi-Model Failover Gemini, HITL via Telegram, generator DOCX `/rekap_harian`, whitelist. Satu perubahan perilaku v1: manajemen whitelist dan perintah administratif lain pindah dari Telegram ke dashboard ADMIN ber-TOTP.
+**Status Dokumen:** DRAF FINAL untuk submission ke pembimbing lapangan (Bang Zazal), dosen pembimbing, dan Pak Giri.  
+**Versi:** 3.1 (Field-Aligned Final)  
+**Tanggal:** 27 Oktober 2026  
+**Lokus Penugasan:** Badan Siber dan Sandi Negara (BSSN) — Tim Pengendalian Operasi Informasi (Dalinfo), Sub Tim Analisis Intelijen Siber  
+**Basis Dokumen:** PRD v3 (review dosen pembimbing) + Notulensi Rapat D22 Dalinfo + Arahan Teknis Bang Zazal + PRD v2 (usulan awal kelompok)  
+**Prinsip Desain:** *Keep it simple*, terukur secara matematis, *fail-open* bertingkat, dapat dimatikan via saklar fitur (*feature flags*), tidak menghentikan triase operasional, dan siap dilanjutkan langsung ke Tugas Akhir (TA).
 
 ---
 
-## 1. Product Requirement Document
+## Riwayat Revisi
+
+| Versi | Tanggal | Perubahan Utama |
+|---|---|---|
+| **v1.0** | Okt 2026 | Fondasi awal: Dual Intake, scraper Playwright headless, verifikasi SHA-256, HITL Telegram Bot, dan ekspor DOCX. |
+| **v2.0** | Okt 2026 | Penambahan memori preseden RAG, web dashboard analitik, ekstraksi topik/aktor/sumber, serta form catatan analis. |
+| **v3.0** | Okt 2026 | Penguatan sistemik menyeluruh: evaluasi buta RAG (FR-13), model ancaman keamanan (T1–T8), audit hash-chain, privasi *fail-closed*, fase rilis bertahap, dan 32 kriteria penerimaan (AC-01 s.d. AC-32). |
+| **v3.1** | **27 Okt 2026** | **Field-Aligned Final (Kondisi Lapangan Riil D22 Dalinfo):**<br>• Pintu masuk utama beralih penuh dari Bot Telegram ke **Browser Extension** (Chrome/Edge/Firefox MV3).<br>• Antrean validasi dipusatkan di **Web Dashboard Console**.<br>• Hierarki peran disederhanakan menjadi **3 Role** (`OPERATOR`, `ANALYST`, `ADMIN`); role `VIEWER` ditunda pasca-MVP.<br>• Taksonomi topik diselaraskan dengan **8 Bidang IPOLEKSOSBUDHANKAM**.<br>• Strategi akuisisi bukti beralih ke **Client-First Capture** (tangkapan layar tab aktif Full HD + DOM render + hash SHA-256 dihitung di browser klien via WebCrypto).<br>• Penerapan **Adapter Pattern** untuk platform media sosial (YouTube, TikTok, Instagram) serta dukungan X/Threads berbasis DOM aktif.<br>• Pemisahan tegas batasan scope program magang versus pengembangan lanjutan Tugas Akhir (TA). |
+
+---
+
+## 0. Ringkasan Perubahan dari v3 ke v3.1
+
+| Area | v3 (Dosen Pembimbing) | v3.1 (Final, Field-Aligned) | Rasional & Dasar Keputusan |
+|---|---|---|---|
+| **Pintu Masuk Utama** | Bot Telegram | **Browser Extension** (Chrome/Edge/Firefox MV3) | Arahan Bang Zazal: 100% personel patroli di ruangan bekerja di browser workstation; tidak semua memakai Telegram di PC dinas. |
+| **Tempat Validasi HITL** | Kartu inline Telegram | **Antrean Validasi di Web Dashboard** | Satu pusat kendali terpadu; memudahkan komparasi bukti visual Full HD dan teks di layar monitor dinas. |
+| **Perintah Status & Rekap** | `/status`, `/rekap_harian` via Telegram | **Menu Terpadu di Web Dashboard** | Konsisten dengan alur kerja berbasis web workstation dinas. |
+| **Identitas Akun** | `patrol_users` + `telegram_id` nullable | **`users`** tanpa dependensi `telegram_id` | Seluruh otentikasi menggunakan kredensial web/ekstensi terpusat (Argon2id + 2FA TOTP). |
+| **Outbox Notifikasi** | Outbox Telegram API | **Dihapus**; notifikasi internal via dashboard | Mengeliminasi dependensi jaringan luar Telegram Bot API dan mengurangi *point of failure*. |
+| **Hierarki Peran (Role)** | 4 Role (OPERATOR, ANALYST, ADMIN, VIEWER) | **3 Role** (OPERATOR, ANALYST, ADMIN) | Realistis diselesaikan oleh tim magang 3 orang; peran VIEWER ditunda ke rilis pasca-MVP. |
+| **Akuisisi Bukti Visual** | Scraper Playwright server-side | **Client-First Capture** + Playwright fallback | Anti login-wall & IP-block media sosial; menangkap persis apa yang dirender di layar mata personel. |
+| **Cakupan Platform** | 3 platform (YouTube, TikTok, IG) | **3 platform utama + Adapter Pattern** untuk X/Threads via active-tab capture | Menjawab kebutuhan operasional “semua platform” tanpa melanggar batasan stabilitas server. |
+| **Taksonomi Topik** | Kategori pelanggaran saja | **Kategori pelanggaran + Topik Terkontrol IPOLEKSOSBUDHANKAM** | Menjawab langsung notulensi rapat D22 Tim Dalinfo BSSN. |
+| **Evaluasi RAG (FR-13)** | Lengkap dengan evaluasi buta | **Dipertahankan penuh 100%** | Menjadi inti bobot ilmiah Tugas Akhir (TA) bidang Kecerdasan Buatan. |
+| **Audit Hash-Chain** | Hash-chain + jangkar DOCX harian | **Dipertahankan penuh 100%** | Menjadi inti bobot ilmiah Tugas Akhir (TA) Rekayasa Kriptografi & Bukti Digital. |
+| **Fase Rilis** | 3 fase implementasi | **3 fase dengan scope terfokus** | Sangat terukur, bertahap, dan realistis diselesaikan dalam periode magang. |
+
+> **Komponen yang Tidak Berubah dari v3:**  
+> Kalkulasi SHA-256 seketika di titik capture, re-verifikasi hash di worker, OCR deterministik Tesseract, modul RAG terukur dengan evaluasi buta (FR-13), kode alasan terstruktur, deteksi duplikat (URL kanonikal, SHA-256, dan pHash), audit log ber-hash-chain dengan jangkar eksternal, perlindungan privasi *fail-closed*, target tingkat layanan (SLO), prosedur pencadangan dan uji pemulihan, model ancaman keamanan (T1–T8), 32 kriteria penerimaan (AC-01 s.d. AC-32), dan fase rilis bergerbang.
+
+---
+
+## 1. Product Requirement Document (PRD)
 
 ### 1.1 Ringkasan Eksekutif
 
-Asisten Patroli Siber mempercepat triase konten media sosial pada piket patroli siber. Petugas mengirim link atau file gambar lewat bot Telegram. Sistem mengambil bukti, menghitung SHA-256, lalu AI memberi klasifikasi **indikatif**. Keputusan tetap di tangan analis.
+Asisten Patroli Siber adalah sistem terintegrasi yang membantu personel piket patroli siber menangkap konten media sosial yang diduga bermasalah, mengamankan buktinya secara forensik digital, menganalisisnya dengan kecerdasan buatan multimodal sebagai **saran indikatif 5W+1H**, dan menyerahkan keputusan vonis kepada analis manusia (*Human-in-the-Loop*). 
 
-v3 menambahkan tiga kemampuan, masing-masing dengan pengaman:
+Keputusan final analis disimpan sebagai **memori institusional** (*Retrieval-Augmented Generation* / RAG) untuk memperkaya konteks triase pada kasus-kasus berikutnya, dan seluruh hasil analisis disajikan secara agregat pada **Web Dashboard Analitik**.
 
-1. **RAG dari keputusan analis.** Kasus serupa yang sudah diputuskan dipakai sebagai referensi bagi AI. RAG hanya diaktifkan permanen jika evaluasi buta menunjukkan RAG tidak memperburuk hasil (FR-13).
-2. **Ekstraksi entitas.** Topik (dari daftar terkontrol), aktor target, dan media asal, untuk analitik agregat.
-3. **Dashboard analitik** untuk pimpinan dan analis, dengan prinsip privasi fail-closed.
-
-### 1.2 Masalah yang Diselesaikan
-
-| No | Masalah | Solusi |
-| --- | --- | --- |
-| 1 | Konten dihapus sebelum dilaporkan | Screenshot Full HD dan metadata otomatis segera setelah link dikirim (target p95 ≤ 3 menit, §1.7) |
-| 2 | Keabsahan bukti diragukan | SHA-256, chain of custody, audit hash-chain dengan jangkar eksternal |
-| 3 | Link terblokir atau login-wall | Dual Intake (file gambar manual) |
-| 4 | Kuota API AI habis | Multi-Model Failover dalam satu proyek berbayar, dengan batas anggaran |
-| 5 | AI salah tafsir konteks lokal | HITL + RAG dari keputusan analis, **dibuktikan lewat evaluasi buta** |
-| 6 | Rekap shift tidak seragam | Generator DOCX dinas |
-| 7 | Tidak ada gambaran agregat | Dashboard topik, aktor publik, media asal, tren, platform, kategori, risiko |
-| 8 | **(Baru)** Konten sama dilaporkan berulang | Deteksi duplikat, analis cukup konfirmasi |
-
-### 1.3 Tujuan dan Non-Goals
-
-**Tujuan v3:**
-
-1. Triase lebih cepat dan konsisten tanpa mengurangi kendali analis.
-2. Data keputusan analis terstruktur (kode alasan, entitas) sehingga dapat dianalisis dan dipakai ulang.
-3. Bukti dan jejak audit yang dapat dipertanggungjawabkan.
-4. Klaim kualitas AI yang didukung angka, bukan asumsi.
-
-**Non-goals (eksplisit tidak dikerjakan di v3):**
-
-1. Keputusan atau takedown otomatis tanpa analis.
-2. Klaim "AI makin pintar" sebelum FR-13 menunjukkannya.
-3. Fine-tuning model.
-4. Alerting real-time atau deteksi lonjakan otomatis.
-5. Platform di luar YouTube, TikTok, Instagram.
-6. Kategori baru (mis. judi online, konten asusila) tanpa persetujuan tertulis pemangku kepentingan (lihat §5).
-7. Analitik topik free-text.
-8. Service frontend terpisah, aplikasi mobile, atau SSO (SSO ditunda sampai kebijakan instansi tersedia).
-9. Profiling individu atau pemeringkatan aktor/sumber berdasarkan "kesalahan".
-10. Pemakaian `skor_keyakinan` dari AI sebagai ambang keputusan (nilai ini tidak terkalibrasi; hanya ditampilkan sebagai informasi).
-
-### 1.4 Profil Pengguna dan Role
-
-Satu tabel identitas (`patrol_users`) untuk Telegram dan dashboard.
-
-| Role | Telegram | Dashboard |
-| --- | --- | --- |
-| OPERATOR | Kirim link/file, `/status` tiket miliknya | Tidak ada akses |
-| ANALYST | Hak OPERATOR + validasi, `/rekap_harian` | Grafik + drill-down (termasuk tautan konten), ekspor CSV, halaman penilaian kedua (FR-13.4) |
-| ADMIN | Hak ANALYST (tanpa perintah administratif di Telegram) | Semua hak ANALYST + revisi keputusan, whitelist dan akun, KB, entitas, API key, verifikasi audit (bersama supervisor atau ADMIN kedua, FR-08.4), halaman kesehatan sistem |
-| VIEWER (baru) | Tidak ada akses | Grafik agregat saja (tanpa tautan, tanpa bukti), ekspor CSV agregat. Pengguna VIEWER adalah pejabat internal yang berwenang; agregat tidak diklaim sebagai anonimisasi |
-
-Pimpinan Piket/Supervisor menerima DOCX rekap dan dapat diberi role VIEWER.
-
-Akses dashboard memerlukan `dashboard_enabled = true`, password, dan untuk ADMIN wajib TOTP.
-
-### 1.5 Kebutuhan Fungsional
-
-FR-01 sampai FR-08 dipertahankan dari v1 dengan perubahan berikut.
-
-| FR | Status |
-| --- | --- |
-| FR-01 Dual Intake | Diperluas: FR-01.3 (file asli) |
-| FR-02 Scraper Playwright | Diperluas: FR-02.7 (allowlist egress), FR-02.8 (batas kepercayaan) |
-| FR-03 Kriptografi Forensik | Diperluas: FR-03.4 (hash di titik capture) |
-| FR-04 Triase AI | Diperluas: FR-04.3 sampai FR-04.6 |
-| FR-05 HITL | Diperluas: FR-05.3 sampai FR-05.5 |
-| FR-06 Pelacakan Tiket | Diperluas: status `FAILED`, `MANUAL_FALLBACK`; atribut duplikat |
-| FR-07 DOCX | Diperluas: FR-07.2 (jangkar audit) |
-| FR-08 Keamanan dan Audit | Diperluas: FR-08.3 sampai FR-08.6 |
-
-**FR-01.3 File asli.** Bot menganjurkan pengiriman gambar sebagai *file/dokumen* (bukan "foto") karena Telegram mengompresi foto. Gambar yang diterima sebagai foto tetap diterima, tetapi evidence diberi tanda `source_quality = TELEGRAM_COMPRESSED` dan ini tercantum di DOCX. Batas unggahan: 20 MB, tipe MIME diverifikasi dari isi file, batas piksel Pillow (`MAX_IMAGE_PIXELS`) aktif untuk mencegah decompression bomb.
-
-**FR-02.7 Allowlist egress scraper.** Scraper hanya membuka URL navigasi utama yang domainnya cocok dengan allowlist platform (dicek ulang setelah setiap redirect). Sub-resource halaman (gambar, skrip CDN) boleh ke internet publik, tetapi koneksi ke alamat privat diblokir di level jaringan (§3.5). Browser berjalan di container terpisah.
-
-**FR-02.8 Batas kepercayaan scraper.** Hasil dari `scraper` diperlakukan sebagai input tak tepercaya:
-
-1. **Tanpa Celery di sisi scraper.** `scraper` adalah proses loop sederhana: `BRPOP` pekerjaan dari list `scrape:jobs`, kerjakan, `LPUSH` hasil (JSON) ke list `scrape:results` di `redis-scrape`. Proses kolektor di container `worker` (`scrape-collector`) mengambil hasil dengan `BRPOP`, memvalidasinya (butir 2–4), lalu memasukkan tugas lanjutan ke antrian Celery `default` di Redis utama. Tidak ada deserialisasi selain JSON; Celery di Redis utama juga dikunci ke JSON (`accept_content = ['json']`).
-2. Worker membuat nonce acak per tiket, menyertakannya di pekerjaan scrape, dan menolak hasil yang nonce-nya tidak cocok.
-3. Hasil divalidasi skema Pydantic (ukuran field dibatasi); path file wajib berada di `scratch/<ticket_id>/`, berupa file reguler (bukan symlink), dengan batas ukuran.
-4. Worker hanya membaca file gambar hasil scrape lewat Pillow (batas FR-01.3) dan Tesseract. OCR dijalankan sebagai subprocess terpisah tanpa variabel environment kredensial, dengan batas waktu dan memori.
-5. Nonce mencegah tercampurnya atau diputarnya ulang hasil antar-tiket, tetapi **tidak** melindungi dari scraper yang sudah dibobol (ia melihat nonce). Pertahanan untuk kasus itu adalah satu proses per tugas dan recreate container harian.
-
-**FR-03.4 Hash di titik capture.** SHA-256 dihitung saat file pertama kali ditulis: oleh `scraper` ke volume `scratch/<ticket_id>/`, atau oleh handler unggahan di `app` ke volume `incoming/<ticket_id>/`. Worker lalu memverifikasi ulang sebelum mencatat ke `evidences`. Ketidakcocokan = tiket `FAILED` + audit `EVIDENCE_HASH_MISMATCH`.
-
-**FR-04.3 Output AI diperluas.** Skema Pydantic `AIPatrolAnalysis` ditambah:
-
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| topik\_kode | Enum dinamis | Kode dari daftar topik terkontrol aktif (disisipkan ke prompt), atau `LAINNYA` |
-| topik\_usulan | String, maks 80 karakter, nullable | Diisi hanya bila `topik_kode = LAINNYA` |
-| aktor\_target | List[{nama: String, jenis: Enum}] | `jenis`: TOKOH\_PUBLIK, INSTITUSI, KELOMPOK, INDIVIDU\_PRIVAT. Boleh kosong, maks 5 |
-| media\_asal | String, nullable | Media/kanal asal yang terlihat pada konten (watermark, logo, sebutan di caption), mis. "Tribunnews". Null bila tidak terlihat |
-| tipe\_media\_asal | Enum, nullable | MEDIA\_ONLINE, MEDIA\_TV, KOMUNITAS, LAINNYA |
-
-Field lama tetap. **Akun pengunggah tidak ditebak AI**: untuk jalur link diambil dari `accounts` (hasil scrape); untuk jalur file tidak diisi.
-
-Nilai enum yang berlaku (taksonomi versi `v3.0`, dikelola di `config_taxonomy`):
-
-- `kategori_utama` (output AI **dan** keputusan analis): HOAKS, UJARAN\_KEBENCIAN, PROVOKASI\_SARA, PENIPUAN\_FINANSIAL, DI\_LUAR\_KONTEKS, `BUKAN_PELANGGARAN`. AI wajib memilih `BUKAN_PELANGGARAN` bila tidak menemukan pelanggaran; field lama `indikasi_pelanggaran` harus konsisten dengannya (divalidasi Pydantic). Taksonomi ini **dibekukan selama masa berlaku v3**; perubahan kategori = rilis baru dengan rencana pelabelan ulang KB.
-- `tingkat_risiko`: RENDAH, SEDANG, TINGGI untuk pelanggaran; **NULL** bila `kategori_utama = BUKAN_PELANGGARAN` (berlaku untuk output AI dan keputusan analis). Perbandingan risiko AI vs analis hanya dilakukan bila keduanya pelanggaran.
-
-**FR-04.4 Analisis dengan konteks RAG.** Bila RAG aktif (FR-09.8), sistem menjalankan retrieval (FR-09.4) dan menyisipkan hasilnya ke prompt sebagai blok referensi. Pengecualian: jalur B evaluasi buta (FR-13.2) selalu tanpa RAG. Ketentuan:
-
-1. Blok referensi hanya berisi: cuplikan teks konten asli (judul/caption/OCR, maks 280 karakter, di dalam blok data berpembatas), kategori final, risiko final, kode alasan, dan catatan analis (maks 300 karakter).
-2. **Tidak ada teks buatan AI** yang disisipkan: `ai_reasoning`, ringkasan narasi AI, dan topik pilihan AI tidak dipakai sebagai referensi.
-3. Prompt menyatakan referensi bersifat contoh, bukan kebenaran, dan konten dinilai berdasarkan isinya sendiri.
-4. Bila KB kosong, tidak ada hasil di atas ambang, atau retrieval gagal: analisis berjalan tanpa konteks (perilaku v1), dicatat di `rag_mode`.
-
-**FR-04.5 Isolasi input tak tepercaya.** Judul, caption, teks OCR, nama akun, dan teks di dalam gambar diperlakukan sebagai data. Prompt membungkusnya dengan pembatas eksplisit dan instruksi bahwa isinya tidak boleh diikuti sebagai perintah. Output divalidasi Pydantic strict; output yang gagal validasi diulang 1x, lalu failover model. Risiko residual diterima karena HITL adalah kontrol akhir (lihat T3 di §1.8).
-
-**FR-04.6 Jejak model.** Setiap laporan mencatat `ai_model_id` (versi model yang benar-benar menjawab), `prompt_version`, `rag_mode`, `rag_context` (daftar `entry_id` + skor), dan biaya token. Temperatur generasi rendah dan tetap (konfigurasi).
-
-**FR-05.3 Tombol keputusan dan kode alasan.** Prinsip: **status selalu diturunkan dari `final_label`** di semua mode. `final_label = BUKAN_PELANGGARAN` → REJECTED; selain itu VALIDATED (sama dengan label AI) atau MODIFIED (berbeda dari label AI, mode NORMAL). Kode alasan wajib bila dan hanya bila keputusan analis berbeda dari output AI.
-
-| Output AI | Tombol di kartu | Hasil | Kode alasan |
-| --- | --- | --- | --- |
-| Pelanggaran (kategori X) | Setuju | X, status VALIDATED | Tidak |
-| Pelanggaran (kategori X) | Ubah Kategori/Risiko | Kategori/risiko baru, status MODIFIED | Wajib |
-| Pelanggaran (kategori X) | Bukan Pelanggaran | `BUKAN_PELANGGARAN`, status REJECTED | Wajib |
-| `BUKAN_PELANGGARAN` | Setuju (bukan pelanggaran) | `BUKAN_PELANGGARAN`, status REJECTED | Tidak |
-| `BUKAN_PELANGGARAN` | Ini pelanggaran | Pilih kategori + risiko, status MODIFIED | Wajib |
-
-Perubahan risiko saja dengan kategori sama juga MODIFIED. Catatan selalu opsional.
-
-Kode alasan awal (dapat dikonfigurasi, berversi): `SATIRE_ATAU_HUMOR`, `FAKTA_TERVERIFIKASI`, `KONTEKS_TIDAK_TERBACA_AI`, `SALAH_KATEGORI`, `RISIKO_TERLALU_TINGGI`, `RISIKO_TERLALU_RENDAH`, `KONTEN_TIDAK_RELEVAN`, `LAINNYA`. Catatan free-text wajib hanya bila kode = `LAINNYA`. Untuk `LAINNYA`, keputusan **baru disimpan (commit atomik) setelah catatan diterima**; sebelum itu pilihan analis hanya disimpan sementara di Redis. Bila catatan tidak datang dalam 10 menit, pilihan sementara dibuang, kartu tetap `WAITING_VALIDATION`, dan analis diingatkan. Untuk kode lain, keputusan langsung disimpan dan catatan opsional dapat ditambahkan satu kali dalam 10 menit setelah keputusan; setelah itu jendela catatan ditutup dan entri KB ditulis (FR-09.1).
-
-**FR-05.3a Mode keputusan.** Setiap keputusan mencatat `decision_mode`:
-
-| Mode | Kapan | Kode alasan | Pemetaan status |
-| --- | --- | --- | --- |
-| NORMAL | Kartu biasa | Sesuai tabel FR-05.3 | Sesuai tabel FR-05.3 |
-| BLIND | Tiket evaluasi buta (FR-13) | Tidak diminta (NULL) | Pelanggaran = VALIDATED, `BUKAN_PELANGGARAN` = REJECTED |
-| NO\_AI | AI tidak tersedia setelah semua failover | Tidak diminta (NULL) | Pelanggaran = VALIDATED, `BUKAN_PELANGGARAN` = REJECTED |
-| DUPLICATE | Tombol "Sama dengan induk" | Tidak diminta | Status induk |
-
-MODIFIED hanya diberikan oleh keputusan mode NORMAL; laporan DUPLICATE mewarisi status induk apa adanya, termasuk MODIFIED. Grafik 8 (ketidaksepakatan) hanya memakai mode NORMAL dan membandingkan **keputusan pertama** analis dengan output AI (lihat `original_decision`, §3.4), sehingga revisi tidak mengubah statistik ini.
-
-**FR-05.4 Validasi atomik.** Transisi dari `WAITING_VALIDATION` dilakukan dengan update bersyarat (`... WHERE status = 'WAITING_VALIDATION'`). Klik kedua dari analis lain menerima pesan "sudah divalidasi oleh [nama] pukul [jam]". Kartu analis tidak lagi menampilkan tombol setelah divalidasi.
-
-**FR-05.4a Topologi chat.** Semua kartu analis (NORMAL, BLIND, NO\_AI, DUPLICATE) dikirim ke **satu grup analis terdaftar**; siapa pun ANALYST di grup dapat memutuskan, dan FR-05.4 mencegah keputusan ganda. Notifikasi `/status` untuk OPERATOR dikirim lewat chat pribadi. Penilaian kedua untuk uji reliabilitas tidak memakai Telegram (FR-13.4).
-
-**FR-05.5 Revisi keputusan (dashboard ADMIN).** Keputusan final hanya dapat diubah oleh ADMIN lewat halaman revisi di dashboard (dilindungi TOTP, FR-12.2), dengan keputusan baru + kode alasan wajib. Telegram tidak menyediakan perintah ADMIN yang mengubah data, karena akun Telegram yang dibobol tidak boleh cukup untuk mengubah keputusan atau whitelist (lihat T5). Revisi memperbarui keputusan berlaku di `reports`, memicu FR-09.7, dan dicatat `REPORT_REVISED`. Keputusan pertama tetap tersimpan di `original_decision`. Pemetaan status mengikuti FR-05.3/FR-05.3a. Untuk evaluasi FR-13 selalu dipakai **label buta asli** (`eval_runs`), bukan hasil revisi. Revisi pada laporan induk juga menerapkan keputusan baru ke laporan yang sebelumnya menyalin keputusan lewat "Sama dengan induk", masing-masing dengan audit sendiri.
-
-**FR-06.3 Duplikat.**
-
-1. **Jalur link:** URL kanonik yang sudah ada di `contents` → duplikat pasti. `duplicate_of` = laporan pertama untuk konten itu (sudah diputuskan atau belum).
-2. **Jalur file:** SHA-256 identik → duplikat pasti. Jarak Hamming pHash ≤ ambang (default 6, dikalibrasi di Fase 1) → hanya **petunjuk** (`similar_to`) di kartu, tanpa status tambahan.
-3. **Bukti tetap diambil dan di-hash.** Capture ulang punya nilai forensik (membuktikan konten masih ada pada waktu T).
-4. Kartu analis menampilkan "Kemungkinan duplikat PS-xxxx" beserta keputusan induk (bila sudah ada) dan tombol tambahan **Sama dengan induk**. Pada kartu buta, petunjuk dan keputusan induk **tidak** ditampilkan agar penilaian tetap buta. Bila induk belum diputuskan, tombol ini nonaktif dan kartu menampilkan "Induk sedang diproses"; analis tetap boleh memutuskan sendiri.
-5. **Sama dengan induk** menyalin keputusan induk dan menandai `is_duplicate = true`.
-6. `content_cluster_id`: duplikat pasti (URL kanonik atau SHA-256 sama) **selalu** masuk cluster induk, apa pun keputusan analis. Petunjuk pHash masuk cluster induk hanya bila analis menekan **Sama dengan induk**; selain itu cluster sendiri.
-7. **Satu entri KB per cluster:** entri KB ditulis oleh laporan pertama yang diputuskan dalam cluster; laporan berikutnya dalam cluster tidak menulis entri baru (kecuali lewat revisi ADMIN, FR-05.5 dan FR-09.7).
-8. **Keputusan bertentangan:** bila laporan dalam cluster yang sama diputuskan berbeda (mis. induk belum diputuskan saat analis lain memutuskan sendiri), laporan diberi tanda `cluster_conflict`, muncul di halaman ADMIN, dan diselesaikan ADMIN lewat revisi (FR-05.5). Sampai diselesaikan, dashboard memakai keputusan laporan pertama yang diputuskan dalam cluster.
-9. Dashboard menghitung satu cluster sekali (unit hitung default = konten unik, FR-11.1). Dipakai untuk mengecualikan diri sendiri saat retrieval.
-
-**FR-07.2 Jangkar audit dan aksi administratif di DOCX.** Setiap DOCX `/rekap_harian` mencantumkan:
-
-1. *Chain head* audit log (hash entri terakhir) dan jumlah entri hari itu. DOCX dikirim ke supervisor, sehingga salinan hash berada di luar sistem.
-2. Daftar aksi administratif hari itu: penonaktifan entri KB, merge entitas, revisi keputusan, purge, dan perubahan akun. Ini menggantikan ringkasan mingguan terpisah.
-
-**FR-08.3 Aksi audit tambahan.** `KB_ENTRY_CREATED`, `KB_ENTRY_DEACTIVATED`, `KB_ENTRY_SEEDED`, `KB_ENTRY_PURGED`, `ENTITY_APPROVED`, `ENTITY_MERGED`, `TOPIC_PROPOSED`, `REPORT_REVISED`, `BLIND_LABEL_RECORDED`, `EVIDENCE_HASH_MISMATCH`, `RAG_FAILED`, `BUDGET_THRESHOLD`, `DASHBOARD_LOGIN`, `DASHBOARD_LOGIN_FAILED`, `DASHBOARD_EXPORT`, `USER_MANAGED`.
-
-**FR-08.4 Audit hash-chain.** Setiap baris `audit_logs` menyimpan `prev_hash` dan `row_hash = SHA-256(prev_hash || serialisasi kanonik baris)`. Penulisan audit diserialisasi (advisory lock). Verifikasi (halaman ADMIN di dashboard) menghitung ulang rantai dan membandingkannya dengan **hash jangkar dari salinan sah milik supervisor** (FR-08.6), bukan dari data di dalam sistem. Verifikasi dijalankan bersama supervisor atau oleh ADMIN kedua, bukan oleh ADMIN yang sedang diaudit.
-
-**FR-08.6 Jangkar terjadwal.** Job terjadwal (`celery-beat`, pukul 23.55 WIB) mengirim jangkar berupa pasangan (`seq_no`, `row_hash`) entri terakhir dan jumlah entri hari itu langsung ke chat Telegram supervisor yang terdaftar (`SUPERVISOR_CHAT_IDS`), tidak bergantung pada `/rekap_harian`. Kegagalan kirim memicu alarm ADMIN dan dicoba ulang. Karena bot dapat mengedit atau menghapus pesannya sendiri, pesan bot **bukan** salinan yang aman. Balasan supervisor di chat pribadi juga tidak cukup, karena bot dapat menghapus pesan di chat pribadi dalam 48 jam. Salinan yang sah adalah catatan **di luar Telegram dan di luar sistem**: (a) supervisor menyalin (`seq_no`, `row_hash`) ke catatan miliknya sendiri (mis. buku log piket atau dokumen pribadi), minimal sekali per minggu, dan/atau (b) file DOCX rekap yang diunduh dan disimpan supervisor di luar sistem. Jendela manipulasi tak terdeteksi = sejak salinan sah terakhir (maksimal ±7 hari bila hanya balasan mingguan, ±24 jam bila DOCX diterima harian). Ini dicatat sebagai risiko residual.
-
-**FR-08.5 Pemisahan hak DB.** Aplikasi (`app`, `worker`) terhubung dengan role DB non-pemilik yang tidak punya hak `ALTER`, `DROP`, `TRIGGER`, atau `UPDATE`/`DELETE` pada `audit_logs`. Migrasi berjalan dengan role pemilik terpisah yang kredensialnya tidak berada di container aplikasi.
-
-Risiko residual yang diterima: pihak dengan hak pemilik/superuser DB dapat menulis ulang rantai setelah salinan sah terakhir (jendela maksimal ±7 hari, lebih pendek bila supervisor membalas atau menyimpan DOCX lebih sering; FR-08.6) dan menonaktifkan trigger. Hash-chain membuat manipulasi **terdeteksi** terhadap jangkar eksternal, bukan mustahil.
-
-**FR-09 Knowledge Base RAG.**
-
-- **FR-09.1 Penulisan.** Setiap keputusan final dari ANALYST/ADMIN yang merupakan keputusan pertama dalam cluster-nya (FR-06.3) membuat satu entri KB. Penulisan dijalankan setelah catatan opsional diterima atau jendela catatan 10 menit berakhir, sehingga catatan ikut tersimpan tanpa perlu mengubah entri (NFR-8).
-- **FR-09.2 Isi entri.** `final_label` (kategori atau `BUKAN_PELANGGARAN`), `final_risk`, `reason_code`, `analyst_notes`, `decision_mode`, `ai_suggested` (true bila label final sama dengan label AI yang ditampilkan ke analis, yaitu Setuju pada mode NORMAL), `snippet_text` (cuplikan teks konten asli), `embed_text`, `embedding`, `embedding_model`, `taxonomy_version`, `content_cluster_id`, `decided_by`. Laporan REJECTED disimpan sebagai contoh negatif berlabel `BUKAN_PELANGGARAN`. `ai_suggested` dipakai untuk analisis stratifikasi di FR-13, tidak ditampilkan di prompt.
-- **FR-09.3 Embedding.** Teks yang di-embed: judul + caption + teks OCR dari langkah OCR deterministik (proses 3.5). Tidak ada output AI di dalamnya, agar vektor merepresentasikan konten, bukan opini model. Bila teks kosong (mis. gambar tanpa tulisan), embedding tidak dibuat dan `rag_mode = NO_TEXT`. Model awal `gemini-embedding-001` dengan `output_dimensionality = 768`; vektor dinormalisasi L2 sebelum disimpan (wajib untuk dimensi terpotong). **Tidak ada failover model embedding**, karena vektor dari model berbeda tidak sebanding; kegagalan = `rag_mode = FAILED`. Ganti model = re-embed seluruh KB (job batch), dilacak lewat kolom `embedding_model`.
-- **FR-09.4 Retrieval.** Embed teks kueri, exact scan cosine similarity atas entri `is_active = true` dengan `taxonomy_version` sama, kecualikan `content_cluster_id` yang sama, ambil top-k (default 5) di atas ambang.
-- **FR-09.5 Kontrol kualitas.** ADMIN dapat menonaktifkan entri dengan kode alasan wajib. Entri nonaktif tidak ikut retrieval dan tidak dihapus. Penonaktifan tercantum di DOCX harian (FR-07.2).
-- **FR-09.6 Cold start.** ADMIN dapat mengimpor entri awal dari kasus v1 yang ditinjau ulang (tidak otomatis; lihat §4.4).
-- **FR-09.7 Satu entri aktif per cluster.** Revisi menonaktifkan entri aktif cluster dan membuat entri baru dalam satu transaksi.
-- **FR-09.8 Saklar RAG.** `RAG_ENABLED` (konfigurasi). Default **mati** di Fase 1 dan 2; KB tetap ditulis (mode bayangan). Diaktifkan di Fase 3 sesuai gerbang §4.
-- **FR-09.9 Kalibrasi ambang.** Ambang ditetapkan dari data, bukan tebakan (nilai 0,75 dari v2 tidak dipakai). Hitung distribusi similarity pasangan acak antar-konten (sampel ini mengandung sebagian pasangan yang sebenarnya berkaitan, sehingga hasilnya konservatif). Dengan N = jumlah entri aktif, ambang = persentil ke-(1 − 0,5/N) distribusi tersebut, sehingga rata-rata referensi "kebetulan mirip" per kueri ≤ 0,5. Ambang dibatasi tidak melebihi ambang near-duplicate dikurangi 0,05, agar RAG tidak menyusut menjadi pencari duplikat saja. Cakupan RAG (persentase tiket yang mendapat ≥ 1 referensi) dipantau; bila < 30%, ambang dan teks embedding ditinjau. Dihitung ulang bulanan karena N bertambah. Pada saat yang sama dihitung **ambang near-duplicate** (default 0,95, dikonfirmasi dengan contoh pasangan repost) untuk FR-13.3.
-
-**FR-10 Entitas.**
-
-- **FR-10.1 Topik terkontrol.** ADMIN mengelola daftar topik (awal 20 sampai 40 topik, berkode, berversi). AI memilih satu kode atau `LAINNYA` + usulan. Usulan hanya ditampilkan sebagai daftar frekuensi di halaman ADMIN; ADMIN dapat menambah topik baru secara manual (di luar jendela evaluasi FR-13.2). Tidak ada alur promosi otomatis.
-- **FR-10.2 Aktor.** Nama aktor dinormalisasi (huruf kecil, hapus gelar dan tanda baca) lalu dicocokkan exact ke `entity_aliases`. Tidak cocok → entitas baru `PENDING_REVIEW`. ADMIN menyetujui atau menggabungkan secara manual; tidak ada pencocokan fuzzy di v3.
-- **FR-10.3 Fail-closed privasi.** Aktor `INDIVIDU_PRIVAT` tidak dibuat sebagai entitas; namanya hanya tersimpan mentah di `reports.ai_actors_raw` (tunduk retensi §1.6). Di dashboard, aktor hanya tampil dengan nama bila entitas berstatus `APPROVED` dan jenisnya TOKOH\_PUBLIK, INSTITUSI, atau KELOMPOK. Sisanya tampil sebagai baris gabungan "Belum ditinjau (n)" atau "Individu privat (n)".
-- **FR-10.4 Media asal (versi sederhana).** Tanpa alur persetujuan. Nama media dinormalisasi dan dicocokkan exact ke alias (ADMIN dapat menambah alias). Peringkat media asal hanya terlihat oleh ANALYST dan ADMIN, karena AI bisa saja menulis nama akun individu sebagai "media". Akun pengunggah tidak dijadikan entitas dashboard.
-
-**FR-11 Dashboard Analitik.**
-
-- **FR-11.1 Sumber dan unit hitung.** Laporan VALIDATED dan MODIFIED (setara `final_label ≠ BUKAN_PELANGGARAN`, FR-05.3), nilai **final**. Unit hitung default = konten unik (`content_cluster_id`), dengan opsi tampilan "jumlah laporan". Zona waktu agregasi Asia/Jakarta (WIB). Bila sumbu waktu = `posted_at`, laporan tanpa `posted_at` (jalur file) dikecualikan dan jumlahnya ditampilkan di keterangan grafik.
-- **FR-11.2 Grafik.**
-
-| No | Visual | Isi | Akses |
-| --- | --- | --- | --- |
-| 1 | Tren waktu | Temuan per hari/minggu/bulan | Semua |
-| 2 | Per platform | YouTube, TikTok, Instagram | Semua |
-| 3 | Per kategori | Taksonomi aktif | Semua |
-| 4 | Tingkat risiko | Distribusi dan tren | Semua |
-| 5 | Topik teratas | Top-N kode topik terkontrol | Semua |
-| 6 | Aktor target teratas | Hanya entitas APPROVED publik (FR-10.3) | Semua |
-| 7 | Media asal teratas | Nama ternormalisasi (FR-10.4) | ANALYST, ADMIN |
-| 8 | Ketidaksepakatan AI-Analis | % Setuju/Ubah/Tolak per kategori AI, kode alasan terbanyak; hanya `decision_mode = NORMAL` | ANALYST, ADMIN |
-| 9 | Evaluasi buta | Selama jendela evaluasi: hanya progres pengumpulan (jumlah pasangan, jumlah TINGGI, tingkat pengeluaran/kegagalan per jalur), **tanpa** Δ atau akurasi. Δ dan akurasi ditampilkan setelah analisis ukuran tetap dijalankan, lalu bulanan untuk pemantauan FR-13.6 | ADMIN |
-
-Grafik 8 diberi keterangan bahwa angka ini adalah **tingkat ketidaksepakatan, bukan akurasi**, karena analis melihat output AI saat memutuskan.
-
-- **FR-11.3 Filter.** Rentang tanggal, platform, kategori, risiko.
-- **FR-11.4 Drill-down.** ANALYST dan ADMIN: daftar laporan (tiket, tautan, kategori final, tanggal). Bukti gambar: ADMIN saja. VIEWER tidak punya drill-down.
-- **FR-11.5 Ekspor.** CSV dibuat di server dan dicatat di audit. VIEWER hanya dapat mengekspor agregat. Sel CSV yang diawali `=`, `+`, `-`, `@` di-escape (mencegah CSV injection). Unduh PNG memakai fitur klien Chart.js dan tidak diklaim teraudit.
-- **FR-11.6 Pelabelan netral.** Grafik aktor dan media asal memuat keterangan bahwa angka adalah frekuensi kemunculan pada temuan yang disetujui analis, bukan penilaian kesalahan.
-
-**FR-12 Autentikasi Dashboard.**
-
-- **FR-12.1** Login username + password (argon2id). Sesi server-side di Redis, cookie `HttpOnly`, `Secure`, `SameSite=Strict`, token CSRF untuk semua request yang mengubah data. Timeout idle 30 menit, maks sesi 8 jam.
-- **FR-12.2** TOTP (RFC 6238) wajib untuk ADMIN, opsional untuk role lain. OTP lewat Telegram **tidak** dipakai, karena akun Telegram yang dibobol akan sekaligus membobol faktor kedua.
-- **FR-12.3** Rate limit login (mis. 5 gagal per 15 menit per akun dan per IP), lalu kunci sementara. Menonaktifkan akun langsung menghapus semua sesinya.
-- **FR-12.4** ADMIN membuat, menonaktifkan, dan mengatur role akun. ADMIN tidak dapat menurunkan role atau menonaktifkan dirinya sendiri (mencegah terkunci tanpa admin).
-- **FR-12.5 Bootstrap ADMIN pertama.** ADMIN pertama dibuat lewat perintah CLI di dalam container (`manage create-admin`), yang menampilkan URI/QR pendaftaran TOTP satu kali di terminal. Tidak ada jalur pendaftaran ADMIN lewat web atau Telegram. Reset TOTP ADMIN lain dilakukan oleh ADMIN berbeda dan dicatat di audit.
-
-**FR-13 Evaluasi Buta RAG (baru).**
-
-- **FR-13.1 Sampel buta.** Setelah cek duplikat (proses 3.3), tiket non-duplikat diundi acak (default 10%, `EVAL_BLIND_RATE`) menjadi `eval_blind`. Kartu buta dikirim segera setelah bukti tersimpan, tanpa menunggu AI (jalur AI berjalan di latar belakang). Kartu analis **tidak** menampilkan output AI. Analis langsung memilih kategori dan risiko, atau Bukan Pelanggaran (`decision_mode = BLIND`, FR-05.3a). Setelah keputusan tersimpan, kartu di grup hanya diperbarui menjadi "Tervalidasi oleh [nama]" tanpa label maupun output AI; label dan output AI dikirim ke pengambil keputusan lewat chat pribadi. `/status` dan dashboard tidak menampilkan output AI maupun referensi RAG untuk tiket buta sebelum diputuskan, dan menyembunyikan label serta output AI dari halaman Penilaian Kedua (FR-13.4).
-- **FR-13.2 Dua jalur AI (Fase 3).** Untuk tiket buta, AI dijalankan dua kali: jalur A dengan RAG, jalur B tanpa RAG. Selama jendela evaluasi dibekukan (*frozen*): model generasi, model embedding, `prompt_version`, taksonomi, daftar topik, `RAG_THRESHOLD`, dan `RAG_TOP_K`. Kalibrasi ulang bulanan FR-09.9 ditunda sampai jendela selesai. Di gerbang Fase 1 dipastikan tanggal penghentian (*deprecation*) model yang dibekukan, menurut pengumuman penyedia, jatuh setelah perkiraan akhir jendela evaluasi. Bila penyedia tetap menghentikan model di tengah jendela, jendela dibatalkan dan dimulai ulang dengan model pengganti. Penanganan kegagalan per jalur (dicatat di `eval_runs`):
-  - Model yang dibekukan tidak tersedia sementara → retry pada **model yang sama** dengan backoff hingga 30 menit. Jalur evaluasi tidak memakai failover ke model lain (operasional tiket tetap memakai failover normal).
-  - Bila tetap tidak tersedia (`UNAVAILABLE`), pasangan dikeluarkan dari analisis; tingkat pengeluaran dilaporkan per jalur dan per risiko.
-  - Penolakan model (`REFUSED`) atau output tidak valid setelah retry (`INVALID`) adalah perilaku model dan **dihitung salah**, karena penolakan cenderung terjadi pada konten berisiko tinggi.
-  - Jika anggaran mencapai 100% (NFR-11), jalur ganda dijeda (undian buta dan label buta tetap berjalan). Biaya tambahan ≈ `EVAL_BLIND_RATE` × biaya AI (10–20%).
-- **FR-13.3 Populasi dan kebocoran.**
-  - Label buta ditulis ke KB seperti biasa. Retrieval untuk sebuah tiket hanya melihat entri yang ada sebelum tiket itu diputuskan dan selalu mengecualikan cluster-nya sendiri. Untuk tiket buta, jalur A juga mengecualikan entri dengan similarity ≥ ambang near-duplicate (FR-09.9) agar repost yang lolos dari cluster tidak membocorkan label.
-  - **Populasi utama** = pasangan dengan `rag_mode = ON` pada jalur A (jalur A benar-benar menerima ≥ 1 referensi). Pasangan NO\_TEXT/EMPTY/FAILED identik di kedua jalur dan hanya mengencerkan selisih, sehingga dilaporkan terpisah sebagai cakupan RAG (persentase tiket yang mendapat referensi).
-  - Analisis deskriptif tambahan (bukan input gerbang): stratifikasi menurut proporsi referensi `ai_suggested = true` dan menurut ada/tidaknya near-duplicate di KB.
-  - Batasan yang diakui: karena near-duplicate dikecualikan, evaluasi **tidak** mengukur efek RAG yang paling kuat di produksi, yaitu menyalin label dari repost yang sangat mirip. Efek itu dipantau secara deskriptif lewat tingkat ketidaksepakatan (grafik 8) pada tiket dengan referensi near-duplicate.
-- **FR-13.4 Reliabilitas label (penilaian kedua di dashboard).** Sampel tiket buta yang sudah diputuskan (60 pertama di Fase 1, lalu 20% tiket buta di Fase 3) masuk ke halaman **Penilaian Kedua** di dashboard. Analis lain (bukan pengambil keputusan pertama) menilai secara batch: hanya bukti dan metadata, tanpa label pertama dan tanpa output AI. Jawaban disimpan di `second_rater_label` dan tidak mengubah status. Selama tiket menunggu penilaian kedua (maks 7 hari), label pertama dan output AI-nya disembunyikan dari ANALYST di drill-down, `/status`, referensi RAG yang ditampilkan, dan DOCX `/rekap_harian` (ditampilkan sebagai "dalam penilaian kedua"), kecuali bagi penilai pertama. Penugasan: tiket di halaman Penilaian Kedua diklaim saat dibuka (update bersyarat satu kali; klaim kedaluwarsa setelah 24 jam tanpa jawaban). Kartu laporan duplikat dari tiket yang sedang menunggu penilaian kedua juga tidak menampilkan keputusan induk. Penilai kedua dapat melihat bukti gambar tiket yang ditugaskan kepadanya lewat endpoint khusus yang diaudit (pengecualian terbatas dari aturan bukti ADMIN-saja di FR-11.4). Label resmi tetap milik penilai pertama. Laporkan Cohen's kappa kategori beserta intervalnya; bila estimasi titik kappa < 0,6, definisi kategori dan kode alasan ditinjau sebelum Fase 3. Di Fase 3, Δ juga dilaporkan secara deskriptif pada subset yang kedua penilainya sepakat, karena noise label menarik Δ ke arah 0 dan menguntungkan kelulusan non-inferioritas.
-- **FR-13.4a Ukuran sampel dan kelayakan (diputuskan di akhir Fase 1).** Satu analisis dengan ukuran sampel tetap (tanpa pemeriksaan antara, demi kesederhanaan). Ukuran sampel dihitung untuk power 80% saat Δ sebenarnya = 0 terhadap margin non-inferioritas M, dengan α satu sisi 0,05. Proporsi pasangan diskordan diasumsikan secara konservatif **25%** (ketidakstabilan antar-run yang diukur dengan menjalankan jalur tanpa RAG dua kali pada 50 tiket buta Fase 1 hanya dipakai bila lebih besar, karena angka ini meremehkan ketidaksepakatan RAG vs tanpa RAG). Gambaran: M = 5 pp memerlukan sekitar 620 pasangan; M = 7 pp sekitar 320 pasangan. Di akhir Fase 1, pemilik produk mengunci M (5 atau 7 pp) dan `EVAL_BLIND_RATE` (maks 20%) berdasarkan volume dan cakupan RAG yang terukur. Bila waktu yang dibutuhkan > 6 bulan, Fase 3 ditunda atau RAG tidak dilanjutkan.
-- **FR-13.5 Aturan keputusan (pra-registrasi, dikunci di gerbang Fase 1).**
-  - Metrik utama: Δ = akurasi(A) − akurasi(B) pada populasi utama, terhadap label buta. Label AI = `kategori_utama` (termasuk `BUKAN_PELANGGARAN`, FR-04.3).
-  - Interval: interval skor Tango 90% untuk selisih proporsi berpasangan (setara uji satu sisi α 0,05).
-  - Metrik keamanan: *miss* risiko tinggi = label buta TINGGI yang oleh AI diberi RENDAH atau `BUKAN_PELANGGARAN`. Uji tanda eksak satu sisi pada pasangan diskordan miss (miss hanya di A vs miss hanya di B). TINGGI → SEDANG dilaporkan terpisah.
-  - Analisis dijalankan sekali saat ukuran sampel FR-13.4a tercapai **dan** populasi utama memuat ≥ 30 label buta TINGGI. Bila syarat TINGGI belum terpenuhi dalam batas 6 bulan, hasil = TIDAK MEYAKINKAN.
-  - Urutan evaluasi aturan:
-    1. **GAGAL** bila batas atas interval Δ < 0, **atau** uji tanda miss TINGGI p < 0,10 ke arah A lebih buruk, **atau** jumlah miss TINGGI yang hanya terjadi di A lebih banyak 3 atau lebih daripada yang hanya terjadi di B (aturan absolut, karena uji tanda baru bisa signifikan pada ≥ 4 pasangan diskordan). RAG dimatikan.
-    2. **LULUS** bila tidak GAGAL **dan** batas bawah interval Δ ≥ −M (M dikunci di gerbang Fase 1). RAG dipertahankan.
-    3. **TIDAK MEYAKINKAN** selain itu. RAG dimatikan (pilihan konservatif); evaluasi dapat diulang dengan sampel baru atas keputusan pemilik produk.
-  - **Sebelum aturan dikunci** di gerbang Fase 1, karakteristik operasi aturan gabungan disimulasikan dengan parameter yang diusulkan (M, ukuran sampel, prevalensi TINGGI dan tingkat miss dari data Fase 1). Batas yang dapat diterima: P(LULUS | Δ = −M) ≤ 0,05, P(GAGAL | Δ = 0) ≤ 0,20, dan P(LULUS | Δ = 0) ≥ 0,70. Bila terlampaui, ambang aturan keamanan absolut atau ukuran sampel disesuaikan lalu disimulasikan ulang; versi akhir dikunci bersama hasil simulasinya.
-  - Klaim "RAG meningkatkan akurasi" hanya boleh dibuat bila uji McNemar eksak memberi p < 0,05 ke arah jalur A.
-  - Dalam semua hasil, KB tetap ditulis untuk evaluasi berikutnya.
-- **FR-13.6 Pemantauan berkelanjutan.** Setelah gerbang dilewati, sampel buta tetap berjalan (default 5%) dengan dua jalur. Grafik 9 diperbarui bulanan. Alarm drift: uji McNemar eksak satu sisi pada 100 pasangan buta terakhir memberi p < 0,05 ke arah jalur A lebih buruk dari jalur B. Bila alarm berbunyi, ADMIN diberi notifikasi dan `RAG_ENABLED` dimatikan sampai evaluasi ulang. Tingkat alarm palsu aturan ini saat Δ = 0 ikut disimulasikan bersama FR-13.5. Pergantian model generasi atau embedding selalu memicu evaluasi ulang dengan aturan FR-13.5.
-- **FR-13.7 Perhitungan teruji.** Fungsi penghitung metrik FR-13 diuji unit dengan data sintetis yang hasilnya diketahui (AC-19).
-
-### 1.6 Persyaratan Non-Fungsional
-
-| No | Area | Persyaratan |
-| --- | --- | --- |
-| 1 | Reliabilitas Telegram | Pool 16 koneksi, timeout 60s, Safe Reply/Safe Edit 3x retry (tetap) |
-| 2 | Isolasi tugas | Playwright di service `scraper` terisolasi dengan Redis tersendiri; AI, OCR, dan embedding di `worker` |
-| 3 | Penyimpanan | PostgreSQL 16 + pgvector, volume persisten |
-| 4 | Retrieval | Exact scan cosine. Tinjau ulang (tambah indeks ANN) hanya bila KB > 100.000 entri atau p95 retrieval > 500 ms |
-| 5 | Fail-open | Kegagalan embedding, retrieval, normalisasi entitas, atau penulisan KB tidak menghentikan triase atau validasi; dicatat (`RAG_FAILED`) dan dicoba ulang lewat antrian |
-| 6 | Keamanan dashboard | TLS, sesi server-side, CSRF, rate limit, CSP ketat (tanpa CDN; aset lokal), secrets lewat environment/secret store, tidak di source code |
-| 7 | Privasi | Agregat di grafik; nama hanya untuk entitas publik yang disetujui; akun pengunggah tidak tampil di grafik; minimisasi data di prompt (bio akun tidak dikirim ke AI) |
-| 8 | Integritas KB | Isi entri tidak diedit (ditegakkan di DB: trigger menolak `UPDATE` selain kolom deaktivasi, kecuali dari role pemilik fungsi purge). Pengecualian satu-satunya: purge sesuai retensi (NFR-9), yang hanya dapat dilakukan lewat fungsi DB `purge_report()` (SECURITY DEFINER, milik role pemilik) |
-| 9 | Retensi dan UU PDP | Periode retensi laporan, bukti, KB, dan nama mentah ditetapkan instansi (§5). Purge menghapus isi konten dan nama, menyisakan *tombstone* (ID, hash, waktu). Data yang dipurge masih ada di backup hingga backup tersebut kedaluwarsa (maks 30 hari, NFR-12); ini dicatat sebagai risiko residual. Baris `audit_logs` hanya berisi ID, kode aksi, hash, dan metadata non-pribadi (tanpa teks konten atau nama), sehingga purge tidak menyentuh rantai audit. Purge terjadwal berjalan otomatis sesuai retensi; purge di luar jadwal oleh ADMIN wajib disertai alasan dan tercantum di DOCX harian ke supervisor |
-| 10 | Pemrosesan data AI | Hanya Gemini berbayar atau Vertex AI dengan region ditetapkan dan ketentuan tidak memakai data untuk pelatihan. Tidak ada rotasi banyak akun/key untuk menghindari kuota. Klasifikasi data dan persetujuan pimpinan didokumentasikan sebelum produksi |
-| 11 | Anggaran | Batas biaya bulanan. Pada 80%: notifikasi ADMIN. Pada 100%: triase tetap jalan dengan model termurah dalam daftar failover; embedding dan jalur ganda evaluasi dijeda (undian dan label buta tetap berjalan) |
-| 12 | Backup | Harian (service `backup`, §3.5): `pg_dump` + sinkronisasi folder bukti ke penyimpanan terpisah, terenkripsi, retensi 30 hari. Uji restore bulanan yang memverifikasi ulang SHA-256 semua bukti terhadap `evidences` |
-| 13 | Observabilitas | Log terstruktur JSON. Halaman "Kesehatan Sistem" ADMIN (§3.8). Notifikasi Telegram ke grup ADMIN untuk kondisi alarm |
-| 14 | Kanal Telegram | Token bot hanya ada di `app`; satu proses polling. Komponen lain (worker, celery-beat) mengirim pesan dengan menulis ke tabel `outbox`, yang dikirim oleh `app` dengan Safe Reply dan retry. Bot hanya melayani chat pribadi dan grup yang terdaftar. Whitelist dicek per pesan. Prosedur rotasi token bot. Diakui bahwa chat bot tidak terenkripsi end-to-end (lihat T5) |
-
-### 1.7 Target Layanan (SLO) dan Metrik Keberhasilan
-
-Target awal; angka dikonfirmasi setelah 2 minggu pengukuran Fase 1.
-
-| Metrik | Target |
-| --- | --- |
-| Waktu kirim link sampai kartu analis (p95) | ≤ 3 menit |
-| Waktu kirim file sampai kartu analis (p95) | ≤ 90 detik |
-| Keberhasilan scrape otomatis per platform (7 hari bergulir) | ≥ 85% (di bawah 70% = alarm) |
-| Ketersediaan bot pada jam piket | ≥ 99% |
-| Validasi gagal karena race condition | 0 |
-| Query dashboard (p95, data 12 bulan) | ≤ 2 detik |
-| Presisi petunjuk duplikat pHash (dikonfirmasi analis lewat "Sama dengan induk") | ≥ 90% |
-| Antrian review entitas ADMIN | < 50 item tertunda |
-| Biaya per tiket | Dipantau; baseline ditetapkan di Fase 1 |
-| Kualitas AI | Diukur hanya lewat FR-13 |
-
-### 1.8 Model Ancaman (Ringkas)
-
-| ID | Ancaman | Dampak | Mitigasi |
-| --- | --- | --- | --- |
-| T1 | **SSRF lewat scraper** atau **eksploitasi browser** oleh halaman berbahaya | Kebocoran data internal, pivot jaringan, serangan balik ke worker | Allowlist navigasi (FR-02.7); aturan firewall `scraper` hanya mengizinkan `redis-scrape:6379`, resolver DNS yang ditetapkan, dan internet publik (§3.5); `scraper` tidak memegang kredensial DB atau API key; Redis tersendiri; hasil scrape diperlakukan tak tepercaya: JSON saja, nonce per tiket, validasi path dan skema (FR-02.8). Risiko residual: eksploit yang bertahan di container `scraper` dapat memalsukan bukti tiket apa pun yang diproses sampai container di-recreate (maks ±24 jam), serta mencoba eksploit terautentikasi terhadap `redis-scrape` (dibatasi ACL dan jaringan `scrape_net`) |
-| T2 | **Poisoning KB** oleh analis (sengaja atau keliru) | AI terarah ke label salah | Evaluasi buta berkelanjutan (FR-13.6) mendeteksi penurunan kualitas; penonaktifan entri oleh ADMIN dengan alasan; aksi administratif tercantum di DOCX harian. Risiko residual: dengan 2–3 analis, poisoning yang konsisten oleh satu analis hanya terdeteksi lewat metrik, tidak dicegah |
-| T3 | **Prompt injection** lewat caption, OCR, teks dalam gambar, atau ringkasan di KB | Label/risiko dimanipulasi | Isolasi input (FR-04.5); KB hanya menyuntikkan keputusan analis dan cuplikan teks asli berpembatas (tanpa teks buatan AI); validasi skema; HITL. Uji: 20 kasus injection dalam acceptance test |
-| T4 | **Pemalsuan atau penyangkalan bukti** | Bukti ditolak dalam proses hukum | Hash di titik capture lalu diverifikasi worker (FR-03.4) mendeteksi kerusakan/perubahan **setelah** capture; file asli (FR-01.3); hash bukti masuk audit hash-chain dengan jangkar eksternal (FR-08.4); `ai_model_id` tercatat. Batasan: scraper yang sudah dibobol dapat menulis file dan hash palsu sekaligus; mitigasinya adalah isolasi T1, bukan hash. Opsi lanjutan: timestamp RFC 3161 |
-| T5 | **Paparan via Telegram**: server pihak ketiga, akun petugas dibobol, grup tak terkelola | Kebocoran bukti; intake palsu; keputusan palsu | Whitelist per pesan; tidak ada perintah administratif di Telegram (revisi, whitelist, audit hanya di dashboard ber-TOTP, FR-05.5); akun analis yang dibobol tetap dapat memberi keputusan palsu, terdeteksi lewat audit dan revisi; rotasi token; keputusan klasifikasi data (§5) |
-| T6 | **Penyalahgunaan oleh ADMIN** (hapus jejak, nonaktifkan entri tanpa dasar) | Integritas hilang | Audit hash-chain + jangkar di salinan supervisor (FR-08.4); pemisahan hak DB (FR-08.5); semua aksi administratif tercantum di DOCX harian. Risiko residual: pemegang hak pemilik DB dapat menulis ulang rantai setelah jangkar terakhir; ini terdeteksi, tidak dicegah |
-| T7 | **File berbahaya** (decompression bomb, file palsu) | Worker crash/DoS | Batas ukuran dan piksel, verifikasi MIME dari isi, pemrosesan di worker dengan batas memori |
-| T8 | **Pengambilalihan sesi dashboard** | Akses data | Sesi server-side, CSRF, CSP, TOTP ADMIN, rate limit |
-
-### 1.9 Kriteria Penerimaan (Acceptance Criteria)
-
-| ID | Kriteria |
-| --- | --- |
-| AC-01 | URL ke host internal (mis. `http://10.0.0.5`, `http://169.254.169.254`, domain non-platform, redirect ke host internal) ditolak dan dicatat; tidak ada request keluar dari `scraper` ke jaringan internal (diuji dari dalam container) |
-| AC-02 | Dua analis menekan tombol pada kartu yang sama dalam < 1 detik: tepat satu keputusan tersimpan, analis kedua menerima pemberitahuan |
-| AC-03 | Ubah/Tolak tanpa kode alasan tidak dapat disimpan; `LAINNYA` tanpa catatan tidak dapat disimpan |
-| AC-04 | Link yang sama dikirim dua kali: tiket kedua punya `duplicate_of`, bukti baru tetap di-hash, dashboard menghitung 1 konten unik |
-| AC-05 | Retrieval tidak pernah mengembalikan entri dari `content_cluster_id` yang sama atau entri `is_active = false` (uji otomatis) |
-| AC-06 | Embedding API dimatikan (simulasi): tiket tetap sampai ke kartu analis dengan `rag_mode = FAILED` |
-| AC-07 | Nama aktor `INDIVIDU_PRIVAT` atau entitas `PENDING_REVIEW` tidak muncul di grafik, ekspor CSV, maupun respons API dashboard; VIEWER menerima 403 untuk peringkat media asal dan drill-down; CSV VIEWER hanya berisi agregat grafik 1–6 |
-| AC-08 | (a) Mengubah satu baris `audit_logs` langsung di DB terdeteksi verifikasi; (b) mengubah satu baris yang `seq_no`-nya ≤ jangkar terakhir milik supervisor, lalu menghitung ulang seluruh hash sesudahnya (rantai konsisten secara internal), tetap terdeteksi saat dibandingkan dengan jangkar tersebut. Perubahan setelah jangkar terakhir memang tidak terdeteksi (risiko residual FR-08.5/FR-08.6) |
-| AC-09 | Tiket `eval_blind`: kartu tidak memuat kategori, risiko, narasi, atau alasan AI sebelum keputusan; keputusan tersimpan dengan `decision_mode = BLIND` |
-| AC-10 | Akun dinonaktifkan: sesi aktif hilang dalam ≤ 5 detik; ADMIN tanpa TOTP tidak bisa login |
-| AC-11 | 20 kasus uji prompt injection, masing-masing dijalankan 3 kali dan dibandingkan dengan versi bersih (tanpa teks injeksi, juga 3 kali) dari konten yang sama; kasus dihitung "berhasil diinjeksi" bila label mayoritas berbeda dari label mayoritas versi bersih: maks 1 dari 20 kasus, dan setiap perubahan ditinjau serta prompt diperbaiki sebelum lanjut fase |
-| AC-12 | Uji restore: database dan bukti dipulihkan ke lingkungan bersih, seluruh hash bukti cocok |
-| AC-13 | UPDATE isi `knowledge_entries` ditolak oleh DB |
-| AC-14 | Sel CSV berawalan `=`, `+`, `-`, `@` ter-escape |
-| AC-15 | Unggahan decompression bomb dan file dengan ekstensi palsu ditolak tanpa worker crash |
-| AC-16 | Dua file gambar yang sama dengan kompresi berbeda menghasilkan petunjuk `similar_to`; tanpa "Sama dengan induk", laporan kedua memiliki cluster sendiri |
-| AC-17 | Revisi oleh ADMIN di dashboard (termasuk pada laporan BLIND, NO\_AI, DUPLICATE): status final berubah, baris `report_revisions` dengan kode alasan tercipta, `original_decision` tidak berubah, entri KB lama nonaktif dan entri baru aktif dalam satu transaksi; non-ADMIN ditolak |
-| AC-18 | Simulasi anggaran 100%: triase tetap berjalan dengan model termurah, embedding dan jalur ganda evaluasi dijeda, audit `BUDGET_THRESHOLD` tercatat |
-| AC-19 | Uji unit metrik FR-13 dengan data sintetis: Δ, interval skor Tango 90%, McNemar eksak, uji tanda miss TINGGI, dan aturan GAGAL/LULUS/TIDAK MEYAKINKAN sesuai nilai yang dihitung manual |
-| AC-20 | Role DB aplikasi tidak dapat menjalankan `ALTER TABLE`, `DISABLE TRIGGER`, atau `UPDATE` pada `audit_logs` |
-| AC-21 | Dari dalam container `scraper`, koneksi ke `db`, `redis` (sesi), alamat RFC1918/link-local, dan IPv6 gagal, sementara `redis-scrape` dan situs platform publik berhasil |
-| AC-22 | Hasil scrape dengan nonce salah, path di luar `scratch/<ticket_id>/`, symlink, atau payload non-JSON ditolak `scrape-collector` dan dicatat di audit; user `scraper` di `redis-scrape` gagal menjalankan perintah selain yang diizinkan ACL |
-| AC-23 | Job jangkar terkirim ke chat supervisor tanpa `/rekap_harian` dijalankan; kegagalan kirim memicu alarm; verifikasi berhasil memakai hash dari balasan supervisor |
-| AC-24 | `POST /api/v1/patrol` tanpa API key valid atau dari luar jaringan internal ditolak; API key yang dicabut langsung tidak berlaku |
-| AC-25 | Duplikat pasti yang diputuskan berbeda dari induknya ditandai `cluster_conflict`, tidak menulis entri KB kedua, dan dashboard tetap menghitung cluster sekali |
-| AC-26 | Dari `app` dan `worker`, koneksi keluar ke domain di luar allowlist proxy gagal; koneksi ke `api.telegram.org` (app) dan endpoint Gemini (worker) berhasil |
-| AC-27 | Untuk tiket yang menunggu penilaian kedua: label pertama dan output AI tidak terlihat oleh ANALYST lain di drill-down, `/status`, referensi RAG, DOCX, maupun kartu duplikat; dua penilai tidak dapat mengklaim tiket yang sama |
+Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Sub Tim Analisis Intelijen Siber, Tim Dalinfo BSSN:
+1. **Pintu Masuk Dialihkan ke Browser Extension**: Personel patroli bekerja aktif di peramban web workstation dinas; 1-klik ekstensi menangkap layar aktif, struktur DOM, metadata, dan nilai hash SHA-256 di sisi klien.
+2. **Validasi Dipusatkan di Web Dashboard**: Analis memvalidasi temuan pada antrean tiket terpusat di konsol web workstation.
+3. **Penyederhanaan Ruang Lingkup**: Memangkas kompleksitas non-esensial agar realistis diselesaikan oleh 3 mahasiswa magang dalam periode waktu yang tersedia, dengan arsitektur bersih yang siap dilanjutkan langsung ke Tugas Akhir.
 
 ---
 
-## 2. Data Flow Diagram
+### 1.2 Masalah yang Diselesaikan (Pemetaan Notulensi D22 Dalinfo)
 
-### 2.1 DFD Level 0
+| No | Masalah Riil di Ruangan Dalinfo D22 | Solusi Teknis PRD v3.1 |
+|---|---|---|
+| 1 | **Tangkapan layar manual (PrintScreen/Snipping Tool) tidak memenuhi standar forensik.** | Ekstensi otomatis mengambil tangkapan layar Full HD + snapshot rendered DOM + metadata + kalkulasi nilai *hash* SHA-256 seketika di titik capture. |
+| 2 | **Pencatatan temuan patroli tersebar di lembar kerja Excel lokal yang tidak seragam.** | Repositori basis data terpusat PostgreSQL 16 + formulir metadata baku otomatis via ekstensi peramban. |
+| 3 | **Serah-terima temuan patroli ke analis lambat dan berbelit-belit.** | Alur terintegrasi satu pipa: Ekstensi → Antrean Validasi Web Dashboard → Keputusan Analis, tanpa perantara file Excel. |
+| 4 | **Ketergantungan pada layanan pihak ketiga berbayar (Claude/ChatGPT manual).** | *AI Gateway* mandiri yang kompatibel dengan format standar OpenAI, mempermudah transisi ke model lokal di kemudian hari. |
+| 5 | **Visualisasi data analitik terbatas dan sulit ditarik kesimpulan trennya.** | Web Dashboard menyajikan 9 grafik agregat: tren waktu, platform, kategori, risiko, topik IPOLEKSOSBUDHANKAM, aktor publik, dan media asal. |
+| 6 | **Personel baru membutuhkan waktu adaptasi lama memahami konteks kasus.** | RAG sebagai memori institusional: preseden kasus lama yang relevan otomatis disajikan di antrean validasi sebagai bahan pertimbangan. |
+| 7 | **Keabsahan bukti digital rentan disangkal dalam pembuktian hukum.** | Integritas bukti dijamin oleh rantai audit *hash-chain* (`prev_hash` & `row_hash`) serta jangkar eksternal di luar sistem. |
+| 8 | **Konten yang sama sering dilaporkan berulang kali oleh personel berbeda.** | Deteksi duplikasi otomatis berbasis URL kanonikal, hash SHA-256, dan kemiripan perceptual hash (pHash). |
+| 9 | **Tidak semua personel piket memiliki/menggunakan akun Telegram di PC dinas.** | Ekstensi peramban (Chrome/Edge/Firefox MV3) sebagai pintu masuk utama yang universal di seluruh PC workstation dinas. |
+| 10 | **Proses kliping screenshot manual melelahkan saat volume konten tinggi.** | Satu kali klik pada ekstensi peramban (*1-Click Capture*) langsung mengekstrak dan mengarsipkan seluruh bukti secara deterministik. |
 
-**Entitas eksternal:** (1) Petugas/Analis via Telegram, (2) Pengguna Dashboard (VIEWER, ANALYST, ADMIN), (3) Platform Media Sosial, (4) Google Gemini (generasi dan embedding), (5) **Supervisor** (penerima DOCX berisi jangkar audit dan aksi administratif harian; menyimpan salinan di luar sistem).
+---
 
-| Dari | Ke | Data |
-| --- | --- | --- |
-| Petugas/Analis | Sistem | URL, file bukti, keputusan, kode alasan, catatan, perintah |
-| Sistem | Petugas/Analis | Kartu analis, status tiket, notifikasi |
-| Pengguna Dashboard | Sistem | Kredensial + TOTP, filter, ekspor, aksi admin |
-| Sistem | Pengguna Dashboard | Grafik, daftar laporan, CSV |
-| Sistem | Platform | Request scraping (hanya domain allowlist) |
-| Platform | Sistem | Halaman, metadata, media |
-| Sistem | Gemini | Prompt (input dibungkus pembatas), gambar bukti, konteks RAG terbatas, teks untuk embedding |
-| Gemini | Sistem | JSON triase, vektor embedding |
-| Sistem | Supervisor | DOCX rekap + aksi administratif; pesan jangkar audit harian (terjadwal) |
-| Supervisor | Sistem | Hash jangkar dari salinan DOCX saat verifikasi audit |
+### 1.3 Tujuan dan Non-Goals
 
-### 2.2 DFD Level 1
+**Tujuan Pengembangan v3.1:**
+1. Mengotomatisasi akuisisi bukti konten patroli siber dengan standar integritas forensik digital.
+2. Menyediakan triase AI indikatif dengan memori institusional (RAG) yang **diuji secara buta (*blind evaluation*)** sebelum diaktifkan permanen.
+3. Menyatukan seluruh alur kerja: patroli (ekstensi) → analisis/validasi (dashboard) → laporan dinas (DOCX) dalam satu ekosistem terpadu.
+4. Menyediakan konsol dashboard analitik agregat yang aman, terisolasi, dan netral bagi analis dan pimpinan.
+5. Menghasilkan rantai bukti digital (*Chain of Custody*) dan jejak audit yang akuntabel dan tidak dapat disangkal.
+6. Menyiapkan arsitektur fondasi yang siap dilanjutkan ke Tugas Akhir (TA) tanpa perombakan scope.
 
-**Data store:**
+**Non-Goals (Eksplisit Dilarang / Tidak Dikerjakan pada v3.1):**
+1. Vonis hukum atau tindakan *takedown* otomatis tanpa persetujuan analis manusia (*Human-in-the-Loop* mutlak).
+2. Klaim sepihak "AI makin pintar" sebelum evaluasi buta (FR-13) membuktikan peningkatan akurasi secara statistik.
+3. Melakukan *fine-tuning* model fondasi AI (LLM).
+4. Notifikasi *real-time* lonjakan isu otomatis (menghindari alarm palsu pada volume data awal).
+5. Scraping *server-side* untuk platform login-wall ketat seperti X (Twitter) atau Threads (cukup ditangani via *active-tab capture* ekstensi).
+6. Menambah kategori pelanggaran baru di luar taksonomi yang telah dibekukan tanpa persetujuan tertulis pemangku kepentingan.
+7. Analisis sentimen dan emosi otomatis tingkat lanjut (ditunda ke Tugas Akhir).
+8. Proyeksi/risiko eskalasi konflik sosial berbasis machine learning (ditunda ke Tugas Akhir).
+9. *Profiling* individu privat atau pemeringkatan aktor berdasarkan "asumsi kesalahan".
+10. Integrasi SSO instansi, aplikasi mobile native, atau implementasi role VIEWER di tahap MVP.
+11. Menggunakan nilai `skor_keyakinan` AI sebagai ambang batas pengambilan keputusan.
+12. Integrasi API langsung ke sistem eksternal kementerian/lembaga lain (cukup via ekspor CSV dan berkas DOCX dinas).
 
-| ID | Nama | Isi |
-| --- | --- | --- |
-| D1 | patrol\_users | Identitas tunggal: Telegram + dashboard, role, TOTP |
-| D2 | accounts | Profil akun media sosial |
-| D3 | contents | Metadata postingan |
-| D4 | evidences | Path bukti, SHA-256, pHash, kualitas sumber |
-| D5 | reports | Tiket, output AI, jejak model, keputusan, duplikat, eval |
-| D6 | audit\_logs | Jejak forensik hash-chain |
-| D7 | File Storage | evidences/, reports/ |
-| D8 | knowledge\_entries | KB RAG |
-| D9 | entities, entity\_aliases, topics | Entitas, alias, topik terkontrol |
-| D10 | config\_taxonomy | Kategori, kode alasan, versi |
-| D11 | Redis (`redis`) | Antrian `default`, sesi dashboard, pilihan sementara FR-05.3 |
-| D12 | Redis (`redis-scrape`) | List `scrape:jobs` dan `scrape:results` saja (batas kepercayaan, §3.5) |
+---
 
-**Proses:**
+### 1.4 Profil Pengguna dan Role
 
-| No | Proses | Input | Output |
-| --- | --- | --- | --- |
-| 1.0 | Validasi dan Intake | URL/file, D1 | Tiket |
-| 2.0 | Capture Bukti (service `scraper`) | Tiket | PNG + hash awal, metadata |
-| 3.0 | Verifikasi Hash, Simpan, Cek Duplikat, OCR, Undian Buta | PNG, metadata | D2, D3, D4, D7, `duplicate_of`, `ocr_text`, `eval_blind` |
-| 4.0 | Retrieval RAG (jika aktif) | Teks konten | Referensi dari D8 |
-| 5.0 | Triase AI | Bukti + metadata + referensi | D5, D6 |
-| 6.0 | Validasi Analis (normal/buta/duplikat) | Kartu, tombol, kode alasan | D5, D6 |
-| 7.0 | Penulisan KB dan Normalisasi Entitas (asinkron, fail-open) | Keputusan final | D8, D9, D6 |
-| 8.0 | Query Status | `/status` | Rincian tiket |
-| 9.0 | Rekap DOCX + Jangkar Audit | `/rekap_harian` | DOCX ke D7, Supervisor |
-| 10.0 | Dashboard Analitik | Filter | Grafik dari D5, D9 |
-| 11.0 | Administrasi | Aksi ADMIN | D1, D8, D9, D10, D6 |
-| 12.0 | Evaluasi Buta | Tiket `eval_blind` | Dua output AI di D5, metrik grafik 9 |
+Sistem menggunakan satu tabel identitas tunggal (`users`) untuk otentikasi ekstensi dan dashboard. Sistem membatasi hak akses ke dalam **3 peran resmi**:
 
-**Alur utama:**
+| Role | Hak Akses Ekstensi Peramban | Hak Akses Web Dashboard | Subjek Personel |
+|---|---|---|---|
+| **OPERATOR** | Mengirimkan laporan konten (URL + active-tab capture), melihat status tiket buatannya sendiri. | Tidak memiliki hak akses ke Web Dashboard. | Personel piket patroli siber lapangan. |
+| **ANALYST** | Memiliki seluruh hak akses OPERATOR. | Mengakses antrean validasi tiket, dashboard analitik, filter drill-down, ekspor CSV, dan halaman Penilaian Kedua (*Second Review*). | Analis Intelijen Siber (Sub Tim Analisis Dalinfo). |
+| **ADMIN** | Memiliki seluruh hak akses ANALYST. | Hak penuh: kelola akun pengguna, kurasi topik IPOLEKSOSBUDHANKAM, kurasi entitas, nonaktifkan KB, revisi keputusan, verifikasi audit hash-chain, dan pantau kesehatan sistem. | Pengelola teknis sistem (minimal 1 orang, wajib 2FA TOTP). |
+
+> **Catatan Tata Kelola Akun:**
+> - **Role VIEWER ditunda**: Pimpinan piket/supervisor menerima dokumen rekapitulasi harian DOCX dan ekspor CSV agregat. Penambahan role VIEWER dievaluasi setelah dashboard beroperasi stabil.
+> - **ADMIN bukan atasan/penentu vonis**: ADMIN adalah pengelola teknis sistem. Setiap revisi keputusan analis oleh ADMIN wajib menyertakan kode alasan resmi dan tercatat di *audit log*.
+> - **Pemisahan Akun**: Satu individu diperbolehkan memiliki lebih dari satu akun jika memiliki peran ganda, namun hak akses antar-peran tetap terpisah secara tegas.
+
+---
+
+### 1.5 Kebutuhan Fungsional (Functional Requirements)
+
+#### FR-01 Dual Intake & Client-First Capture (Browser Extension)
+- **FR-01.1 Pintu Masuk Utama**: Ekstensi peramban (Chrome, Edge, Firefox berstandar Manifest V3) menjadi antarmuka utama penangkapan konten saat personel melakukan patroli di media sosial.
+- **FR-01.2 Client-First Capture**: Saat tombol ekstensi ditekan, ekstensi di browser klien secara instan mengeksekusi:
+  1. Pengambilan tangkapan layar tab aktif (*visible tab screenshot*) beresolusi Full HD (1920x1080).
+  2. Ekstraksi snapshot *rendered DOM* (struktur HTML halaman yang selesai di-render).
+  3. Perekaman metadata halaman: URL aktif, judul halaman, dan stempel waktu klien.
+  4. Perhitungan nilai hash SHA-256 (64 karakter heksadesimal) dari berkas gambar tangkapan layar di memori browser klien menggunakan WebCrypto API sebelum transmisi jaringan.
+- **FR-01.3 Fallback Unggah Manual**: Jika ekstensi mengalami kendala pada workstation tertentu, antarmuka menyediakan modul unggah berkas gambar mandiri (maksimum 20 MB, verifikasi tipe MIME biner, serta proteksi batas piksel Pillow `MAX_IMAGE_PIXELS`).
+
+#### FR-02 Platform Adapter & Scraper Fallback
+- **FR-02.1 Adapter Pattern**: Sistem menggunakan pola desain *Adapter Pattern* untuk memproses struktur konten media sosial:
+  - `YouTubeAdapter`: Ekstraksi ID video, channel uploader, judul, durasi, views, dan likes.
+  - `TikTokAdapter`: Ekstraksi username, deskripsi audio, teks caption, dan likes.
+  - `InstagramAdapter`: Ekstraksi shortcode reel/post, uploader, dan caption.
+  - `GenericActiveTabAdapter`: Menangani konten web umum, X (Twitter), atau Threads berbasis DOM tab aktif yang ditangkap ekstensi tanpa bergantung pada scraping server-side.
+- **FR-02.2 Scraper Fallback Server-Side**: Jika input hanya berupa string URL murni (tanpa payload tangkapan layar klien), worker server menjalankan engine Playwright headless terisolasi.
+- **FR-02.3 Egress Allowlist & Batas Kepercayaan**: Scraper server hanya diizinkan menghubungi domain platform resmi. Seluruh koneksi ke alamat IP privat/intranet diblokir pada layer firewall (mitigasi SSRF T1). Seluruh hasil scraping server diperlakukan sebagai data tak tepercaya.
+
+#### FR-03 Kriptografi Forensik & Chain of Custody
+- **FR-03.1 Hash di Titik Capture**: Nilai hash SHA-256 dihitung seketika saat berkas bukti pertama kali tercipta di browser klien (atau saat pertama kali ditulis ke disk oleh worker).
+- **FR-03.2 Verifikasi Worker**: Worker backend memverifikasi ulang biner gambar terhadap nilai hash yang dikirimkan oleh klien. Jika terjadi ketidakcocokan nilai hash, tiket langsung berstatus `FAILED` dan insiden dicatat sebagai `EVIDENCE_HASH_MISMATCH` di *audit log*.
+- **FR-03.3 Manifest Bukti & Immutability**: Metadata bukti dicatat di tabel `evidences` dan berkas biner disimpan di direktori `storage/evidences/` dengan status *read-only* (dilarang ditimpa atau dimodifikasi).
+
+#### FR-04 Triase AI Multimodal 5W+1H & AI Gateway
+- **FR-04.1 Skema Output Terstruktur**: Model AI mengembalikan respons JSON valid berbasis skema Pydantic `AIPatrolAnalysis`:
+  - `status_keamanan`: `AMAN` atau `POTENSI_BAHAYA`.
+  - `kategori_utama`: `HOAKS`, `UJARAN_KEBENCIAN`, `PROVOKASI_SARA`, `PENIPUAN_FINANSIAL`, `DI_LUAR_KONTEKS`, atau `BUKAN_PELANGGARAN`.
+  - `tingkat_risiko`: `RENDAH`, `SEDANG`, `TINGGI` (wajib bernilai `NULL` jika kategori adalah `BUKAN_PELANGGARAN`).
+  - `topik_kode`: Kode topik terkontrol dari katalog taksonomi IPOLEKSOSBUDHANKAM yang aktif.
+  - `topik_usulan`: String usulan nama topik baru (maksimal 80 karakter) jika analis/AI memilih kode `LAINNYA`.
+  - `aktor_target`: Daftar entitas sasaran beserta klasifikasinya (`TOKOH_PUBLIK`, `INSTITUSI`, `KELOMPOK`, `INDIVIDU_PRIVAT`).
+  - `media_asal`: Nama media/kanal penerbit yang teridentifikasi dari watermark, logo, atau teks konten.
+  - `analisis_5w1h`: Ringkasan terstruktur dimensi *Who, What, Where, When, Why, How*.
+- **FR-04.2 Isolasi Input Tak Tepercaya**: Teks caption, judul, dan teks OCR dibungkus dalam blok pembatas data eksplisit (*explicit data boundary*) agar tidak dieksekusi sebagai instruksi prompt (*prompt injection mitigation* T3).
+- **FR-04.3 Jejak Model & Audit AI**: Setiap inferensi AI mencatat metadata teknis: `ai_model_id`, `prompt_version`, `token_count`, dan `execution_time_ms`.
+- **FR-04.4 AI Gateway Terstandarisasi**: Menggunakan antarmuka API yang kompatibel dengan format standar OpenAI, sehingga arsitektur siap dialihkan ke model lokal (*on-premise*) tanpa mengubah kode aplikasi.
+
+#### FR-05 Human-in-the-Loop (HITL) di Web Dashboard
+- **FR-05.1 Antrean Validasi Terpusat**: Seluruh hasil triase AI masuk ke menu Antrean Validasi di Web Dashboard. Kartu antrean menampilkan gambar bukti Full HD, ringkasan analisis 5W+1H, rekomendasi kategori/risiko, dan rujukan preseden RAG.
+- **FR-05.2 Tombol Keputusan & Kode Alasan Terstruktur**:
+  - `[Setuju]`: Mengonfirmasi rekomendasi AI (transisi ke status `VALIDATED` atau `REJECTED`).
+  - `[Ubah Kategori/Risiko]`: Memilih kategori atau risiko baru (transisi ke status `MODIFIED`) + **Wajib memilih Kode Alasan**.
+  - `[Bukan Pelanggaran]`: Menggugurkan indikasi pelanggaran (transisi ke status `REJECTED`) + **Wajib memilih Kode Alasan**.
+  - *Daftar Kode Alasan Baku*: `SATIRE_ATAU_HUMOR`, `FAKTA_TERVERIFIKASI`, `KONTEKS_TIDAK_TERBACA_AI`, `SALAH_KATEGORI`, `RISIKO_TERLALU_TINGGI`, `RISIKO_TERLALU_RENDAH`, `KONTEN_TIDAK_RELEVAN`, `LAINNYA` (catatan teks bebas hanya wajib diisi jika memilih `LAINNYA`).
+- **FR-05.3 Validasi Atomik**: Transisi status dilakukan dengan *conditional update* di database (`WHERE status = 'WAITING_VALIDATION'`). Jika dua analis membuka kartu tiket yang sama, hanya transaksi pertama yang berhasil disimpan; analis kedua menerima notifikasi bahwa tiket telah diputuskan.
+- **FR-05.4 Mode Keputusan**: Sistem mencatat mode keputusan: `NORMAL`, `BLIND` (evaluasi buta), `NO_AI` (analisis manual saat AI offline), dan `DUPLICATE` (konfirmasi duplikat).
+- **FR-05.5 Revisi ADMIN & Penilaian Kedua**: ADMIN dapat merevisi putusan melalui dashboard dengan verifikasi TOTP (tercatat di tabel `report_revisions`). Analis dapat ditugaskan untuk melakukan penilaian kedua (*Second Review*) tanpa melihat putusan penilai pertama.
+
+#### FR-06 Pelacakan Tiket, Duplikasi & Clustering
+- **FR-06.1 Siklus Hidup Tiket**: Tiket melalui 7 status resmi: `PENDING_ANALYSIS`, `WAITING_VALIDATION`, `MANUAL_FALLBACK`, `FAILED`, `VALIDATED`, `MODIFIED`, `REJECTED`.
+- **FR-06.2 Deteksi Duplikat Pasti**: Konten dengan URL kanonikal identik atau nilai hash SHA-256 identik otomatis dikaitkan ke laporan pertama (`duplicate_of`) dan berbagi `content_cluster_id` yang sama.
+- **FR-06.3 Petunjuk Kemiripan pHash**: Jarak Hamming pHash $\le 6$ menghasilkan petunjuk kemiripan visual di antrean validasi dengan opsi cepat `[Sama dengan Induk]`.
+- **FR-06.4 Content Clustering & Resolusi Konflik**: Jika tiket duplikat diputuskan berbeda dari laporan induk oleh analis, sistem menandainya sebagai `cluster_conflict` dan tidak menulis entri ganda ke Knowledge Base.
+- **FR-06.5 Pelacakan Status di Dashboard**: Seluruh status pemrosesan tiket dapat dipantau langsung melalui menu dashboard tanpa perlu bot perpesanan.
+
+#### FR-07 Generator Rekapitulasi Harian Dinas (.docx) & Ekspor
+- **FR-07.1 Format Dokumen Dinas**: Sistem menyediakan generator dokumen dinas berformat Microsoft Word (.docx) berstempel waktu yang dapat diunduh langsung melalui menu Web Dashboard.
+- **FR-07.2 Filter Laporan Final**: Dokumen rekapitulasi hanya memuat laporan yang telah berstatus akhir (`VALIDATED` dan `MODIFIED`).
+- **FR-07.3 Integritas Dokumen & Chain Head**: Dokumen menyertakan tabel rekapitulasi kasus, tangkapan layar bukti ber-SHA-256, catatan analis, serta *chain head* hash audit log hari bersangkutan.
+- **FR-07.4 Ekspor CSV Aman**: Ekspor data tabular otomatis melakukan *escaping* pada karakter formula (`=`, `+`, `-`, `@`) guna mencegah celah keamanan CSV Injection.
+
+#### FR-08 Keamanan, Autentikasi & Audit Hash-Chain
+- **FR-08.1 Otentikasi Terpusat**: Menggunakan kredensial username dan password terenkripsi Argon2id, manajemen sesi *server-side* di Redis, dan proteksi token CSRF pada seluruh permintaan mutasi data.
+- **FR-08.2 2FA TOTP Wajib untuk ADMIN**: Akses peran ADMIN wajib memasukkan kode TOTP 6 digit berbasis RFC 6238.
+- **FR-08.3 Bootstrap CLI ADMIN**: Pendaftaran akun ADMIN pertama kali wajib dilakukan melalui perintah aman antarmuka baris perintah (`manage create-admin`).
+- **FR-08.4 Audit Hash-Chain**: Setiap baris pada tabel `audit_logs` menyimpan `prev_hash` dan `row_hash = SHA-256(prev_hash || data_baris)`.
+- **FR-08.5 Pemisahan Hak Basis Data**: Layanan aplikasi terhubung menggunakan role database non-owner yang tidak memiliki izin perintah `ALTER TABLE`, `DROP TABLE`, atau manipulasi baris tabel `audit_logs`.
+- **FR-08.6 Jangkar Eksternal Terjadwal**: Pukul 23.55 WIB setiap hari, sistem mengunci nilai hash entri audit terakhir hari itu dan menyematkannya ke dalam dokumen rekapitulasi yang disimpan di luar sistem oleh supervisor.
+- **FR-08.7 Rate Limit & Audit Aksi**: Membatasi laju permintaan otentikasi dan mencatat seluruh aksi mutasi ke dalam audit log kekal.
+
+#### FR-09 Knowledge Base RAG Terukur
+- **FR-09.1 Konten Referensi Murni**: Entri Knowledge Base hanya memuat cuplikan teks konten asli + keputusan final analis + kode alasan + catatan analis. **Dilarang keras menyisipkan teks buatan AI** (`ai_reasoning` atau ringkasan AI) ke dalam KB untuk mencegah bias sirkular.
+- **FR-09.2 Embedding Deterministik**: Teks korpus (judul + caption + teks OCR) diubah menjadi vektor 768 dimensi menggunakan model `gemini-embedding-001` dengan normalisasi L2.
+- **FR-09.3 Exact Scan Retrieval**: Pencarian preseden menggunakan *Exact Scan Cosine Similarity* di PostgreSQL pgvector dengan filter ketat `is_active = True`, mengecualikan cluster konten yang sama, dengan ambang batas similarity terkalibrasi dan batas `top_k = 5`.
+- **FR-09.4 Kontrol Kualitas & Cold Start**: Hanya satu entri aktif yang disimpan per cluster konten guna mencegah polusi data.
+- **FR-09.5 Saklar Fitur (RAG Fail-Open)**: Parameter konfigurasi `RAG_ENABLED` dapat dimatikan kapan saja. Jika modul RAG offline atau kuota habis, sistem menerapkan *fail-open* (analisis AI berlanjut dengan konteks kosong).
+- **FR-09.6 Kalibrasi Ambang Similarity & pHash**: Nilai ambang kemiripan vektor dan perceptual hash ditentukan melalui fase kalibrasi empiris sebelum diaktifkan permanen.
+
+#### FR-10 Entitas & Topik Terkontrol IPOLEKSOSBUDHANKAM
+- **FR-10.1 Taksonomi Terkontrol 8 Bidang**: Model AI memetakan isu konten ke dalam 8 bidang strategis nasional:
+  1. `IPOL_IDEOLOGI`: Isu radikalisme, separatisme, ideologi anti-Pancasila.
+  2. `IPOL_POLITIK`: Isu pemilu, kebijakan pemerintah, hoaks tokoh politik.
+  3. `IEK_EKONOMI`: Isu inflasi, kelangkaan bahan pokok, penipuan finansial, perbankan.
+  4. `ISOS_SOSIAL`: Isu kerusuhan warga, provokasi antarkelompok, keresahan publik.
+  5. `IBUD_BUDAYA`: Isu penodaan agama, konflik adat, ujaran kebencian SARA.
+  6. `IHANKAM_PERTAHANAN`: Isu kedaulatan perbatasan, militer, ancaman spionase.
+  7. `IHANKAM_KEAMANAN`: Isu terorisme, sabotase siber, kamtibmas luas.
+  8. `LAINNYA`: Topik baru yang belum terklasifikasi (wajib mengisi `topik_usulan`).
+- **FR-10.2 Manajemen Aktor & Resolusi Alias**: Aktor dinormalisasi melalui *exact alias matching* dan diverifikasi oleh ADMIN (*Entity Resolution*).
+- **FR-10.3 Fail-Closed Privasi (UU PDP)**: Aktor berkategori `INDIVIDU_PRIVAT` tidak pernah didaftarkan ke tabel entitas katalog publik. Nama aktor hanya ditampilkan pada dashboard jika telah disetujui ADMIN sebagai `TOKOH_PUBLIK`, `INSTITUSI`, atau `KELOMPOK`.
+- **FR-10.4 Media Asal Terkontrol**: Mengidentifikasi media daring atau kanal sumber yang sering dijadikan rujukan konten.
+
+#### FR-11 Web Dashboard Analitik Social Intelligence
+- **FR-11.1 Konsol 9 Grafik Agregat**: Dashboard menyajikan metrik operasional agregat berbasis keputusan final analis:
+  1. *Tren Waktu*: Perbandingan volume laporan masuk vs temuan terkonfirmasi per hari.
+  2. *Distribusi Platform*: Komparasi YouTube, TikTok, Instagram, X/Threads.
+  3. *Distribusi Kategori*: Sebaran kategori HOAKS, SARA, Ujaran Kebencian, dll.
+  4. *Distribusi Risiko*: Proporsi tingkat risiko RENDAH, SEDANG, TINGGI.
+  5. *Topik Teratas*: Peringkat sebaran isu berdasarkan bidang IPOLEKSOSBUDHANKAM.
+  6. *Aktor Target Publik*: Peringkat aktor/lembaga yang paling sering menjadi sasaran narasi.
+  7. *Media Asal Teratas*: Peringkat media daring yang paling sering dicatut/dijadikan sumber.
+  8. *Tingkat Ketidaksepakatan*: Evaluasi persentase koreksi analis terhadap rekomendasi awal AI.
+  9. *Progres Evaluasi Buta*: Monitoring sampel evaluasi buta RAG (FR-13).
+- **FR-11.2 Filter & Drill-down Interaktif**: Kemampuan memfilter data berdasarkan rentang tanggal, platform, kategori, risiko, dan topik, serta navigasi langsung ke rincian tiket.
+- **FR-11.3 Banner Penafian Netralitas Hukum Permanen**: Tersemat penafian etik resmi: *"Label frekuensi kemunculan topik, aktor, dan sumber tidak menunjukkan penetapan bersalah. Keputusan analis bukan penetapan hukum otomatis."*
+
+#### FR-12 Browser Extension Operasional (MV3)
+- **FR-12.1 Kompatibilitas Manifest V3**: Ekstensi berjalan di Google Chrome, Microsoft Edge, dan Mozilla Firefox menggunakan standar Manifest V3.
+- **FR-12.2 Aksi Utama 1-Click Capture**: Satu klik pada popup ekstensi langsung mengambil tangkapan layar, struktur DOM, metadata, dan menghitung SHA-256.
+- **FR-12.3 Keamanan Token Terenkripsi**: Token otentikasi disimpan di storage peramban terenkripsi (WebCrypto API) dan komunikasi wajib melalui enkripsi HTTPS.
+- **FR-12.4 Notifikasi Nomor Tiket**: Setelah capture berhasil dikirim, ekstensi menampilkan nomor tiket resmi `PS-YYYYMMDD-XXXX` dan status pemrosesan.
+
+#### FR-13 Evaluasi Buta RAG (Blind Evaluation)
+- **FR-13.1 Sampling Buta Acak**: Tiket non-duplikat diundi secara acak sebesar 10% s.d. 20% (`EVAL_BLIND_RATE`) menjadi tiket evaluasi buta (`eval_blind = True`).
+- **FR-13.2 Validasi Tanpa Bias**: Pada antrean validasi tiket buta, hasil rekomendasi AI disembunyikan total dari analis agar analis menilai murni berdasarkan fakta bukti visual (*unbiased ground truth*).
+- **FR-13.3 Dual-Pipeline Execution (Fase 3)**: Di latar belakang, sistem mengeksekusi dua jalur AI secara paralel: Jalur A (dengan RAG) dan Jalur B (tanpa RAG).
+- **FR-13.4 Ukuran Sampel & Keandalan Label**: Mengukur reliabilitas label antar-analis (*Cohen's Kappa*) sebelum hasil evaluasi buta dikunci.
+- **FR-13.5 Aturan Keputusan Pra-Registrasi**:
+  - Dihitung selisih performa: $\Delta = \text{Akurasi}(A) - \text{Akurasi}(B)$ terhadap label buta analis menggunakan uji skor Tango 90% dan uji McNemar.
+  - Metrik keselamatan: Evaluasi ketat terhadap kesalahan fatal (*miss risiko tinggi*).
+  - Status evaluasi: **LULUS** (RAG dipertahankan permanen), **GAGAL** (RAG dimatikan otomatis), atau **TIDAK MEYAKINKAN**.
+- **FR-13.6 Pemantauan Berkelanjutan**: Evaluasi terus berjalan secara berkala untuk mendeteksi degradasi performa model (*data drift*).
+
+#### FR-14 Administrasi Sistem (ADMIN Console)
+- **FR-14.1 Manajemen Akun & Sesi**: ADMIN dapat membuat akun, menonaktifkan akun personel seketika ($\le 5$ detik), dan mengatur role pengguna.
+- **FR-14.2 Kurasi Data & Resolusi Entitas**: ADMIN mengelola katalog topik IPOLEKSOSBUDHANKAM, menyetujui entitas publik baru, menggabungkan entitas duplikat (*Merge*), dan meninjau usulan topik `LAINNYA`.
+- **FR-14.3 Tata Kelola KB**: Menolak operasi `UPDATE` dan `DELETE` fisik; penonaktifan entri KB dilakukan secara logis (`is_active = False`) dengan mencantumkan kode alasan.
+- **FR-14.4 Revisi Keputusan Berjejak**: Mengubah keputusan tiket pasca-validasi dengan mencatat histori perubahan di tabel `report_revisions` dan *audit log*.
+- **FR-14.5 Verifikasi Integritas Audit Hash-Chain**: Menu khusus untuk memverifikasi keutuhan rantai hash log audit terhadap nilai jangkar milik supervisor.
+- **FR-14.6 Pemantauan Kesehatan Sistem & Kuota API**: Halaman pemantauan teknis yang menyajikan status koneksi database, antrean Redis, penggunaan kuota API Gemini, dan log kesalahan.
+
+---
+
+### 1.6 Persyaratan Non-Fungsional (Non-Functional Requirements)
+
+| No | Parameter | Spesifikasi Standar Kualitas Teknis |
+|---|---|---|
+| **NFR-01** | **Isolasi Beban Komputasi** | Engine Playwright berjalan pada kontainer terpisah (`scraper`); pemrosesan AI, OCR Tesseract, dan kalkulasi embedding berjalan di kontainer `worker`. |
+| **NFR-02** | **Persistensi Data** | Menggunakan PostgreSQL 16 dengan ekstensi `pgvector`, volume Docker persisten, dan fallback lokal mandiri SQLite (`storage/patrol.db`). |
+| **NFR-03** | **Performa Retrieval** | Exact scan similarity ditargetkan selesai dalam waktu $< 500$ ms untuk volume basis pengetahuan hingga 100.000 entri. |
+| **NFR-04** | **Fail-Open Bertingkat** | Gangguan pada layanan pihak ketiga (kuota Gemini habis atau jaringan putus) tidak boleh menggagalkan intake bukti. Sistem mencatat insiden dan melanjutkan triase manual. |
+| **NFR-05** | **Keamanan Web Dashboard** | Enkripsi TLS, cookie sesi `HttpOnly` + `Secure` + `SameSite=Strict`, proteksi CSRF, Content Security Policy (CSP) ketat tanpa CDN luar, dan rate limit otentikasi. |
+| **NFR-06** | **Kepatuhan Privasi (UU PDP)** | Nama individu privat tidak pernah dipublikasikan di dashboard; identitas hanya diagregasikan jika berstatus entitas publik yang disetujui. |
+| **NFR-07** | **Integritas Knowledge Base** | Trigger basis data menolak operasi `UPDATE` terhadap isi entri KB yang telah tersimpan. Koreksi dilakukan dengan deaktivasi logis (`is_active = False`). |
+| **NFR-08** | **Mekanisme Purge Terkendali** | Penghapusan data retensi dilakukan melalui prosedur fungsi database `purge_report()` yang menyisakan *tombstone* bukti ber-SHA-256 tanpa merusak rantai audit. |
+| **NFR-09** | **Kedaulatan & Keamanan Data AI** | API Gemini berbayar/Vertex AI dikonfigurasi dengan region resmi dan jaminan kontraktual bahwa data masukan tidak digunakan untuk pelatihan model publik. |
+| **NFR-10** | **Batas Anggaran Operasional** | Sistem memantau biaya token bulanan: ambang 80% menerbitkan peringatan ke admin; ambang 100% beralih otomatis ke tier model hemat biaya. |
+| **NFR-11** | **Pencadangan & Uji Pemulihan** | Backup otomatis harian (`pg_dump` dan arsip bukti) terenkripsi kunci publik dengan retensi 30 hari, disertai prosedur uji pemulihan (*restore test*) bulanan. |
+| **NFR-12** | **Observabilitas Sistem** | Log terstruktur format JSON, visualisasi metrik kesehatan sistem pada dashboard admin, dan monitoring antrean worker. |
+| **NFR-13** | **Standar Ekstensi Peramban** | Memenuhi arsitektur Manifest V3 resmi, tanpa dependensi pustaka pihak ketiga yang tidak aman, dan bebas dari pelacakan latar belakang (*zero-telemetry*). |
+| **NFR-14** | **Arsitektur Gateway Netral** | Menggunakan layer abstraksi AI yang siap dialihkan ke model sumber terbuka (*Open-Source LLM*) secara lokal di workstation tugas akhir. |
+
+---
+
+### 1.7 Target Tingkat Layanan (SLO) dan Metrik Keberhasilan
+
+| Indikator Kinerja Layanan | Target Objektif (SLO) | Cara Pengukuran |
+|---|---|---|
+| **Waktu Terbit Tiket Ekstensi (p95)** | $\le 10$ detik | Dihitung dari waktu klik ekstensi hingga nomor tiket terbit. |
+| **Waktu Tiket ke Antrean Validasi (p95)** | $\le 3$ menit | Dihitung dari waktu submit hingga kartu muncul di antrean analis. |
+| **Rasio Keberhasilan Capture Ekstensi** | $\ge 95\%$ (7 hari bergulir) | Persentase capture sukses tanpa kegagalan transmisi. |
+| **Rasio Keberhasilan Scraper Fallback** | $\ge 85\%$ (Alarm jika $< 70\%$) | Pengujian otomatis berkala pada URL publik tanpa login-wall. |
+| **Kegagalan Validasi Race Condition** | Tepat $0$ kasus | Verifikasi integritas transaksi database bersyarat. |
+| **Waktu Respons Kueri Dashboard (p95)** | $\le 2$ detik | Kueri agregat data 12 bulan terakhir pada dashboard analitik. |
+| **Presisi Petunjuk Kemiripan pHash** | $\ge 90\%$ | Persentase konfirmasi kecocokan visual oleh analis pada saran duplikat. |
+| **Antrean Kurasi Entitas Tertunda** | $< 50$ item | Jumlah usulan entitas/topik baru yang menunggu review ADMIN. |
+| **Biaya Pemrosesan per Tiket** | Terpantau & Terukur | Ditetapkan baseline biaya pada Fase 1 rilis bertahap. |
+| **Peningkatan Kualitas AI** | Terbukti Matematis | Diukur secara eksklusif lewat metodologi evaluasi buta (FR-13). |
+
+---
+
+### 1.8 Model Ancaman Sistem (Threat Model)
+
+| ID | Vektor Ancaman | Dampak Risiko | Mitigasi Arsitektur Terpasang |
+|---|---|---|---|
+| **T1** | **SSRF via Scraper Fallback** | Penyerang mengirimkan URL intranet dinas untuk memetakan jaringan internal. | *Egress allowlist* domain media sosial resmi, isolasi jaringan kontainer `scraper` tanpa akses DB/kredensial, dan re-create kontainer berkala. |
+| **T2** | **Keracunan Basis Pengetahuan (KB Poisoning)** | Analis keliru memasukkan label salah yang mencemari rekomendasi kasus berikutnya. | Evaluasi buta berkelanjutan (FR-13), kode alasan wajib, satu entri aktif per cluster, dan prosedur penonaktifan entri KB berjejak audit. |
+| **T3** | **Serangan Prompt Injection** | Konten media sosial menyisipkan teks manipulatif untuk mengecoh keputusan AI. | *Data boundary* eksplisit, KB hanya menyuntikkan teks konten asli + putusan analis (tanpa narasi AI), validasi skema output, dan HITL mutlak. |
+| **T4** | **Pemalsuan Bukti Tangkapan Layar** | Bukti dimanipulasi sebelum diserahkan ke proses hukum. | Hashing SHA-256 seketika di peramban klien, verifikasi ulang di worker, pencatatan `ai_model_id`, dan rantai audit hash-chain. |
+| **T5** | **Pembajakan Ekstensi / Sesi Browser** | Kredensial personel dicuri dari workstation dinas. | Token tersimpan di storage peramban terenkripsi (WebCrypto API), enkripsi HTTPS wajib, sesi server-side Redis, CSRF protection, dan rate limit. |
+| **T6** | **Penyalahgunaan Wewenang ADMIN** | Administrator mengubah catatan vonis atau memanipulasi bukti secara sepihak. | Audit hash-chain terhubung ke jangkar supervisor di luar sistem, pemisahan hak akun DB non-owner, dan pencatatan revisi di laporan DOCX. |
+| **T7** | **Berkas Biner Perusak (DoS / Zip Bomb)** | Pengguna mengunggah gambar jebakan berukuran piksel raksasa untuk mematikan worker. | Pengecekan tipe MIME biner asli, batas ukuran berkas 20 MB, dan pembatasan resolusi memori Pillow `MAX_IMAGE_PIXELS`. |
+| **T8** | **Pengambilalihan Sesi Web Dashboard** | Sesi analis dibajak melalui serangan XSS atau pencurian cookie. | Manajemen sesi *server-side* di Redis, cookie `HttpOnly` + `Secure` + `SameSite=Strict`, CSP ketat, dan auto-logout idle 30 menit. |
+
+---
+
+### 1.9 Kriteria Penerimaan Sistem (Acceptance Criteria)
+
+| ID | Kriteria Pengujian Penerimaan Teknis |
+|---|---|
+| **AC-01** | URL ke host internal (RFC1918, link-local, localhost) atau domain di luar allowlist ditolak seketika dan dicatat ke log audit. |
+| **AC-02** | Dua analis mengeksekusi validasi pada tiket yang sama dalam selisih $< 1$ detik: tepat 1 transaksi berhasil disimpan, analis lain menerima notifikasi informatif. |
+| **AC-03** | Pilihan Ubah atau Bukan Pelanggaran tanpa kode alasan ditolak oleh sistem; kode alasan `LAINNYA` wajib menyertakan catatan teks. |
+| **AC-04** | Tautan yang sama dilaporkan dua kali: tiket kedua otomatis terhubung ke `duplicate_of` dan dihitung 1 konten unik pada dashboard analitik. |
+| **AC-05** | Kueri retrieval RAG tidak pernah mengembalikan entri dari cluster konten yang sama atau entri yang berstatus `is_active = False`. |
+| **AC-06** | Simulasi API embedding offline: tiket laporan tetap berhasil sampai ke antrean validasi dengan status penanda `rag_mode = FAILED`. |
+| **AC-07** | Aktor berkategori `INDIVIDU_PRIVAT` atau entitas berstatus `PENDING_REVIEW` terbukti tidak tampil pada visualisasi grafik publik dashboard. |
+| **AC-08** | Manipulasi langsung pada baris database `audit_logs` (mengubah data atau menyisipkan baris) terdeteksi secara otomatis saat verifikasi hash dijalankan. |
+| **AC-09** | Tiket evaluasi buta (`eval_blind = True`): kartu antrean menyembunyikan seluruh hasil rekomendasi AI hingga keputusan analis disimpan. |
+| **AC-10** | Akun personel yang dinonaktifkan oleh ADMIN menyebabkan sesi aktif di browser terputus seketika dalam waktu $\le 5$ detik; ADMIN tanpa TOTP ditolak login. |
+| **AC-11** | Pengujian terhadap 20 kasus uji prompt injection membuktikan maksimal 1 dari 20 kasus yang berhasil memengaruhi output klasifikasi AI. |
+| **AC-12** | Prosedur uji restore database dan folder bukti pada server bersih membuktikan seluruh nilai hash SHA-256 berkas cocok 100%. |
+| **AC-13** | Perintah `UPDATE` terhadap isi kolom data tabel `knowledge_entries` ditolak secara langsung oleh trigger basis data. |
+| **AC-14** | Sel berkas ekspor CSV yang diawali karakter formula (`=`, `+`, `-`, `@`) otomatis di-escape guna mencegah celah CSV Injection. |
+| **AC-15** | Berkas *decompression bomb* dan file biner berformat palsu ditolak oleh sistem tanpa menyebabkan crash pada worker. |
+| **AC-16** | Dua berkas gambar identik dengan tingkat kompresi berbeda berhasil menghasilkan petunjuk kemiripan visual pHash pada antrean validasi. |
+| **AC-17** | Revisi keputusan oleh ADMIN di dashboard berhasil memperbarui status laporan, mencatat rekaman di `report_revisions`, dan menonaktifkan entri KB lama. |
+| **AC-18** | Simulasi batas anggaran tercapai 100%: sistem otomatis menonaktifkan pembuatan embedding baru dan menjalankan triase dengan tier model hemat biaya. |
+| **AC-19** | Uji unit kalkulasi metrik evaluasi buta (interval Tango score, uji McNemar, dan aturan kelulusan) terverifikasi akurat secara matematis. |
+| **AC-20** | Akun pengguna database aplikasi terbukti gagal saat mencoba menjalankan perintah `ALTER TABLE`, `DROP TABLE`, atau manipulasi trigger. |
+| **AC-21** | Pengujian jaringan membuktikan kontainer `scraper` gagal melakukan koneksi ke kontainer basis data maupun jaringan lokal internal. |
+| **AC-22** | Berkas hasil scraping yang memiliki nonce salah, path di luar direktori scratch, symlink, atau non-JSON ditolak oleh worker collector. |
+| **AC-23** | Dokumen rekapitulasi dinas harian berhasil mencantumkan nilai *chain head* hash audit log hari bersangkutan yang terverifikasi cocok dengan salinan supervisor. |
+| **AC-24** | Akses ke endpoint intake internal tanpa API key yang sah ditolak dengan status HTTP 401 Unauthorized; pencabutan API key berlaku seketika. |
+| **AC-25** | Tiket duplikat yang diputuskan berbeda dari laporan induk otomatis ditandai `cluster_conflict` dan tidak menulis entri ganda ke Knowledge Base. |
+| **AC-26** | Lalu lintas keluar (*egress*) dari kontainer backend ke domain luar yang tidak terdaftar di allowlist proxy terbukti diblokir. |
+| **AC-27** | Tiket yang sedang dalam proses penilaian kedua (*Second Review*) menyembunyikan identitas keputusan analis pertama dari penilai kedua. |
+| **AC-28** | Ekstensi berhasil mengirim gambar + DOM + SHA-256; worker memverifikasi kecocokan hash; mismatch memicu status `FAILED` dan audit alert. |
+| **AC-29** | Penanganan konten berhalangan login-wall (X/Threads) sukses diakuisisi secara visual melalui active-tab capture ekstensi peramban. |
+| **AC-30** | Audit keamanan kode ekstensi membuktikan tidak ada penyimpanan kredensial password dalam storage peramban; komunikasi wajib HTTPS. |
+| **AC-31** | Penambahan adapter media sosial baru dapat dilakukan secara modular tanpa mengubah inti alur pemrosesan worker. |
+| **AC-32** | Topik baru berstatus `LAINNYA` muncul dalam daftar antrean usulan admin tanpa langsung mencemari katalog topik utama IPOLEKSOSBUDHANKAM. |
+
+---
+
+## 2. Data Flow Diagram (DFD)
+
+### 2.1 DFD Level 0 (Context Diagram)
+
+Sistem Asisten Patroli Siber berinteraksi dengan **5 Entitas Eksternal**:
+1. **Petugas Piket Patroli**: Berselancar di workstation dinas menggunakan Ekstensi Peramban (MV3) untuk mengirimkan tautan, snapshot DOM, tangkapan layar, dan hash SHA-256 awal.
+2. **Analis Intelijen Siber / Administrator**: Mengakses Web Dashboard untuk memvalidasi antrean tiket, menganalisis grafik agregat, merevisi keputusan, dan mengunduh berkas dinas.
+3. **Platform Media Sosial (YouTube, TikTok, Instagram, X/Threads)**: Sumber konten publik daring yang diambil bukti visual dan metadatanya.
+4. **Google Gemini AI Gateway**: Layanan model kecerdasan buatan untuk pembentukan embedding vektor 768-D dan analisis multimodal 5W+1H.
+5. **Supervisor / Pimpinan Piket**: Menerima dokumen rekapitulasi harian dinas (.docx) dan menyimpan salinan sah nilai jangkar audit hash-chain di luar sistem.
 
 ```
-Petugas --URL/File--> 1.0 --tiket--> 2.0 [scraper, jaringan terisolasi]
-                                       | PNG + sha256 awal + metadata
-                                       v
-                                      3.0 --verifikasi hash--> D4, D7
-                                       |--upsert--> D2, D3
-                                       |--cek duplikat (URL/SHA-256/pHash)--> D5.duplicate_of
-                                       v
-              teks konten --> 4.0 <--> D8 (is_active, taxonomy sama, bukan cluster sendiri)
-                                       |  (dilewati bila RAG mati / jalur B buta / tanpa teks / gagal)
-                                       v
-              bukti + metadata + referensi --> 5.0 <--> Gemini (failover, proyek berbayar)
-                                       |  [tiket buta: 2 jalur, dengan & tanpa RAG --> 12.0]
-                                       v
-                                  D5, D6 --> 6.0 --kartu--> Analis
-                                              ^               |
-                                              +-- keputusan + kode alasan (+ catatan)
-                                       v
-              keputusan final --> 7.0 (antrian, fail-open) --> D8, D9, D6
-
-Pengguna Dashboard --filter--> 10.0 <-- D5 (final) + D9 --> grafik
-ADMIN --aksi--> 11.0 --> D1/D8/D9/D10, log D6
-/rekap_harian --> 9.0 --> DOCX (+ chain head D6) --> Supervisor
+                           ┌───────────────────────────────┐
+                           │     Platform Media Sosial     │
+                           │(YouTube, TikTok, IG, X/Threads)│
+                           └───────────────┬───────────────┘
+                                           │
+                         Navigasi Halaman  │  Tangkapan Layar & DOM
+                         & Konten Publik   │  (Client-First / Fallback)
+                                           ▼
+ ┌───────────────────────────┐      ┌──────────────────────────────┐      ┌───────────────────────────┐
+ │   Petugas Piket Patroli   │      │                              │      │   Google Gemini AI Gateway│
+ │  (Workstation + Ekstensi) ├─────►│                              ├─────►│  (Multimodal Vision + Emb)│
+ │                           │Capture│                              │Prompt│                           │
+ │                           │SHA-256│                              │5W+1H │                           │
+ │                           │      │ SISTEM ASISTEN PATROLI SIBER │      │                           │
+ │                           │◄─────┤      PRD v3.1 ENTERPRISE     │◄─────┤                           │
+ │                           │Tiket │   (BROWSER EXTENSION + WEB)  │JSON &│                           │
+ │                           │Status│                              │Vector│                           │
+ └───────────────────────────┘      └──────────────┬───────────────┘      └───────────────────────────┘
+                                                   │
+                                     Autentikasi,  │  Data Agregat,
+                                     Validasi HITL,│  Grafik Dashboard,
+                                     Kode Alasan   │  & Berkas Laporan
+                                                   ▼
+                                    ┌──────────────────────────────┐
+                                    │  Analis & Supervisor Piket   │
+                                    │(Web Dashboard & Arsip Rekap) │
+                                    └──────────────────────────────┘
 ```
 
-### 2.3 DFD Level 2: Proses 2.0 dan 3.0 (Capture dan Simpan)
+---
 
-- 2.1 Normalisasi URL, ikuti redirect, cek domain terhadap allowlist. Gagal → tolak + audit.
-- 2.2 Deteksi platform, jalankan scraper (yt-dlp + Playwright 1080p untuk YouTube; TikTok; Instagram).
-- 2.3 Auto-dismiss banner consent/login.
-- 2.4 Cek screenshot > 20 KB; gagal → retry 1x → `MANUAL_FALLBACK`.
-- 2.5 Tulis PNG ke volume `scratch/`, hitung SHA-256 saat tulis.
-- 3.1 Worker menolak symlink dan file non-reguler di `scratch/`, membaca file, hitung ulang SHA-256, bandingkan. Cocok → pindah ke `storage/evidences/`; tidak cocok → `FAILED`.
-- 3.2 Hitung pHash (jalur file dan screenshot).
-- 3.3 Cek duplikat: URL kanonik → SHA-256 → pHash (petunjuk). Tetapkan `content_cluster_id` (FR-06.3).
-- 3.4 Upsert `accounts`, `contents`.
-- 3.5 OCR deterministik (Tesseract, bahasa `ind+eng`) atas screenshot/file, simpan ke `reports.ocr_text`. Gagal OCR tidak menghentikan proses (teks OCR kosong).
-- 3.6 Undian evaluasi buta (hanya tiket non-duplikat pasti).
+### 2.2 DFD Level 1 (Dekomposisi Proses & Data Store)
 
-### 2.4 DFD Level 2: Proses 4.0 (Retrieval RAG)
+#### Daftar 12 Data Store Fisik:
+- **D1: Pengguna Sistem** (`users`)
+- **D2: Profil Akun Media Sosial** (`accounts`)
+- **D3: Konten Media Sosial** (`contents`)
+- **D4: Berkas Bukti Digital** (`evidences`)
+- **D5: Laporan & Tiket Patroli** (`reports`, `report_revisions`)
+- **D6: Entitas, Alias & Aktor Sasaran** (`entities`, `entity_aliases`, `report_actors`)
+- **D7: Basis Pengetahuan Preseden RAG** (`knowledge_entries`)
+- **D8: Katalog Topik Terkontrol** (`topics`)
+- **D9: Log Audit Forensik Hash-Chain** (`audit_logs`)
+- **D10: Taksonomi & Konfigurasi** (`config_taxonomy`)
+- **D11: Sesi & Antrean Cepat Redis** (`redis` default)
+- **D12: Antrean Tugas Scraper Fallback** (`redis-scrape`)
 
-- 4.1 Bila `RAG_ENABLED = false` atau jalur B evaluasi buta: `rag_mode = OFF`, selesai.
-- 4.2 Susun teks kueri: judul + caption + teks OCR (hasil proses 3.5).
-- 4.3 Embedding (retry dengan backoff, **tanpa** failover ke model lain), normalisasi L2. Teks kosong → `rag_mode = NO_TEXT`, selesai.
-- 4.4 Exact scan cosine di D8 dengan filter: `is_active`, `taxonomy_version`, bukan `content_cluster_id` sendiri.
-- 4.5 Ambil top-k di atas ambang terkalibrasi. Tidak ada hasil → `rag_mode = EMPTY`.
-- 4.6 Format blok referensi (hanya field FR-04.4 butir 1). Catat `rag_context`.
-- 4.7 Gagal → `rag_mode = FAILED`, audit `RAG_FAILED`, lanjut tanpa konteks.
+#### Diagram Aliran Proses Level 1:
+```
+[Petugas + Ekstensi] ──Capture+SHA256──► ( 1.0 Intake Ekstensi & Validasi )
+                                                    │
+                                                    ├──Tiket Baru──► D5 (reports)
+                                                    │
+                                                    ▼
+                                         ( 2.0 Verifikasi Hash & Simpan ) ◄── D11 (Redis)
+                                                    │
+                                                    ├──Meta Akun/Konten──► D2 (accounts), D3 (contents)
+                                                    ├──Bukti & SHA-256──► D4 (evidences), Storage Fisik
+                                                    │
+                                                    ▼
+                                         ( 3.0 OCR & Retrieval Preseden ) ◄── D7 (knowledge_entries)
+                                                    │
+                                                    ├──Top-k Preseden
+                                                    ▼
+                                         ( 4.0 Triase Cerdas 5W+1H ) ◄── Gemini AI Gateway
+                                                    │
+                                                    ├──Rekomendasi JSON──► D5 (reports)
+                                                    │
+                                                    ▼
+                                         ( 5.0 Antrean Validasi Dashboard ) ◄── [ Analis Intelijen ]
+                                                    │
+                                                    ├──Putusan + Kode Alasan──► D5 (reports), D9 (audit_logs)
+                                                    │
+                                                    ▼
+                                         ( 6.0 Asimilasi KB & Entitas ) ──► D7 (knowledge_entries)
+                                                    │                    ──► D6 (entities, report_actors)
+                                                    │
+                                                    ▼
+[Dashboard / Supervisor] ◄──Visual & DOCX── ( 7.0 Agregasi Analitik & Rekap ) ◄── D5, D6, D8, D9
+```
 
-### 2.5 DFD Level 2: Proses 7.0 (KB dan Entitas)
+---
 
-- 7.1 Terima keputusan final. Lewati bila cluster sudah memiliki entri aktif (bukan keputusan pertama dalam cluster), kecuali berasal dari revisi ADMIN.
-- 7.2 Topik: pakai `topik_kode` (atau kode koreksi ADMIN); `LAINNYA` → simpan usulan ke antrian.
-- 7.3 Aktor: normalisasi → exact alias → entitas `APPROVED` atau buat `PENDING_REVIEW` (kecuali `INDIVIDU_PRIVAT`). Media asal: normalisasi → exact alias atau nama ternormalisasi (FR-10.4).
-- 7.4 Embedding `embed_text` (pakai ulang vektor kueri dari 4.3 bila ada).
-- 7.5 Dalam satu transaksi: nonaktifkan entri aktif cluster (bila revisi), simpan entri baru, audit `KB_ENTRY_CREATED`.
-- 7.6 Gagal di langkah mana pun → antrian ulang dengan backoff; keputusan analis tetap tersimpan.
+### 2.3 Rincian Dekomposisi Proses Kritis (DFD Level 2)
 
-### 2.6 DFD Level 2: Proses 12.0 (Evaluasi Buta)
+#### Proses 2.0 (Verifikasi Hash & Akuisisi Bukti)
+1. Worker menerima payload biner berkas bukti dan nilai hash SHA-256 dari antrean Redis.
+2. Worker menghitung ulang nilai hash biner gambar menggunakan modul `hashlib.sha256()`.
+3. Jika nilai hash cocok: berkas dipindahkan ke `storage/evidences/{report_id}_{hash}.png` dengan izin berkas *read-only* (0444), kemudian nilai perceptual hash (pHash 64-bit) dihitung untuk deteksi kemiripan visual.
+4. Jika nilai hash berbeda: status tiket diubah menjadi `FAILED`, transaksi dibatalkan, dan kejadian dicatat sebagai pelanggaran integritas data di `audit_logs`.
 
-- 12.1 Setelah cek duplikat (3.6), undian acak dengan peluang `EVAL_BLIND_RATE` → `eval_blind = true`.
-- 12.2 Fase 1–2: AI dijalankan sekali tanpa RAG (untuk 50 tiket pertama dijalankan dua kali, FR-13.4a). Fase 3: jalur A (dengan RAG) dan jalur B (tanpa RAG), model/prompt/taksonomi dikunci. Jalur A menjadi output resmi laporan.
-- 12.3 Kartu buta: bukti + metadata saja, tombol pilih kategori/risiko/Bukan Pelanggaran.
-- 12.4 Setelah keputusan: tampilkan output AI sebagai informasi. Status mengikuti `decision_mode = BLIND` (FR-05.3a): pelanggaran = VALIDATED, bukan pelanggaran = REJECTED. Kode alasan tidak diminta.
-- 12.5 Tiket buta terpilih untuk penilaian kedua masuk halaman Penilaian Kedua di dashboard; jawabannya hanya ke `second_rater_label` (FR-13.4).
-- 12.6 Progres pengumpulan dihitung harian untuk grafik 9; metrik hasil FR-13.5 hanya dihitung saat ukuran sampel tercapai (tidak ada pengintipan hasil antara).
+#### Proses 3.0 (Retrieval RAG Preseden & Ekstraksi OCR)
+1. Tesseract OCR mengekstrak seluruh teks yang tampak pada tangkapan layar bukti visual.
+2. Menggabungkan teks caption, judul, dan teks OCR menjadi teks representasi konten.
+3. Menghasilkan vektor embedding 768 dimensi via `gemini-embedding-001` dengan normalisasi L2.
+4. Melakukan *Exact Scan Cosine Similarity* terhadap tabel `knowledge_entries` dengan kriteria: `is_active = True`, `content_cluster_id != current_cluster_id`, nilai kemiripan $\ge 0.75$, dan batas maksimal 5 preseden teratas.
+
+#### Proses 4.0 (Triase Cerdas 5W+1H & Evaluasi Buta Dual AI)
+1. Sistem memeriksa flag `eval_blind`: jika tiket terpilih sebagai sampel buta (10%), eksekusi dilakukan paralel untuk Jalur A (dengan konteks RAG) dan Jalur B (tanpa konteks RAG).
+2. Prompt multimodal dikirim ke Gemini Vision API dengan pembungkus *explicit data boundary* untuk mengisolasi konten tak tepercaya.
+3. Respons divalidasi ketat terhadap skema Pydantic `AIPatrolAnalysis`.
+4. Output disimpan ke database; untuk tiket buta, hasil rekomendasi AI disembunyikan dari tampilan antrean validasi analis.
+
+#### Proses 5.0 (Validasi Human-in-the-Loop di Dashboard)
+1. Analis membuka antrean tiket di konsol Web Dashboard.
+2. Analis meninjau tangkapan layar Full HD, rincian 5W+1H, rekomendasi kategori/risiko, dan rujukan kasus serupa.
+3. Analis memilih salah satu tindakan: `[Setuju]`, `[Ubah Kategori/Risiko]`, atau `[Bukan Pelanggaran]` beserta kode alasan wajib.
+4. Database mengeksekusi *conditional update* secara atomik: `UPDATE reports SET status = :new_status WHERE id = :id AND status = 'WAITING_VALIDATION'`.
+
+#### Proses 8.0 (Audit Hash-Chain & External Anchor)
+1. Setiap transaksi mutasi menulis baris baru ke tabel `audit_logs`.
+2. Nilai hash baris baru dihitung: `row_hash = SHA-256(prev_hash || id || action || details || created_at)`.
+3. Pukul 23.55 WIB setiap malam, scheduler otomatis mengambil `row_hash` terakhir hari itu (*chain head*) dan menyematkannya ke ringkasan dokumen rekapitulasi dinas (.docx) yang diunduh dan diarsipkan secara fisik oleh supervisor piket.
 
 ---
 
 ## 3. Arsitektur Sistem
 
-### 3.1 Komponen
+### 3.1 Komponen Terdistribusi Modular
 
 ```
-Pengguna Telegram                         Pengguna Dashboard (browser)
-      |                                              |  TLS
-Telegram Bot API (polling)                           v
-      |                                FastAPI app (port 8000)
-      |                                - REST API /api/v1/*
-      |                                - Dashboard HTML (Jinja2 + HTMX + Chart.js lokal)
-      |                                - Sesi Redis, CSRF, TOTP
-      +------------------------+---------------------+
-                               v
-                 Redis `redis` (antrian Celery "default" + sesi)
-                               |
-                               v
-                 service: worker  [jaringan internal + scrape_int]
-                 - scrape-collector (BRPOP scrape:results, validasi FR-02.8)
-                 - CryptoService (verifikasi hash, pHash), OCR subprocess
-                 - AIService (Gemini, failover, Pydantic strict)
-                 - RAGService (embedding, retrieval, tulis KB)
-                 - EntityService, EvalService (FR-13)
-                 - AnalyticsService, ReportService (DOCX), AuditService
-                 |  LPUSH scrape:jobs        ^ BRPOP scrape:results
-                 v                           |
-        Redis `redis-scrape` (scrape_net + scrape_int, ACL per arah)
-                 |  BRPOP scrape:jobs        ^ LPUSH scrape:results
-                 v                           |
-                 service: scraper  [scrape_net, egress internet publik saja]
-                 - Playwright, yt-dlp, allowlist navigasi
-                 - tanpa kredensial DB/API, tulis ke volume scratch/
-                               |
-             +-----------------+-----------------+
-             v                                   v
-   PostgreSQL 16 + pgvector             File Storage (evidences/, reports/)
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        KONSOL OPERASIONAL WORKSTATION                                  │
+│                                                                                        │
+│   [ Ekstensi Peramban (Chrome / Edge / Firefox MV3) ]        [ Web Dashboard Console ] │
+│   - 1-Click Visible Tab Capture & DOM Snapshot               - Antrean Validasi Analis │
+│   - SHA-256 Calculation di Titik Klien (WebCrypto)           - 9 Grafik Analitik       │
+│   - Token Otentikasi Terenkripsi                             - Manajemen Topik/Entitas │
+└────────────────────────────────────────┬───────────────────────────────┬───────────────┘
+                                         │ HTTPS / Bearer Token          │
+                                         ▼                               ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                          FASTAPI CENTRAL SERVICE LAYER                                 │
+│                                                                                        │
+│   - /api/v1/auth/* (Otentikasi Argon2id + 2FA TOTP)                                   │
+│   - /api/v1/intake/extension (Penerimaan Bukti Digital Klien)                          │
+│   - /api/v1/dashboard/queue (Antrean Tiket Analis & Validasi Atomik)                   │
+│   - /api/v1/dashboard/analytics (Kueri 9 Visualisasi Agregat IPOLEKSOSBUDHANKAM)       │
+│   - /api/v1/admin/* (Revisi Keputusan, Kurasi Entitas, Audit Verifier)                 │
+└────────────────────────────────────────┬───────────────────────────────────────────────┘
+                                         │ Enqueue Asinkron
+                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                     REDIS BROKER & DISTRIBUTED CELERY WORKERS                          │
+│                                                                                        │
+│     [ Redis Broker (Queue: default) ] ──► [ Celery Processing Workers ]                │
+│                                                    │                                   │
+│            ┌───────────────────────────────────────┴────────────────────────────┐      │
+│            ▼                                                                    ▼      │
+│   [ Pipeline Bukti & OCR ]                                           [ Pipeline AI ]   │
+│   - Re-verifikasi Hash SHA-256                                       - Gemini Gateway  │
+│   - OCR Tesseract (ind+eng)                                          - Retrieval RAG   │
+│   - Deteksi Duplikasi pHash                                          - Evaluasi Buta   │
+└────────────────────────────────────────┬───────────────────────────────────────────────┘
+                                         │ Persistensi Data
+                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                         PERSISTENCE & SECURITY LAYER                                   │
+│                                                                                        │
+│   [ PostgreSQL 16 + pgvector ]                      [ Storage Bukti Digital ]          │
+│   - 11 Tabel Relasional Resmi                       - storage/evidences/ (PNG)         │
+│   - Partial Unique Index KB per Cluster             - storage/reports/ (DOCX)          │
+│   - Hash-Chain Log Audit Terenkripsi                - Read-Only Forensik Volume        │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### 3.2 Alur End-to-End
-
-1. Petugas mengirim URL atau file ke bot.
-2. Bot cek whitelist, buat tiket `PS-YYYYMMDD-XXXX`, kirim progres.
-3. Service `scraper` mengambil bukti (atau handler menerima file), menghitung SHA-256 awal.
-4. Worker memverifikasi hash, menyimpan bukti, menghitung pHash, mengecek duplikat, upsert `accounts`/`contents`.
-5. Bila RAG aktif dan bukan jalur B evaluasi buta: retrieval referensi.
-6. AI menganalisis (dua jalur untuk tiket buta). Output + jejak model disimpan.
-7. Bot mengirim kartu: normal, buta, atau duplikat.
-8. Analis memutuskan + kode alasan. Update atomik.
-9. Kartu diperbarui "Tervalidasi oleh [nama]".
-10. Asinkron: normalisasi entitas, penulisan KB (fail-open).
-11. Dashboard menampilkan agregat dari keputusan final.
-12. `/rekap_harian` menghasilkan DOCX dengan chain head audit, dikirim ke supervisor.
-
-### 3.3 State Machine Tiket
-
-```
-[PENDING_ANALYSIS]
-   |-- capture sukses (AI sukses, atau AI gagal → NO_AI) --> [WAITING_VALIDATION]
-   |-- tiket buta: bukti tersimpan (tanpa menunggu AI) --> [WAITING_VALIDATION]
-   |      hasil AI yang datang belakangan hanya menulis eval_runs/kolom AI, tidak pernah mengubah status;
-   |      pesan pribadi berisi output AI ke pengambil keputusan dikirim setelah AI selesai
-   |                              |-- final_label = label AI (pelanggaran) --> [VALIDATED] --+
-   |                              |-- NORMAL: Ubah (+kode alasan)  --> [MODIFIED]  --+--> antrian: entitas + KB
-   |                              |-- final_label = BUKAN_PELANGGARAN (semua mode) --> [REJECTED] --+   (lihat FR-09.1)
-   |                              |-- BLIND / NO_AI: pelanggaran   --> [VALIDATED]
-   |                              |-- Sama dengan induk (duplikat) --> status induk, is_duplicate = true
-   |
-   |-- capture gagal/blank --> [MANUAL_FALLBACK] --file manual--> [PENDING_ANALYSIS]
-   |-- hash mismatch / gagal permanen --> [FAILED]
-
-ADMIN revisi (dashboard) pada VALIDATED|MODIFIED|REJECTED --> status final baru (+ REPORT_REVISED, FR-09.7)
-```
-
-Catatan: kegagalan AI setelah seluruh failover habis membuat tiket tetap masuk `WAITING_VALIDATION` dengan kartu "AI tidak tersedia" (`decision_mode = NO_AI`, analis menilai manual seperti kartu buta). Triase tidak berhenti karena AI.
-
-### 3.4 Skema Basis Data
-
-Migrasi dikelola dengan Alembic; setiap perubahan di bawah adalah satu revisi migrasi yang dapat di-rollback.
-
-**`patrol_users` (diperluas, identitas tunggal):** user\_id (UUID, PK), telegram\_id (BigInteger, unique, nullable untuk VIEWER), full\_name, role (OPERATOR, ANALYST, ADMIN, VIEWER), is\_active, **dashboard\_enabled** (Boolean), **username** (unique, nullable), **password\_hash** (argon2id, nullable), **totp\_secret\_enc** (terenkripsi, nullable), **last\_login\_at**, created\_at, last\_active\_at. Tabel `dashboard_users` dari v2 **tidak dibuat**.
-
-**`accounts`, `contents`:** tidak berubah. Kolom `bio` tidak dikirim ke AI.
-
-**`evidences` (diperluas):** + `phash` (String 16), `source_quality` (ORIGINAL, TELEGRAM\_COMPRESSED, SCREENSHOT), `capture_sha256` (hash di titik capture).
-
-**`reports` (diperluas):** kolom v1, ditambah:
-
-| Kolom | Tipe | Keterangan |
-| --- | --- | --- |
-| topic\_code | String 50 | Kode topik terkontrol (setelah koreksi ADMIN bila ada) |
-| topic\_proposal | String 80 | Usulan bila `LAINNYA` |
-| ai\_actors\_raw | JSONB | [{nama, jenis}] mentah, tunduk retensi |
-| ai\_media\_raw | String 255 | Media asal mentah |
-| ai\_media\_type | String 50 | Tipe media asal |
-| media\_entity\_id | UUID FK entities | Media asal kanonik |
-| final\_label, final\_risk | String | Keputusan final (sudah ada di v1/v2, ditegaskan) |
-| reason\_code | String 50, nullable | Kode alasan **keputusan pertama**. CHECK pada keputusan pertama: NOT NULL bila dan hanya bila `decision_mode = NORMAL` dan label atau risiko berbeda dari output AI (FR-05.3). Alasan revisi disimpan di `report_revisions` |
-| decision\_mode | Enum | NORMAL, BLIND, NO\_AI, DUPLICATE (FR-05.3a) |
-| ocr\_text | Text | Hasil OCR deterministik (proses 3.5) |
-| analyst\_notes | Text | Catatan opsional (wajib bila `LAINNYA`) |
-| decided\_by | UUID FK patrol\_users | Pengambil keputusan |
-| decided\_at | DateTime | |
-| duplicate\_of | UUID FK reports, nullable | Laporan induk (duplikat pasti) |
-| similar\_to | UUID FK reports, nullable | Petunjuk kemiripan pHash (tidak mengubah status) |
-| is\_duplicate | Boolean | Dikonfirmasi analis |
-| content\_cluster\_id | UUID | Unit hitung dan pengecualian retrieval |
-| eval\_blind | Boolean | Sampel evaluasi buta |
-| eval\_runs | JSONB, nullable | Ditulis sekali per run (trigger menolak perubahan entri yang sudah ada); hash label buta dicatat di audit (`BLIND_LABEL_RECORDED`). Untuk tiket buta: label buta asli + daftar run AI {jalur (A/B/B2), model\_id, prompt\_version, status (OK/REFUSED/INVALID/UNAVAILABLE), output, biaya}. B2 = run ulang FR-13.4a |
-| cluster\_conflict | Boolean | Keputusan berbeda dalam satu cluster (FR-06.3) |
-| original\_decision | JSONB | Snapshot keputusan pertama {final\_label, final\_risk, reason\_code, decided\_by, decided\_at}; ditulis sekali, tidak berubah oleh revisi (trigger) |
-| second\_rater\_label | JSONB, nullable | Label penilai kedua {label, risk, rater, at} (FR-13.4) |
-| ai\_model\_id, prompt\_version | String | Jejak model |
-| rag\_mode | Enum | ON, OFF, EMPTY, NO\_TEXT, FAILED |
-| rag\_context | JSONB | [{entry\_id, score}] |
-| ai\_cost\_usd | Numeric | Biaya token |
-| taxonomy\_version | String 20 | Versi taksonomi saat dianalisis |
-
-Enum `status`: PENDING\_ANALYSIS, WAITING\_VALIDATION, VALIDATED, MODIFIED, REJECTED, MANUAL\_FALLBACK, FAILED.
-
-**`report_revisions` (baru):** revision\_id (UUID, PK), report\_id (FK), old\_label, old\_risk, new\_label, new\_risk, reason\_code (NOT NULL), notes, revised\_by (FK patrol\_users), revised\_at. Kolom keputusan berlaku di `reports` (`final_label`, `final_risk`, status) diperbarui oleh revisi; `original_decision` dan `reason_code` keputusan pertama tidak berubah.
-
-**`report_actors`:** report\_id (FK), entity\_id (FK entities). Hanya aktor non-privat.
-
-**`topics` (baru):** topic\_code (PK), label, is\_active, taxonomy\_version, created\_at.
-
-**`entities`:** entity\_id (UUID, PK), entity\_type (ACTOR, MEDIA), canonical\_name, actor\_kind (TOKOH\_PUBLIK, INSTITUSI, KELOMPOK; null untuk MEDIA), media\_type (untuk MEDIA), status (PENDING\_REVIEW, APPROVED, MERGED), merged\_into (FK, nullable), created\_at, reviewed\_by, reviewed\_at. Unique (entity\_type, canonical\_name).
-
-**`entity_aliases`:** alias\_id, entity\_id (FK), alias\_text, alias\_normalized (indeks unik per entity\_type), created\_at.
-
-**`knowledge_entries`:**
-
-| Kolom | Tipe | Keterangan |
-| --- | --- | --- |
-| entry\_id | UUID PK | |
-| report\_id | UUID FK reports | Laporan yang menulis entri |
-| source | String | DECISION (keputusan analis) atau SEED (impor FR-09.6). SEED dikecualikan dari analisis stratifikasi FR-13.3 |
-| content\_cluster\_id | UUID | Pengecualian retrieval. Indeks unik parsial `(content_cluster_id) WHERE is_active`: satu entri aktif per cluster |
-| decision | String | VALIDATED, MODIFIED, REJECTED |
-| decision\_mode | String | NORMAL, BLIND, NO\_AI |
-| ai\_suggested | Boolean | Label final = label AI yang ditampilkan (untuk stratifikasi FR-13, tidak masuk prompt) |
-| final\_label, final\_risk | String | |
-| reason\_code | String | |
-| analyst\_notes | Text | Maks 300 karakter dipakai di prompt |
-| snippet\_text | Text | Cuplikan teks konten asli, maks 280 karakter dipakai di prompt |
-| embed\_text | Text | Judul + caption + OCR deterministik |
-| embedding | vector(768), NOT NULL | Ternormalisasi L2. Laporan dengan `rag_mode = NO_TEXT` (tanpa teks) tidak ditulis ke KB |
-| embedding\_model | String | Mis. `gemini-embedding-001@768` |
-| taxonomy\_version | String | |
-| decided\_by | UUID FK patrol\_users | |
-| is\_active | Boolean | |
-| deactivated\_by, deactivated\_at, deactivation\_reason | | |
-| purged\_at | DateTime, nullable | Tombstone retensi |
-| created\_at | DateTime | |
-
-Tanpa indeks ANN (NFR-4). Indeks B-tree pada (is\_active, taxonomy\_version). Trigger menolak UPDATE selain kolom deaktivasi; pengecualian hanya untuk role pemilik fungsi `purge_report()` (NFR-8).
-
-**`api_keys` (baru):** key\_id (UUID, PK), label, key\_hash (argon2id), created\_by, created\_at, revoked\_at, last\_used\_at.
-
-**`outbox` (baru):** message\_id (UUID, PK), chat\_id, payload (JSONB: teks, tombol, file), idempotency\_key (unique), status (PENDING, SENT, FAILED), attempts, created\_at, sent\_at. Diisi oleh worker dan celery-beat, dikirim oleh `app` (NFR-14).
-
-**`config_taxonomy` (baru):** version, categories (JSONB), reason\_codes (JSONB), is\_current, approved\_by, created\_at.
-
-**`audit_logs` (diperluas):** + `prev_hash`, `row_hash`; entity\_type ditambah KnowledgeEntry, Entity, Topic, PatrolUser.
-
-### 3.5 Docker Compose
-
-| Service | Image/isi | Jaringan | Secrets |
-| --- | --- | --- | --- |
-| `db` | `pgvector/pgvector:pg16` (versi di-pin), `CREATE EXTENSION vector` | `internal` | Password DB |
-| `redis` | Redis 7 dengan password: broker antrian `default` + sesi dashboard | `internal` | Password Redis |
-| `redis-scrape` (baru) | Redis 7 khusus list `scrape:jobs` dan `scrape:results` saja, tanpa data lain. ACL dengan selector Redis 7 per arah: user `scraper` hanya `BRPOP` pada `scrape:jobs` dan `LPUSH` pada `scrape:results`; user `worker` hanya `LPUSH`/`LLEN` pada `scrape:jobs` dan `BRPOP` pada `scrape:results`; keduanya `-@all` selain itu | `scrape_net` (bersama `scraper`) + `scrape_int` (jaringan `internal: true`, bersama `worker`) | Password terpisah per user (`scraper`, `worker`) |
-| `egress-proxy` (baru) | Forward proxy keluar (mis. Squid) dengan allowlist domain/SNI per klien | `internal` + egress internet | Tidak ada |
-| `proxy` (baru) | Reverse proxy TLS (mis. Caddy atau nginx) di depan `app`; hanya port dashboard yang diekspos, `/api/v1/patrol` tidak diteruskan | jaringan akses dashboard sesuai keputusan §5 no. 14 + `internal` | Sertifikat TLS |
-| `app` | FastAPI + dashboard + **satu-satunya proses bot Telegram** (polling dan pengirim pesan keluar dari tabel `outbox`) | `internal`; egress hanya ke `api.telegram.org` | DB (role non-pemilik), Redis, token bot, kunci sesi, kunci enkripsi TOTP |
-| `worker` | Celery queue `default`, proses `scrape-collector`, Tesseract OCR (`tesseract-ocr-ind`) | `internal` + `scrape_int` (hanya untuk `redis-scrape`; `worker` tidak berada di `scrape_net`, sehingga tidak ada rute langsung ke internet); egress hanya lewat `egress-proxy` ke endpoint Gemini/Vertex | DB (role non-pemilik), Redis, user `worker` di `redis-scrape`, kredensial Gemini |
-| `scraper` (baru) | Image Playwright; loop `BRPOP`/`LPUSH` sederhana (bukan Celery); satu proses browser baru per pekerjaan; container di-recreate setiap hari oleh **timer host** (systemd timer/cron) | `scrape_net`: hanya egress internet publik; diblokir ke `internal`, RFC1918, link-local | Hanya kredensial user `scraper` di `redis-scrape` |
-| `celery-beat` (baru) | Penjadwal yang **hanya memasukkan tugas ke antrian** (dieksekusi `worker`): jangkar audit (FR-08.6), timeout catatan `LAINNYA`, purge retensi, verifikasi audit harian, metrik FR-13, kalibrasi bulanan FR-09.9 (ditunda selama jendela evaluasi) | `internal` | Redis |
-| `backup` (baru) | Container kecil dengan cron sendiri: `pg_dump` + salin bukti, enkripsi dengan **kunci publik** (kunci privat disimpan di luar server) | `internal` + egress ke penyimpanan backup | Role DB baca-saja khusus backup; mount `storage` baca-saja; kredensial tujuan backup |
-
-Aturan jaringan `scraper` (ditulis sebagai aturan iptables di chain `DOCKER-USER`, karena Docker Compose tidak dapat menyatakannya):
-
-1. Izinkan ke IP statis `redis-scrape` (dikonfigurasi lewat `ipv4_address`, `scraper` terhubung memakai IP, bukan nama) port 6379, dan ke resolver DNS publik yang ditetapkan (DNS internal Docker tidak dipakai `scraper`).
-2. Tolak semua tujuan RFC1918, 100.64.0.0/10, 169.254.0.0/16, 127.0.0.0/8, dan subnet Docker lain.
-3. Izinkan sisanya (internet publik) untuk TCP 80/443 saja; UDP 443 (QUIC) diblokir agar seluruh lalu lintas melewati aturan yang sama.
-4. IPv6 dimatikan pada `scrape_net`.
-
-Egress `app` dan `worker` dibatasi lewat forward proxy keluar (mis. Squid) dengan allowlist domain/SNI: `api.telegram.org` untuk `app`, endpoint Gemini/Vertex untuk `worker`, dan registry paket hanya saat build; koneksi keluar langsung dari jaringan `internal` diblokir (AC-26).
-
-Prasyarat host: modul `br_netfilter` aktif dan `net.bridge.bridge-nf-call-iptables = 1`, karena `scraper` dan `redis-scrape` berbagi bridge `scrape_net`; tanpa ini aturan antar-container di bridge yang sama tidak berlaku. AC-21 menguji aturan ini dari dalam container.
-
-Volume: `pgdata`, `storage` (app/worker), `scratch` (scraper tulis, worker baca-pindah), `incoming` (app tulis unggahan, worker baca-pindah), `backup` (target backup lokal sebelum disalin ke penyimpanan terpisah). Tidak ada service `web` terpisah. Migrasi Alembic dijalankan sebagai job sekali jalan dengan kredensial role pemilik DB (FR-08.5).
-
-### 3.6 REST API
-
-Tetap: `GET /health` (tanpa detail internal). `POST /api/v1/patrol` hanya untuk integrasi internal: tidak diekspos lewat reverse proxy publik, wajib API key per klien (disimpan sebagai hash, dapat dicabut), dan tunduk pada allowlist FR-02.7 yang sama. Seluruh endpoint di bawah (kecuali login) membutuhkan sesi valid; endpoint yang mengubah data membutuhkan token CSRF.
-
-| Endpoint | Role | Fungsi |
-| --- | --- | --- |
-| POST /api/v1/auth/login | publik | Login (+ langkah TOTP) |
-| POST /api/v1/auth/logout | semua | Hapus sesi |
-| GET /api/v1/dashboard/summary | VIEWER+ | Total, distribusi |
-| GET /api/v1/dashboard/timeseries | VIEWER+ | Tren |
-| GET /api/v1/dashboard/breakdown?by=platform\|category\|risk | VIEWER+ | Distribusi |
-| GET /api/v1/dashboard/top?type=topic\|actor\|media&limit=N | VIEWER+ (media: ANALYST+, VIEWER 403) | Peringkat (fail-closed FR-10.3, FR-10.4) |
-| GET /api/v1/dashboard/disagreement | ANALYST+ | Grafik 8 |
-| GET /api/v1/dashboard/reports | ANALYST+ | Drill-down |
-| GET /api/v1/dashboard/export | VIEWER+ | CSV (VIEWER: agregat grafik 1–6 saja) |
-| GET /api/v1/admin/eval | ADMIN | Grafik 9, metrik FR-13 |
-| GET/PATCH /api/v1/admin/knowledge | ADMIN | Daftar, nonaktifkan, seeding |
-| GET/POST /api/v1/admin/entities | ADMIN | Setujui, merge, antrian saran |
-| GET/POST/PATCH /api/v1/admin/topics | ADMIN | Kelola topik, lihat frekuensi usulan |
-| PATCH /api/v1/admin/reports/{id}/entities | ADMIN | Koreksi topik, aktor, media asal sebuah laporan (audit) |
-| POST /api/v1/admin/audit/verify | ADMIN | Verifikasi rantai terhadap hash jangkar yang diberikan supervisor |
-| POST /api/v1/admin/purge | ADMIN | Purge di luar jadwal (alasan wajib, FR-07.2) |
-| GET/POST/PATCH /api/v1/admin/users | ADMIN | Akun, role, whitelist, reset TOTP |
-| GET /api/v1/admin/audit | ADMIN | Audit log + verifikasi rantai |
-| GET /api/v1/admin/health | ADMIN | Kesehatan sistem (§3.8) |
-| POST /api/v1/admin/reports/{id}/revise | ADMIN | Revisi keputusan (FR-05.5) |
-| GET /api/v1/admin/conflicts | ADMIN | Daftar `cluster_conflict` |
-| GET/POST /api/v1/review/second | ANALYST+ | Halaman Penilaian Kedua (FR-13.4); tiket yang diputuskan sendiri tidak ditampilkan |
-| GET /api/v1/review/second/{id}/evidence | ANALYST+ (hanya tiket yang sedang ditugaskan ke penilai tersebut) | Bukti untuk penilaian kedua (diaudit) |
-| POST /api/v1/account/password | semua akun dashboard | Ganti password (wajib password lama) |
-| POST /api/v1/account/totp-enroll | akun dashboard | Pendaftaran TOTP: wajib password + token pendaftaran sekali pakai (FR-12.5) atau sesi baru pertama bagi role non-ADMIN yang mengaktifkan TOTP sukarela |
-| POST /api/v1/admin/users/{id}/totp-reset | ADMIN | Reset TOTP akun lain (bukan diri sendiri): menghasilkan token pendaftaran sekali pakai berlaku 24 jam, diserahkan langsung oleh ADMIN (di luar sistem); pendaftaran ulang memerlukan password + token |
-| GET/POST/DELETE /api/v1/admin/api-keys | ADMIN | Kelola API key integrasi `POST /api/v1/patrol` |
-| GET /api/v1/admin/evidence/{id} | ADMIN | Unduh bukti (diaudit) |
-
-Filter umum: `date_from`, `date_to`, `platform`, `category`, `risk`, `unit=content|report`.
-
-### 3.7 Mekanisme Keandalan
-
-Seluruh mekanisme v1 dipertahankan (anti-blank, multi-model failover, Safe Reply/Edit). Tambahan:
-
-1. **Fail-open bertingkat:** RAG, entitas, KB, dan evaluasi buta adalah lapisan tambahan; kegagalannya tidak memblokir jalur utama (intake → bukti → kartu → keputusan).
-2. **Fallback AI total:** semua model gagal → kartu "AI tidak tersedia", analis menilai manual.
-3. **Retry berantrian:** penulisan KB dan entitas memakai antrian dengan backoff eksponensial (maks 5 percobaan), lalu masuk daftar "gagal permanen" di halaman kesehatan. Saat embedding dijeda karena anggaran (NFR-11), penulisan KB tidak dihitung sebagai kegagalan: **tugas** penulisan ditahan di antrian tertunda (bukan baris KB tanpa embedding) dan diproses oleh job backfill begitu anggaran tersedia. Baris KB hanya dibuat setelah embedding tersedia.
-4. **Idempotensi:** handler tombol dan tugas Celery memakai kunci idempoten (report\_id + aksi) agar retry Telegram tidak menggandakan keputusan atau entri KB.
-5. **Saklar fitur:** `RAG_ENABLED`, `EVAL_BLIND_RATE`, `DEDUP_PHASH_THRESHOLD`, `RAG_TOP_K`, `RAG_THRESHOLD` adalah variabel environment; perubahan cukup dengan restart service terkait (tanpa build ulang image).
-
-### 3.8 Observabilitas
-
-Halaman "Kesehatan Sistem" (ADMIN), dihitung dari DB dan Redis:
-
-| Indikator | Alarm ke grup ADMIN Telegram |
-| --- | --- |
-| Keberhasilan scrape per platform (20 percobaan terakhir) | < 70% |
-| Kedalaman list `scrape:jobs` dan antrian `default` | > 50 tugas selama > 10 menit |
-| Waktu kirim sampai kartu (p50, p95, 24 jam) | p95 > 2× target SLO |
-| Kejadian failover AI dan `rag_mode = FAILED` (24 jam) | > 20% tiket |
-| Biaya bulan berjalan vs batas | 80% dan 100% |
-| Tugas KB/entitas gagal permanen | > 0 |
-| Antrian review entitas dan usulan topik | > 50 |
-| Hasil verifikasi audit harian dan pengiriman jangkar | Rantai putus atau jangkar gagal terkirim |
-| Backup terakhir dan uji restore terakhir | Backup > 26 jam; restore > 35 hari |
 
 ---
 
-## 4. Rencana Rilis Bertahap dan Migrasi
+### 3.2 Alur Operasional End-to-End
 
-### 4.1 Fase 1: Fondasi Data dan Keamanan
-
-Isi: model ancaman T1 (service `scraper` terisolasi), FR-01.3, FR-03.4, FR-04.3, FR-04.5, FR-04.6, FR-05.3 sampai FR-05.5, FR-05.3a, FR-06.3, FR-07.2, FR-02.8, FR-08.3 sampai FR-08.6, FR-09.3 (OCR + embedding), FR-09.1 sampai FR-09.7 dan FR-09.9 (KB mode bayangan, retrieval dan kalibrasi diuji tanpa disisipkan ke prompt), FR-10.1 (daftar topik awal), FR-12 (autentikasi, TOTP, bootstrap ADMIN), **dashboard ADMIN minimal** (akun dan whitelist, revisi keputusan, konflik cluster, KB, API key, verifikasi audit, kesehatan sistem dasar) dan halaman Penilaian Kedua, FR-13.1, FR-13.4, FR-13.4a, FR-13.7, penulisan KB mode bayangan (`RAG_ENABLED = false`), evaluasi buta mulai berjalan dengan AI dijalankan sekali (RAG mati, sehingga hanya ada jalur tanpa RAG); label buta terkumpul dan menjadi baseline akurasi tanpa RAG, backup + observabilitas dasar.
-
-Gerbang ke Fase 2: AC-01 sampai AC-05, AC-08 sampai AC-13, AC-15 sampai AC-20, AC-21 sampai AC-27 lulus (untuk AC-04 dan AC-25, bagian penghitungan dashboard diuji di Fase 2); SLO diukur 2 minggu; ambang RAG, near-duplicate, dan pHash dikalibrasi (FR-09.9); kappa 60 tiket buta pertama dan noise antar-run dilaporkan; pemilik produk memutuskan margin, `EVAL_BLIND_RATE`, dan kelayakan durasi (FR-13.4a); aturan FR-13.5 dan ukuran sampel dikunci.
-
-### 4.2 Fase 2: Dashboard Analitik
-
-Isi: FR-10.2 sampai FR-10.4, FR-11, akses VIEWER, halaman kesehatan lengkap. Saat Fase 2 dimulai, job batch menjalankan normalisasi FR-10.2 atas `ai_actors_raw` dan `ai_media_raw` laporan Fase 1 (tanpa panggilan AI), sehingga data Fase 1 ikut tampil di grafik aktor dan media.
-
-Gerbang ke Fase 3: AC-07, AC-14 dan bagian dashboard AC-04/AC-25 lulus; uji restore bulanan terakhir berhasil; review keamanan dashboard (OWASP ASVS level 1 sebagai checklist).
-
-### 4.3 Fase 3: RAG Aktif dengan Evaluasi
-
-Syarat aktivasi: KB ≥ 300 entri aktif **dan** setiap kategori dengan prevalensi ≥ 5% (60 hari terakhir) memiliki ≥ 20 entri. Kategori langka tidak memblokir aktivasi. `RAG_ENABLED = true`, evaluasi buta jalur ganda berjalan, model/prompt/taksonomi dibekukan.
-
-AC-06 dan AC-11 (kali ini dengan RAG aktif, termasuk kasus injeksi yang ditanam di cuplikan entri KB) diuji pada awal Fase 3 sebelum evaluasi dimulai.
-
-Go/no-go: terapkan aturan pra-registrasi FR-13.5 (LULUS / GAGAL / TIDAK MEYAKINKAN). Hasil dilaporkan ke pemilik produk; selain LULUS, RAG dimatikan dan KB tetap ditulis.
-
-Estimasi durasi (contoh, ditetapkan ulang di akhir Fase 1 sesuai FR-13.4a): dengan 100 tiket/hari, `EVAL_BLIND_RATE` 20%, dan 70% tiket mendapat referensi, terkumpul sekitar 14 pasangan populasi utama per hari. M = 7 pp (±320 pasangan) selesai dalam sekitar 23 hari kerja; M = 5 pp (±620 pasangan) sekitar 44 hari kerja.
-
-### 4.4 Migrasi dari v1/v2
-
-1. Migrasi skema lewat Alembic, diuji pada salinan DB produksi sebelum dijalankan.
-2. Enum status lama dipetakan langsung; tidak ada perubahan makna.
-3. Laporan v1 tetap tampil di dashboard dengan topik "Tidak tersedia (v1)" dan tanpa aktor/media. Opsi isi ulang entitas lewat AI untuk data lama **tidak** dikerjakan (biaya dan risiko halusinasi).
-4. Laporan v1 **tidak** otomatis masuk KB (tidak punya kode alasan). ADMIN dapat menyeleksi dan meninjau ulang kasus v1 untuk seeding (FR-09.6); entri seed ditandai `KB_ENTRY_SEEDED`.
-5. Audit hash-chain dimulai dari entri pertama setelah migrasi; entri lama di-hash sekali sebagai blok genesis.
-6. Akun dashboard dibuat di `patrol_users`; tidak ada migrasi dari `dashboard_users` karena tabel itu tidak pernah dibuat.
+1. **Patroli & Deteksi**: Personel berselancar di workstation dinas. Saat menemukan konten mencurigakan, personel mengklik ikon ekstensi peramban (*1-Click Triage*).
+2. **Client-Side Capture**: Ekstensi mengambil tangkapan layar tab aktif, mengekstrak rendered DOM, menghitung hash SHA-256 berkas biner di memori browser klien, dan mengirimkannya ke API backend via HTTPS.
+3. **Penerbitan Tiket**: Backend menerbitkan nomor tiket resmi `PS-YYYYMMDD-XXXX` berstatus `PENDING_ANALYSIS`.
+4. **Verifikasi Forensik & OCR**: Worker memverifikasi kecocokan hash SHA-256, mengekstrak teks gambar menggunakan Tesseract OCR deterministik, dan mendeteksi potensi duplikasi (pHash).
+5. **Retrieval RAG Preseden**: Worker membuat embedding semantik teks kueri dan melakukan *exact scan* ke Knowledge Base untuk mengambil 5 kasus serupa yang pernah diputuskan analis sebelumnya.
+6. **Triase AI Multimodal**: AI menganalisis visual bukti dan teks konteks untuk menghasilkan ringkasan 5W+1H, rekomendasi kategori, tingkat risiko, dan topik IPOLEKSOSBUDHANKAM. Tiket berstatus `WAITING_VALIDATION`.
+7. **Antrean Validasi Dashboard**: Analis membuka antrean validasi di dashboard monitor, meninjau bukti Full HD, dan memilih putusan: `[Setuju]`, `[Ubah]`, atau `[Bukan Pelanggaran]` beserta kode alasan wajib.
+8. **Asimilasi Pengetahuan**: Putusan final analis secara otomatis dicatat ke Knowledge Base sebagai preseden baru dan entitas dinormalisasi ke katalog.
+9. **Visualisasi Agregat**: Dashboard analitik seketika memperbarui 9 grafik analitik berdasarkan keputusan final analis.
+10. **Pengunduhan Rekapitulasi Dinas**: Analis mengunduh berkas laporan dinas resmi (.docx) berstempel waktu dinas dan ber-jangkar audit hash-chain.
 
 ---
 
-## 5. Asumsi dan Keputusan Terbuka
+### 3.3 State Machine Siklus Hidup Tiket
 
-| No | Item | Usulan default | Pemilik keputusan |
-| --- | --- | --- | --- |
-| 1 | Model embedding dan dimensi | `gemini-embedding-001`, 768 dimensi, L2-normalized | Tim teknis (dikunci di Fase 1) |
-| 2 | Nilai k, ambang similarity, ambang pHash | k=5; ambang dari kalibrasi FR-09.9; pHash 6 | Tim teknis setelah kalibrasi |
-| 3 | Autentikasi | Username/password + TOTP ADMIN; SSO ditunda | Kebijakan instansi |
-| 4 | Cakupan platform (PRD 3, proposal magang 5) | 3 platform di v3; platform lain = non-goal | Pemilik produk |
-| 5 | Bukti gambar di dashboard | ADMIN saja | Pemilik produk |
-| 6 | Kategori baru (judi online, konten asusila) | Tidak ditambah tanpa persetujuan. Catatan: konten asusila menimbulkan isu legal penyimpanan dan pengiriman ke pihak ketiga (Gemini) | Pemangku kepentingan + bagian hukum |
-| 7 | KOP dokumen dinas (Kemkomdigi di v1, BSSN di proposal) | Perlu dikonfirmasi | Pemilik produk |
-| 8 | Lanjutan kalimat terpotong pada permintaan fitur ("serta ...") | **Wajib diklarifikasi sebelum sign-off cakupan v3**; fitur yang muncul dari klarifikasi masuk v3.1 kecuali pemilik produk menyatakan blocker | Pemilik produk |
-| 9 | **Klasifikasi data** konten patroli dan izin pengiriman ke Gemini (region, tier berbayar) dan transit via Telegram | Wajib diputuskan sebelum produksi | Pimpinan + pejabat keamanan informasi |
-| 10 | **Periode retensi** laporan, bukti, KB, nama mentah | Mengikuti kebijakan instansi dan UU PDP | Pimpinan + bagian hukum |
-| 11 | Batas anggaran AI bulanan | Ditetapkan dari baseline Fase 1 | Pemilik produk |
-| 12 | Daftar topik awal (20 sampai 40) dan kode alasan | Disusun bersama analis senior sebelum Fase 1 | Analis senior + ADMIN |
-| 13 | Volume tiket harian | Diasumsikan puluhan sampai ratusan; memengaruhi waktu evaluasi dan keputusan indeks | Diukur di Fase 1 |
-| 14 | Eksposur dashboard (intranet saja, VPN, atau internet publik dengan TLS) | Usulan: intranet/VPN saja; internet publik hanya dengan persetujuan tertulis | Pejabat keamanan informasi |
+```
+[ PENDING_ANALYSIS ]
+        │
+        ├── Capture sukses (AI sukses) ─────────────────────────► [ WAITING_VALIDATION ]
+        ├── Capture sukses (AI offline / limit) ────────────────► [ WAITING_VALIDATION ] (Flag: NO_AI)
+        ├── Sampel evaluasi buta (Bukti tersimpan) ─────────────► [ WAITING_VALIDATION ] (Flag: BLIND)
+        │                                                                │
+        │   ┌────────────────────────────────────────────────────────────┘
+        │   │
+        │   ├── Analis klik [Setuju] (Rekomendasi Pelanggaran) ─► [ VALIDATED ]
+        │   ├── Analis klik [Ubah Kategori/Risiko] (+Kode Alasan) ► [ MODIFIED ]
+        │   ├── Analis klik [Bukan Pelanggaran] (+Kode Alasan) ──► [ REJECTED ]
+        │   └── Konfirmasi Duplikat (Status ikut laporan induk) ─► [ VALIDATED / MODIFIED / REJECTED ]
+        │
+        ├── Capture gagal (Koneksi putus / server error) ───────► [ MANUAL_FALLBACK ]
+        │         │
+        │         └── Personel unggah file bukti manual ────────► [ PENDING_ANALYSIS ]
+        │
+        └── Hash mismatch / Bukti korup ────────────────────────► [ FAILED ]
+
+* Revisi oleh ADMIN (Dashboard + TOTP) pada tiket berstatus akhir:
+  [ VALIDATED / MODIFIED / REJECTED ] ──Revisi ADMIN──► Status Baru (+ Catatan report_revisions)
+```
 
 ---
 
-## Lampiran A. Jejak Keputusan Review
+### 3.4 Skema Basis Data 11 Tabel Relasional Resmi
 
-Ringkasan usulan yang dipertimbangkan lalu **tidak** diambil, agar tidak diusulkan ulang tanpa alasan baru:
+```
+┌────────────────────────┐       ┌────────────────────────┐       ┌────────────────────────┐
+│         users          │       │        contents        │       │       evidences        │
+├────────────────────────┤       ├────────────────────────┤       ├────────────────────────┤
+│ id (PK, UUID)          │       │ id (PK, UUID)          │       │ id (PK, UUID)          │
+│ username (Varchar, UQ) │       │ canonical_url (Text)   │       │ report_id (FK, UUID) ──┼──┐
+│ hashed_password (Text) │       │ platform (Varchar)     │       │ file_path (Text)       │  │
+│ full_name (Varchar)    │       │ text_caption (Text)    │       │ file_hash_sha256 (64)  │  │
+│ role (OPERATOR/ANALYST)│       │ rendered_dom (Text)    │       │ phash (String 16)      │  │
+│ totp_secret (Text, Null│       │ published_at (DateTime)│       │ created_at (DateTime)  │  │
+└────────────────────────┘       └───────────┬────────────┘       └────────────────────────┘  │
+                                             │ 1                                              │
+                                             │                                                │
+                                             │ N                                              │
+                                 ┌───────────▼────────────┐                                   │
+                                 │        reports         │◄──────────────────────────────────┘
+                                 ├────────────────────────┤
+                                 │ id (PK, UUID)          │
+                                 │ ticket_number (UQ)     │
+                                 │ content_id (FK, UUID)  │
+                                 │ reporter_id (FK, UUID) │
+                                 │ status (7 Status Enum) │
+                                 │ ai_category (Varchar)  │
+                                 │ ai_risk_level (Varchar)│
+                                 │ topic_code (Varchar)   │
+                                 │ final_category(Varchar)│
+                                 │ final_risk_level (Var) │
+                                 │ analyst_notes (Text)   │
+                                 │ content_cluster_id (ID)│
+                                 └───────────┬────────────┘
+                                             │
+                        ┌─────────────────────┼─────────────────────┐
+                        │ 1                   │ 1                   │ 1
+                        │                     │                     │
+                        │ N                   │ N                   │ N
+┌──────────────────────▼─┐    ┌──────────────▼─────────┐    ┌──────▼─────────────────┐
+│   knowledge_entries    │    │     report_actors      │    │       audit_logs       │
+├────────────────────────┤    ├────────────────────────┤    ├────────────────────────┤
+│ id (PK, UUID)          │    │ report_id (PK, FK)     │    │ id (PK, UUID)          │
+│ report_id (FK, UUID)   │    │ entity_id (PK, FK) ────┼─┐  │ actor_username (Varchar│
+│ content_summary (Text) │    │ role (TARGET/MENTIONED)│ │  │ action (Varchar)       │
+│ embedding (Vector-768) │    └────────────────────────┘ │  │ prev_hash (CHAR 64)    │
+│ final_category(Varchar)│                               │  │ row_hash (CHAR 64)     │
+│ is_active (Bool)       │    ┌────────────────────────┐ │  │ details (JSONB)        │
+│ deactivated_at (Date)  │    │        entities        │ │  │ created_at (DateTime)  │
+└────────────────────────┘    ├────────────────────────┤ │  └────────────────────────┘
+                              │ id (PK, UUID)          │◄┘
+                              │ name (Varchar, UQ)     │
+                              │ category (TOPIC/ACTOR) │
+                              │ status (APPROVED/MERGE)│
+                              └────────────────────────┘
+```
 
-| Usulan | Keputusan | Alasan |
-| --- | --- | --- |
-| Holdout acak 15% tanpa RAG, metrik "kesepakatan AI-analis" | Diganti FR-13 | Kesepakatan dipengaruhi analis yang melihat output AI (mengukur daya bujuk, bukan kebenaran); holdout tidak berpasangan butuh sampel jauh lebih besar |
-| Menampilkan referensi RAG di kartu analis | Ditolak | Menambah isyarat konsensus dan memperkuat anchoring; referensi tersedia di dashboard ADMIN (dan di `/status` setelah tiket diputuskan) |
-| OTP 2FA via bot Telegram | Ditolak | Satu akun Telegram yang dibobol mengalahkan intake dan 2FA sekaligus |
-| Deteksi duplikat dengan similarity embedding ≥ 0,95 | Ditolak | Ambang tak terkalibrasi; URL kanonik + SHA-256 + pHash sudah cukup |
-| Indeks HNSW | Ditunda | Volume kecil; ANN dengan filter dapat mengembalikan < k hasil |
-| Normalisasi topik free-text + fuzzy merge | Diganti topik terkontrol | Kardinalitas tinggi membanjiri antrian ADMIN |
-| Notifikasi lonjakan topik | Non-goal v3 | Rawan alarm palsu pada jumlah kecil |
-| Sub-menu koreksi entitas di Telegram | Dihapus | Kompleksitas state percakapan bot |
-| Service frontend terpisah | Dihapus | Dashboard disajikan dari `app` |
-| Batas maks 2 referensi per analis | Dihapus | Dengan 2–3 analis, batas ini mengosongkan top-k sementara perlindungannya terhadap poisoning kecil; diganti pemantauan lewat FR-13.6 |
-| Failover model embedding | Dihapus | Vektor dari model berbeda tidak sebanding; satu model, gagal = fail-open |
-| Ringkasan narasi AI sebagai konteks RAG | Diganti cuplikan teks asli | Mencegah AI melihat output lamanya sendiri, yang akan menggelembungkan hasil evaluasi |
-| Alur persetujuan entitas media asal | Disederhanakan | Nama media adalah institusi publik; cukup normalisasi + alias, tampil untuk ANALYST/ADMIN |
-| Ringkasan mingguan supervisor terpisah | Digabung ke DOCX harian | Satu kanal laporan, tanpa job tambahan |
-| Purge dengan persetujuan dua ADMIN | Diganti alasan wajib + pelaporan di DOCX | Tim kecil mungkin hanya punya satu ADMIN |
-| Aturan lulus RAG berbasis estimasi titik (≥ −2 pp, n = 150) | Diganti interval kepercayaan + tiga hasil (FR-13.5) | Pada n = 150 estimasi titik tidak dapat membedakan efek nyata dari noise |
-| Perubahan konfigurasi "tanpa deploy" | Diganti environment + restart | Tidak perlu config store terpisah |
-| Supresi sel kecil (n < 5) untuk VIEWER | Dihapus | Tidak mencegah differencing antar rentang tanggal; VIEWER adalah pejabat internal berwenang |
-| Pemetaan taksonomi antar-versi | Dihapus | Taksonomi dibekukan selama v3; perubahan = rilis baru |
-| Saran merge fuzzy dan promosi usulan topik | Dihapus | Tim kecil; alias exact + aksi manual ADMIN cukup |
-| Status kandidat duplikat pHash | Diganti petunjuk di kartu | Mengurangi state; konfirmasi lewat tombol "Sama dengan induk" |
-| Membuang pasangan evaluasi saat failover | Ditolak | Penolakan model cenderung terjadi pada konten TINGGI; membuangnya membuat sampel bias. Kegagalan dihitung salah |
-| Pemeriksaan antara (Pocock) dan estimasi ulang sampel | Diganti satu analisis ukuran tetap | Lebih sederhana; kelayakan durasi diputuskan di akhir Fase 1 |
-| Kartu buta kedua lewat chat pribadi dengan penugasan dan timeout | Diganti halaman Penilaian Kedua di dashboard | Tidak ada tiket tertahan; tanpa state penugasan di bot |
-| Perintah ADMIN di Telegram (`/revisi`, whitelist, verifikasi audit) | Dipindah ke dashboard ber-TOTP | Akun Telegram yang dibobol tidak boleh cukup untuk tindakan administratif |
+#### Rincian Tabel Tambahan:
+- **`topics`**: `topic_code` (PK), `bidang` (IPOLEKSOSBUDHANKAM), `label`, `is_active`, `created_at`.
+- **`report_revisions`**: `revision_id` (PK), `report_id` (FK), `old_label`, `new_label`, `reason_code`, `revised_by` (FK), `revised_at`.
+- **`entity_aliases`**: `alias_id` (PK), `entity_id` (FK), `alias_text`, `alias_normalized`.
+- **`config_taxonomy`**: `version`, `categories` (JSONB), `reason_codes` (JSONB), `is_current`.
+
+---
+
+### 3.5 Topologi Docker Compose 10 Service
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        DOCKER NETWORK: internal-net (Isolasi Penuh)                    │
+│                                                                                        │
+│   [ db ] ── (PostgreSQL 16 + pgvector)                                                 │
+│   [ redis ] ── (Default Broker & Server-Side Sessions)                                │
+│   [ app ] ── (FastAPI REST Service)                                                   │
+│   [ worker ] ── (Celery Task Processor: AI, OCR, Hash Verify)                         │
+│   [ celery-beat ] ── (Scheduler Jangkar Audit & Backup Harian)                       │
+│   [ backup ] ── (Automated pg_dump + Encrypted Storage Archive)                       │
+│   [ proxy ] ── (Reverse Proxy Nginx / TLS Termination)                                │
+│                                                                                        │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                        DOCKER NETWORK: scrape-net (Terisolasi SSRF)                    │
+│                                                                                        │
+│   [ redis-scrape ] ── (Antrean Khusus Scraper Server)                                 │
+│   [ scraper ] ── (Playwright Headless Container)                                       │
+│       * Dilarang koneksi ke db, redis, dan intranet dinas (iptables rule terpasang)    │
+│                                                                                        │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                        DOCKER NETWORK: egress-net (Akses Keluar Terkontrol)            │
+│                                                                                        │
+│   [ egress-proxy ] ── (Squid Allowlist Proxy ke Domain Medsos Publik & Gemini API)    │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### 3.6 REST API Specification
+
+| Method | Endpoint | Hak Akses Minimal | Fungsi Operasional & Respons |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/login` | Publik | Otentikasi pengguna Web Dashboard & Ekstensi (mendukung 2FA TOTP). |
+| `POST` | `/api/v1/auth/logout` | Terotentikasi | Mengakhiri sesi aktif dan menghapus token dari Redis server-side. |
+| `POST` | `/api/v1/intake/extension` | OPERATOR | Menerima berkas gambar biner, snapshot DOM, URL, dan hash SHA-256 dari ekstensi. |
+| `GET` | `/api/v1/dashboard/queue` | ANALYST | Mengambil daftar tiket yang menunggu validasi pada antrean kerja analis. |
+| `POST` | `/api/v1/dashboard/decide` | ANALYST | Menyimpan keputusan validasi analis (`VALIDATED`, `MODIFIED`, `REJECTED`) + kode alasan. |
+| `GET` | `/api/v1/dashboard/analytics` | ANALYST | Mengambil metrik agregat untuk 9 grafik analitik visual dashboard. |
+| `GET` | `/api/v1/dashboard/reports` | ANALYST | Daftar detail tiket laporan terfilter untuk fitur *drill-down* interaktif. |
+| `GET` | `/api/v1/dashboard/export/docx`| ANALYST | Mengunduh berkas laporan dinas resmi Microsoft Word (.docx) berstempel waktu. |
+| `GET` | `/api/v1/dashboard/export/csv` | ANALYST | Mengekspor data temuan final ke format CSV aman (anti-CSV injection). |
+| `POST` | `/api/v1/admin/revisions` | ADMIN | Konsol revisi keputusan analis sebelumnya yang dilindungi otentikasi TOTP. |
+| `POST` | `/api/v1/admin/audit/verify` | ADMIN | Memvalidasi integritas rantai audit hash-chain terhadap nilai jangkar supervisor. |
+| `GET/POST`| `/api/v1/admin/topics` | ADMIN | Mengelola daftar katalog topik terkontrol IPOLEKSOSBUDHANKAM. |
+| `GET/POST`| `/api/v1/admin/entities` | ADMIN | Menyetujui atau menggabungkan entitas aktor publik (*Entity Resolution*). |
+| `GET` | `/api/v1/admin/health` | ADMIN | Menampilkan metrik kesehatan teknis sistem, worker Celery, dan database. |
+
+---
+
+### 3.7 Mekanisme Keandalan Sistem
+
+1. **Fail-Open Bertingkat**:
+   - Jika modul embedding offline $\rightarrow$ Triase AI tetap berjalan dengan rujukan preseden kosong (`rag_mode = FAILED`).
+   - Jika layanan Gemini AI offline $\rightarrow$ Tiket dialihkan ke antrean validasi manual dengan label `NO_AI`.
+   - Jika capture ekstensi gagal $\rightarrow$ Sistem menyediakan form fallback unggah manual di dashboard.
+2. **Idempotensi Penanganan Duplikasi**: Seluruh request ingest memeriksa keberadaan URL kanonikal dan nilai hash SHA-256. Duplikat terkonfirmasi langsung dihubungkan ke laporan pertama tanpa membebani antrean AI ganda.
+3. **Saklar Fitur (Feature Flags)**: Konfigurasi `RAG_ENABLED`, `EVAL_BLIND_ENABLED`, dan `FALLBACK_SCRAPER_ENABLED` dapat diubah secara dinamis tanpa perlu merestart seluruh kontainer.
+
+---
+
+### 3.8 Observabilitas & Pemantauan Kesehatan Sistem
+
+Konsol admin menyediakan halaman kesehatan sistem dengan **10 indikator alarm dini**:
+1. Rasio error worker Celery $> 5\%$ dalam 15 menit terakhir.
+2. Panjang antrean tugas Celery $> 100$ tugas tertunda.
+3. Keberhasilan scraper Playwright server-side $< 70\%$.
+4. Utilisasi kuota API Gemini bulanan $> 80\%$.
+5. Waktu respons kueri database (p95) $> 1000$ ms.
+6. Sisa kapasitas penyimpanan disk bukti digital $< 15\%$.
+7. Deteksi *hash mismatch* pada transmisi bukti ekstensi.
+8. Kegagalan integritas rantai audit *hash-chain*.
+9. Jumlah antrean kurasi entitas baru $> 50$ item tertunda.
+10. Insiden penolakan otentikasi login berturut-turut $> 10$ kali (indikasi *brute-force*).
+
+---
+
+## 4. Rencana Rilis Bertahap (Magang Scope)
+
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                        ROADMAP RILIS BERTAHAP (3 FASE)                                 │
+├────────────────────────────────┬───────────────────────────────┬───────────────────────┤
+│ FASE 1: Fondasi & Akuisisi     │ FASE 2: Dashboard Analitik    │ FASE 3: RAG & Evaluasi│
+├────────────────────────────────┼───────────────────────────────┼───────────────────────┤
+│ • Ekstensi Browser MV3         │ • 9 Grafik Analitik Visual    │ • RAG Fail-Open Aktif │
+│ • Client-First Capture SHA-256 │ • Filter & Drill-down Tiket   │ • Evaluasi Buta Dual  │
+│ • Verifikasi Hash di Worker    │ • Ekspor DOCX & CSV Aman      │ • Pengujian Hipotesis │
+│ • Antrean Validasi Dashboard   │ • Kurasi Entitas & Topik      │ • Go/No-Go Decision   │
+│ • Deteksi Duplikat (pHash)     │ • Review Audit Hash-Chain     │ • Standardisasi Basis │
+│ • KB Mode Bayangan (Shadow)    │ • Evaluasi Buta Baseline      │   Tugas Akhir (TA)    │
+└────────────────────────────────┴───────────────────────────────┴───────────────────────┘
+```
+
+### 4.1 Fase 1: Fondasi Data, Bukti, dan Keamanan
+- **Fokus Scope**:
+  1. Browser Extension MV3 (Chrome/Edge/Firefox) — capture tab aktif Full HD + DOM + SHA-256 di browser klien.
+  2. Fallback server Playwright dalam kontainer `scraper` terisolasi.
+  3. Re-verifikasi hash di worker backend (FR-03.2).
+  4. Skema output AI 5W+1H (FR-04.1) dan isolasi input data boundary (FR-04.2).
+  5. Antrean validasi Web Dashboard dengan tombol keputusan atomik dan kode alasan wajib.
+  6. Deteksi duplikat berbasis URL kanonikal, SHA-256, dan perceptual hash (pHash).
+  7. Modul OCR deterministik Tesseract.
+  8. Modul RAG berjalan dalam mode bayangan (*shadow mode*, `RAG_ENABLED = False`).
+  9. Audit log ber-hash-chain dengan jangkar eksternal harian.
+  10. Otentikasi dashboard (Argon2id + 2FA TOTP bagi ADMIN).
+  11. Topik terkontrol diinisialisasi berbasis 8 bidang IPOLEKSOSBUDHANKAM.
+- **Gerbang Kelulusan Fase 1**:
+  - Kriteria penerimaan AC-01 s.d. AC-05, AC-08 s.d. AC-13, AC-15 s.d. AC-22, AC-26, dan AC-28 s.d. AC-32 teruji lulus 100%.
+  - Seluruh SLO operasional diukur selama 14 hari berturut-turut.
+  - Nilai ambang batas RAG, pHash, dan sampling evaluasi buta terkalibrasi.
+
+### 4.2 Fase 2: Dashboard Analitik & Tata Kelola
+- **Fokus Scope**:
+  1. Visualisasi 9 grafik analitik intelijen sosial pada Web Dashboard.
+  2. Fitur penyaringan (*filter*) dan penelusuran mendalam (*drill-down*) laporan.
+  3. Generator dokumen dinas resmi Microsoft Word (.docx) berstempel waktu dan ber-jangkar audit.
+  4. Ekspor CSV aman dengan *escaping* formula anti-injeksi.
+  5. Halaman konsol kesehatan sistem admin lengkap dengan 10 indikator alarm dini.
+  6. Job batch normalisasi entitas dan kurasi topik IPOLEKSOSBUDHANKAM.
+- **Gerbang Kelulusan Fase 2**:
+  - Kriteria penerimaan AC-07, AC-14, AC-17, dan AC-25 teruji lulus 100%.
+  - Uji pemulihan basis data (*restore test*) bulanan berhasil diverifikasi.
+  - Review kepatuhan keamanan dashboard (OWASP ASVS Level 1).
+
+### 4.3 Fase 3: Aktivasi RAG Penuh dengan Evaluasi Buta
+- **Prasyarat Aktivasi**: Basis data Knowledge Base telah mengumpulkan $\ge 300$ entri tervalidasi aktif, dan setiap kategori dengan prevalensi $\ge 5\%$ memiliki minimal 20 entri preseden.
+- **Fokus Scope**:
+  1. Pengaktifan parameter `RAG_ENABLED = True`.
+  2. Eksekusi evaluasi buta jalur ganda (Jalur A dengan RAG vs Jalur B tanpa RAG).
+  3. Model fondasi, prompt instruksi, dan taksonomi dibekukan secara permanen selama pengujian.
+  4. Pengujian kriteria penerimaan AC-06 dan AC-11 dengan modul RAG aktif.
+- **Keputusan Go/No-Go**: Berdasarkan aturan keputusan pra-registrasi FR-13.5. Jika hasil evaluasi membuktikan RAG meningkatkan akurasi secara signifikan tanpa menambah salah vonis risiko tinggi, fitur dipertahankan permanen; jika tidak, fitur RAG dinonaktifkan otomatis.
+- **Estimasi Durasi**: Dengan estimasi volume 100 tiket per hari, `EVAL_BLIND_RATE` 20%, dan 70% tiket memiliki rujukan preseden, terkumpul sekitar 14 pasangan data evaluasi per hari:
+  - Margin $M = 7$ poin persentase ($\sim 320$ pasangan sampel): membutuhkan sekitar 23 hari kerja.
+  - Margin $M = 5$ poin persentase ($\sim 620$ pasangan sampel): membutuhkan sekitar 44 hari kerja.
+
+---
+
+## 5. Asumsi dan 16 Keputusan Terbuka
+
+| No | Parameter Keputusan | Rekomendasi Teknis Default | Pemilik Keputusan Akhir |
+|---|---|---|---|
+| 1 | **Model Embedding & Dimensi** | `gemini-embedding-001`, 768 dimensi, normalisasi L2. | Tim Teknis (Dikunci di Fase 1) |
+| 2 | **Nilai $k$, Ambang Similarity, & pHash** | $k=5$; Ambang similarity $\ge 0.75$; Jarak pHash $\le 6$. | Tim Teknis setelah kalibrasi |
+| 3 | **Mekanisme Otentikasi** | Username/Password (Argon2id) + 2FA TOTP ADMIN; SSO ditunda. | Kebijakan TI Instansi |
+| 4 | **Cakupan Platform Media Sosial** | YouTube, TikTok, Instagram + Active-Tab Capture untuk X/Threads. | Pemilik Produk & Pembimbing |
+| 5 | **Katalog Topik Awal** | 20–40 topik turunan dari 8 bidang IPOLEKSOSBUDHANKAM. | Analis Senior Dalinfo & ADMIN |
+| 6 | **Akses Bukti Gambar di Dashboard** | Terbuka bagi ANALYST dan ADMIN; diunduh melalui token aman. | Pemilik Produk |
+| 7 | **Penambahan Kategori Baru** | Dibekukan; tidak ditambah tanpa persetujuan tertulis resmi. | Pemangku Kepentingan Hukum |
+| 8 | **Format KOP Dokumen Dinas** | Mengacu pada standar tata naskah dinas resmi instansi. | Pembimbing Lapangan |
+| 9 | **Klasifikasi Data ke Gemini/Vertex AI** | Wajib menggunakan akun enterprise dengan jaminan tanpa pelatihan. | Pimpinan & Keamanan Informasi |
+| 10 | **Periode Retensi Bukti Digital** | Mengikuti peraturan retensi arsip dinas dan UU PDP (default 30 hari). | Pimpinan & Bagian Hukum |
+| 11 | **Batas Anggaran Bulanan AI** | Ditetapkan batas kredit dari baseline operasional Fase 1. | Pemilik Produk |
+| 12 | **Volume Tiket Harian Rata-rata** | Puluhan hingga ratusan tiket per hari; diukur riil di Fase 1. | Diukur pada Fase 1 |
+| 13 | **Eksposur Jaringan Dashboard** | Terbatas pada jaringan intranet dinas / VPN instansi. | Keamanan Informasi & Jaringan |
+| 14 | **Peramban Target Ekstensi** | Google Chrome, Microsoft Edge, Mozilla Firefox (MV3). | Tim Teknis |
+| 15 | **Penyimpanan Token Ekstensi** | Chrome Storage aman terenkripsi (WebCrypto API). | Tim Teknis |
+| 16 | **Integrasi Langsung ke Sistem Luar** | Ditunda; pertukaran data cukup menggunakan ekspor CSV & DOCX. | Pemilik Produk |
+
+---
+
+## 6. Kesiapan Menuju Tugas Akhir (TA)
+
+Seluruh rancangan arsitektur PRD v3.1 sengaja dibangun agar hasil kerja selama masa magang dapat langsung diangkat menjadi Tugas Akhir (TA) di kampus tanpa perombakan scope:
+
+| Fokus Skripsi / TA | Pilar Relevan Kampus | Inti Kontribusi Ilmiah TA | Modul Basis v3.1 yang Siap |
+|---|---|---|---|
+| **Rekayasa Forensik Digital & Kripto** | Pilar 1 & 3.2 | Akuisisi bukti web berstandar forensik, verifikasi hash seketika di peramban klien, dan rantai audit *hash-chain* kekal. | FR-01, FR-03, FR-08, AC-08, AC-20, AC-28. |
+| **Kecerdasan Buatan (Multimodal RAG)** | Pilar 4.2 | Evaluasi buta multimodal RAG untuk triase konten dinamis dengan kontrol *Human-in-the-Loop*. | FR-04, FR-09, FR-13, AC-05, AC-06, AC-11, AC-19. |
+| **Data & Intelijen Sosial** | Pilar 3.2 & 4.2 | Resolusi entitas kanonikal, pemantauan isu strategis IPOLEKSOSBUDHANKAM, dan *content clustering*. | FR-06, FR-10, FR-11, AC-07, AC-25, AC-32. |
+
+> **Komponen yang Ditunda ke Pengembangan Tugas Akhir (Bukan Dibuang):**
+> 1. Analisis sentimen, emosi, dan sarkasme otomatis tingkat lanjut.
+> 2. Model proyeksi dan prediksi eskalasi konflik sosial berbasis machine learning.
+> 3. *Hybrid search* (gabungan BM25 + pgvector + Reciprocal Rank Fusion / RRF).
+> 4. AI Gateway *on-premise* menggunakan LiteLLM/vLLM dengan model lokal (*open-source* LLM).
+> 5. Scraper *server-side* penuh untuk platform login-wall ketat.
+> 6. Pengujian reliabilitas penilaian kedua (*Inter-rater reliability / Cohen's Kappa*) skala besar.
+> 7. Aplikasi verifikator audit eksternal mandiri berbasis GUI untuk pimpinan.
+
+---
+
+## 7. Lampiran A — Keputusan Review yang Dipertahankan
+
+| Usulan Alternatif | Keputusan Final | Rasional & Dasar Keputusan |
+|---|---|---|
+| **Telegram sebagai Pintu Masuk** | **Diganti** Browser Extension | Arahan Bang Zazal: 100% personel bekerja di browser dinas; tidak semua menggunakan Telegram di PC piket. |
+| **Kartu Validasi Inline Telegram** | **Dipindah** ke Antrean Web Dashboard | Mengintegrasikan seluruh proses triase dan validasi ke satu layar monitor terpadu. |
+| **Role VIEWER pada Tahap MVP** | **Ditunda** ke Rilis Pasca-MVP | Realistis diselesaikan oleh 3 orang tim magang; pimpinan cukup menerima laporan DOCX/CSV. |
+| **Autentikasi 2FA via OTP Telegram** | **Ditolak** (Gunakan Standar RFC 6238 TOTP) | Akun Telegram yang disusupi pihak ketiga dapat meruntuhkan lapisan keamanan 2FA. |
+| **Scraping Server-Side untuk Semua Platform** | **Dikurangi** Menjadi Mode Fallback | *Client-first capture* via ekstensi jauh lebih tahan terhadap login-wall dan bot protection. |
+| **Hybrid Search (BM25 + Vektor) di MVP** | **Ditunda** ke Pengembangan Tugas Akhir | Kompleksitas indeks ganda belum diperlukan pada volume data tahap awal. |
+| **Analisis Sentimen & Emosi Otomatis** | **Ditunda** ke Pengembangan Tugas Akhir | Memerlukan korpus anotasi bahasa daerah dan persetujuan taksonomi tersendiri. |
+| **AI Gateway On-Premise (LiteLLM/vLLM) di MVP** | **Ditunda** ke Pengembangan Tugas Akhir | Keterbatasan kartu grafis (GPU) server workstation dinas selama periode magang. |
+| **Bidang IPOLEKSOSBUDHANKAM Dijadikan Kategori** | **Dipetakan** ke Katalog Topik Terkontrol | Menjaga konsistensi 6 kategori pelanggaran baku tanpa merusak skema basis data. |
+| **Failover Otomatis Model Embedding** | **Ditolak** Keras | Ruang vektor antar-model embedding berbeda tidak kompatibel untuk perbandingan kemiripan. |
+| **Menyimpan Narasi Buatan AI ke Knowledge Base** | **Ditolak** Keras | Mencegah model AI mengutip hasil halusinasinya sendiri secara berulang (*circular bias*). |
+| **Indeks Vektor HNSW / IVFFlat di Awal** | **Ditunda** (Gunakan Exact Scan) | Pada volume data $< 100.000$ entri, *exact scan* memberikan akurasi 100% dengan latensi $< 500$ ms. |
+| **Notifikasi Otomatis Lonjakan Isu Real-Time** | **Non-Goal** Resmi | Sangat rawan memicu alarm palsu (*false positive*) pada volume data patroli harian. |
+
+---
+
+## 8. Pernyataan Penutup & Rekomendasi Tindak Lanjut
+
+Dokumen ini merupakan **DRAF FINAL PRD v3.1 (Field-Aligned Final)** yang telah mengintegrasikan secara harmonis:
+- Disiplin produk, model ancaman, dan metodologi evaluasi buta dari **PRD v3 Dosen Pembimbing**.
+- Kebutuhan operasional riil di ruangan penugasan dari **Notulensi Rapat D22 Dalinfo BSSN**.
+- Arahan teknis workstation dinas dari **Bang Zazal** (Browser Extension, automatic screenshot ber-SHA-256, dan antrean validasi web).
+- Usulan awal arsitektur dan sistem dari **PRD v2**.
+
+**Langkah Tindak Lanjut Menjelang Sign-Off Resmi:**
+1. Menyampaikan dokumen PRD v3.1 ini kepada Bang Zazal dan Pak Giri melalui grup WhatsApp koordinasi untuk review akhir.
+2. Mengonfirmasi daftar rincian subtopik awal IPOLEKSOSBUDHANKAM bersama analis senior Dalinfo.
+3. Memastikan kesepakatan klasifikasi data dinas terkait penggunaan API model AI berbayar.
+4. Menetapkan masa retensi arsip bukti digital sesuai ketentuan tata kelola instansi dan UU PDP.
+5. Mengonfirmasi format KOP surat dinas resmi untuk generator dokumen rekapitulasi harian (.docx).
+6. Menetapkan batas ambang kredit anggaran bulanan API berdasarkan baseline pengukuran Fase 1.
+
+Setiap perubahan ruang lingkup (*scope*) setelah dokumen ini disahkan wajib melalui persetujuan tertulis pemilik produk dan dicatat sebagai nomor revisi resmi berikutnya.
+
+---
+
+**Akhir Dokumen — PRD v3.1 Field-Aligned Final.**
