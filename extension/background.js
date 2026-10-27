@@ -53,12 +53,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // Handler for tab screenshot capture requested by content scripts
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "capture_tab_screenshot") {
-    const windowId = sender?.tab?.windowId || null;
-    chrome.tabs.captureVisibleTab(windowId, { format: "png" }, (dataUrl) => {
-      if (chrome.runtime.lastError || !dataUrl) {
-        sendResponse({ ok: false, error: chrome.runtime.lastError?.message || "Capture failed" });
-      } else {
+    const targetWinId = sender?.tab?.windowId || null;
+    chrome.tabs.captureVisibleTab(targetWinId, { format: "png" }, (dataUrl) => {
+      if (!chrome.runtime.lastError && dataUrl) {
         sendResponse({ ok: true, dataUrl: dataUrl });
+      } else {
+        // Fallback: try capturing without specific windowId
+        chrome.tabs.captureVisibleTab(null, { format: "png" }, (fallbackUrl) => {
+          if (!chrome.runtime.lastError && fallbackUrl) {
+            sendResponse({ ok: true, dataUrl: fallbackUrl });
+          } else {
+            console.error("Capture visible tab failed:", chrome.runtime.lastError?.message);
+            sendResponse({ ok: false, error: chrome.runtime.lastError?.message || "Capture failed" });
+          }
+        });
       }
     });
     return true; // Keep asynchronous message channel open
