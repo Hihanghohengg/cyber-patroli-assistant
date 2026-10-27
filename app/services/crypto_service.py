@@ -58,3 +58,23 @@ class CryptoService:
                 current_hash[:16],
             )
         return is_valid
+
+    @staticmethod
+    def sign_evidence(sha256_hash: str, ticket_number: str, url: str) -> str:
+        """Generate HMAC-SHA256 digital signature to guarantee authenticity without encrypting image data."""
+        import hmac
+        from app.config import settings
+
+        key = (settings.SECRET_KEY or "cyber-patrol-forensic-secret").encode("utf-8")
+        msg = f"{sha256_hash}:{ticket_number}:{url}".encode("utf-8")
+        signature = hmac.new(key, msg, hashlib.sha256).hexdigest()
+        logger.info("Digital signature generated for ticket %s: %s", ticket_number, signature[:16])
+        return signature
+
+    @staticmethod
+    def verify_signature(sha256_hash: str, ticket_number: str, url: str, signature: str) -> bool:
+        """Verify HMAC-SHA256 digital signature."""
+        import hmac
+
+        expected = CryptoService.sign_evidence(sha256_hash, ticket_number, url)
+        return hmac.compare_digest(expected.lower(), signature.strip().lower())

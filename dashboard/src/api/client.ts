@@ -109,6 +109,10 @@ export const apiClient = {
       const res = await api.get<ContentDetail>(`/contents/${contentId}`);
       return res.data;
     },
+    verifyEvidence: async (contentId: string) => {
+      const res = await api.get<any>(`/contents/${contentId}/verify-evidence`);
+      return res.data;
+    },
   },
   validation: {
     validate: async (

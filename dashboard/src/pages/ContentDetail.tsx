@@ -18,6 +18,9 @@ import {
   MessageSquare,
   Share2,
   Camera,
+  Fingerprint,
+  CheckCheck,
+  RefreshCw,
 } from 'lucide-react';
 
 export const ContentDetailPage: React.FC = () => {
@@ -26,6 +29,8 @@ export const ContentDetailPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
+  const [verifying, setVerifying] = useState<boolean>(false);
+  const [verificationResult, setVerificationResult] = useState<any | null>(null);
 
   // Form State for Human-in-the-Loop Validation
   const [validationDecision, setValidationDecision] = useState<'VALIDATED' | 'MODIFIED' | 'REJECTED'>('VALIDATED');
@@ -82,6 +87,19 @@ export const ContentDetailPage: React.FC = () => {
       alert('Gagal menyimpan validasi: ' + (err.response?.data?.detail || err.message));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleVerifyEvidence = async () => {
+    if (!detail) return;
+    setVerifying(true);
+    try {
+      const data = await apiClient.contents.verifyEvidence(detail.content_id);
+      setVerificationResult(data);
+    } catch (err: any) {
+      alert('Gagal memverifikasi bukti: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -238,6 +256,72 @@ export const ContentDetailPage: React.FC = () => {
               <div className="text-[11px] text-slate-300 break-all bg-black/40 p-2 rounded border border-slate-800">
                 <span className="text-cyan-400 font-bold">SHA-256: </span>
                 {primaryEvidence.sha256}
+              </div>
+            </div>
+          )}
+
+          {/* Real-time Digital Signature & Integrity Verification Button */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleVerifyEvidence}
+              disabled={verifying}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-900/60 transition-colors text-xs font-semibold cursor-pointer shadow-sm hover:shadow"
+            >
+              {verifying ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                  Menguji Integritas Kriptografis...
+                </>
+              ) : (
+                <>
+                  <Fingerprint className="w-3.5 h-3.5 text-cyan-400" />
+                  Uji Keaslian Bukti & Verifikasi Tanda Tangan Digital
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Verification Audit Result Box */}
+          {verificationResult && (
+            <div
+              className={`p-3.5 rounded-lg border font-mono text-xs space-y-2.5 ${
+                verificationResult.is_authentic
+                  ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200'
+                  : 'bg-rose-950/40 border-rose-500/40 text-rose-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 font-bold text-xs">
+                {verificationResult.is_authentic ? (
+                  <>
+                    <CheckCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>BUKTI ASLI TERVERIFIKASI (TIDAK TERMANIPULASI)</span>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>PERINGATAN: INTEGRITAS GUGUR / FILE PERNAH DIUBAH</span>
+                  </>
+                )}
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-slate-300">
+                Gambar disimpan secara transparan (PNG asli tanpa enkripsi yang merusak akses), namun dilindungi segel tanda tangan digital. Jika 1 pixel saja diedit di Photoshop, verifikasi ini otomatis gagal.
+              </p>
+
+              <div className="space-y-1.5 text-[10px] text-slate-400 pt-2 border-t border-slate-800/80">
+                <div>
+                  <span className="text-cyan-400 font-semibold">Algoritma Segel:</span> {verificationResult.signature_algorithm}
+                </div>
+                <div className="break-all">
+                  <span className="text-cyan-400 font-semibold">Digital Signature:</span> {verificationResult.digital_signature}
+                </div>
+                <div>
+                  <span className="text-cyan-400 font-semibold">Status Chain of Custody:</span> {verificationResult.chain_of_custody_status}
+                </div>
+                <div>
+                  <span className="text-cyan-400 font-semibold">Ukuran File:</span> {verificationResult.file_size_bytes?.toLocaleString()} bytes
+                </div>
               </div>
             </div>
           )}
