@@ -1,6 +1,6 @@
 // Injected content script for Cyber Patrol quick floating action button
 
-(function() {
+(function () {
   // Avoid injecting twice
   if (document.getElementById("cyber-patrol-floating-badge")) return;
 

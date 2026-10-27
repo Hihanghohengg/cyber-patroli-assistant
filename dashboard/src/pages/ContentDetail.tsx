@@ -17,6 +17,7 @@ import {
   ThumbsUp,
   MessageSquare,
   Share2,
+  Camera,
 } from 'lucide-react';
 
 export const ContentDetailPage: React.FC = () => {
@@ -24,6 +25,7 @@ export const ContentDetailPage: React.FC = () => {
   const [detail, setDetail] = useState<ContentDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<boolean>(false);
 
   // Form State for Human-in-the-Loop Validation
   const [validationDecision, setValidationDecision] = useState<'VALIDATED' | 'MODIFIED' | 'REJECTED'>('VALIDATED');
@@ -204,18 +206,27 @@ export const ContentDetailPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center">
-            <img
-              src={`/api/dashboard/contents/${detail.content_id}/screenshot`}
-              alt="Bukti Visual Postingan"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                (e.target as HTMLElement).style.display = 'none';
-              }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center -z-10 text-xs font-mono text-slate-600">
-              Gambar Bukti Tidak Tersedia di Disk
-            </div>
+          <div className="relative aspect-video rounded-lg overflow-hidden bg-slate-950 border border-slate-800 flex items-center justify-center p-4">
+            {imageError ? (
+              <div className="flex flex-col items-center justify-center text-center space-y-2 p-4">
+                <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400">
+                  <Camera className="w-6 h-6 text-cyan-400" />
+                </div>
+                <div className="text-xs font-semibold text-slate-200">
+                  Tangkapan Layar Belum Ada di Disk
+                </div>
+                <p className="text-[11px] text-slate-500 font-mono max-w-sm">
+                  URL postingan tercatat di antrean triase. Gunakan Ekstensi Browser atau jalankan worker scraping untuk menyimpan tangkapan visual.
+                </p>
+              </div>
+            ) : (
+              <img
+                src={`/api/dashboard/contents/${detail.content_id}/screenshot`}
+                alt="Bukti Visual Postingan"
+                className="w-full h-full object-contain"
+                onError={() => setImageError(true)}
+              />
+            )}
           </div>
 
           {primaryEvidence && (

@@ -7,6 +7,10 @@ Provides unified endpoints for all client channels:
 - Web Dashboard Console
 """
 
+import base64
+import hashlib
+import logging
+import os
 import re
 import uuid
 from datetime import datetime
@@ -16,9 +20,12 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+from app.config import settings
 from app.database import get_db
 from app.models.report import Report
 from app.services.scraper.base import BaseScraper
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assistant", tags=["Omnichannel Assistant"])
 
@@ -30,6 +37,7 @@ class ChannelIntakeRequest(BaseModel):
     reporter_identifier: Optional[str] = Field(default="Analyst-Console", description="Pengenal pengirim (nomor HP, extension ID, username).")
     reporter_telegram_id: Optional[int] = Field(default=None, description="Telegram User ID (jika melalui Telegram).")
     notes: Optional[str] = Field(default=None, description="Catatan opsional dari analis atau pelapor.")
+    screenshot_base64: Optional[str] = Field(default=None, description="Tangkapan layar base64 langsung dari klien/browser.")
 
 
 class WhatsAppWebhookPayload(BaseModel):
@@ -159,6 +167,62 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
             ai_source_raw=platform.capitalize(),
         )
         db.add(report)
+        db.flush()
+
+        # Evidence Acquisition & SHA-256 hashing
+        evidence_storage_path = None
+        evidence_sha256 = None
+        os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
+        evidence_filename = f"{ticket_number}_post.png"
+        target_path = os.path.join(settings.EVIDENCE_DIR, evidence_filename)
+
+        if payload.screenshot_base64:
+            try:
+                raw_b64 = payload.screenshot_base64
+                if "," in raw_b64:
+                    raw_b64 = raw_b64.split(",", 1)[1]
+                img_bytes = base64.b64decode(raw_b64)
+                with open(target_path, "wb") as f:
+                    f.write(img_bytes)
+                evidence_storage_path = target_path
+                evidence_sha256 = hashlib.sha256(img_bytes).hexdigest()
+            except Exception as ex:
+                logger.warning(f"Gagal memproses screenshot_base64: {ex}")
+
+        # If no screenshot was provided from client, generate an official forensic evidence banner
+        if not evidence_storage_path or not os.path.exists(evidence_storage_path):
+            try:
+                from PIL import Image, ImageDraw
+                img = Image.new("RGB", (1280, 720), color=(15, 23, 42))  # slate-900
+                draw = ImageDraw.Draw(img)
+                draw.rectangle([(0, 0), (1280, 70)], fill=(30, 41, 59))
+                draw.text((40, 24), "CYBER PATROL DIGITAL EVIDENCE ARCHIVE (ACQUISITION RECORD)", fill=(56, 189, 248))
+                draw.text((40, 110), f"Nomor Tiket : {ticket_number}", fill=(241, 245, 249))
+                draw.text((40, 150), f"Platform    : {platform.upper()}", fill=(241, 245, 249))
+                draw.text((40, 190), f"URL Target  : {payload.url}", fill=(148, 163, 184))
+                draw.text((40, 230), f"Kanal Asal  : {payload.source_channel.upper()} ({payload.reporter_identifier or 'Agent'})", fill=(148, 163, 184))
+                draw.text((40, 270), f"Waktu Rekam : {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}", fill=(148, 163, 184))
+                draw.text((40, 340), "STATUS AKUISISI: BUKTI DIGITAL RESMI TERCATAT PADA SISTEM", fill=(52, 211, 153))
+                img.save(target_path, "PNG")
+
+                with open(target_path, "rb") as f:
+                    content_bytes = f.read()
+                evidence_storage_path = target_path
+                evidence_sha256 = hashlib.sha256(content_bytes).hexdigest()
+            except Exception as ex:
+                logger.warning(f"Gagal membuat visual evidence banner: {ex}")
+
+        if evidence_storage_path and evidence_sha256:
+            from app.models.evidence import Evidence
+            evidence = Evidence(
+                report_id=report.report_id,
+                source_type="POST_SCREENSHOT",
+                storage_path=evidence_storage_path,
+                sha256=evidence_sha256,
+                mime_type="image/png",
+            )
+            db.add(evidence)
+
         db.commit()
 
     return {

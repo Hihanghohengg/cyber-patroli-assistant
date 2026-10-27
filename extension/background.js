@@ -49,3 +49,18 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     }
   }
 });
+
+// Handler for tab screenshot capture requested by content scripts
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "capture_tab_screenshot") {
+    const windowId = sender?.tab?.windowId || null;
+    chrome.tabs.captureVisibleTab(windowId, { format: "png" }, (dataUrl) => {
+      if (chrome.runtime.lastError || !dataUrl) {
+        sendResponse({ ok: false, error: chrome.runtime.lastError?.message || "Capture failed" });
+      } else {
+        sendResponse({ ok: true, dataUrl: dataUrl });
+      }
+    });
+    return true; // Keep asynchronous message channel open
+  }
+});

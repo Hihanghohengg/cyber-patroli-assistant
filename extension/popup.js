@@ -112,6 +112,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     btnSubmit.disabled = true;
+    btnText.textContent = "Mengambil Tangkapan Layar...";
+
+    let screenshotBase64 = null;
+    if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.captureVisibleTab) {
+      try {
+        screenshotBase64 = await new Promise((resolve) => {
+          chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+            if (chrome.runtime.lastError || !dataUrl) {
+              resolve(null);
+            } else {
+              resolve(dataUrl);
+            }
+          });
+        });
+      } catch (err) {
+        console.warn("Popup tab screenshot capture failed:", err);
+      }
+    }
+
     btnText.textContent = "Mengirim ke Pipeline AI...";
 
     try {
@@ -120,6 +139,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         source_channel: "BROWSER_EXTENSION",
         reporter_identifier: analystId,
         notes: notes || undefined,
+        screenshot_base64: screenshotBase64 || undefined,
       };
 
       const res = await fetch(`${DEFAULT_API_BASE}/api/v1/assistant/intake`, {
