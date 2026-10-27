@@ -9,7 +9,7 @@
 **Tanggal:** 27 Oktober 2026  
 **Lokus Penugasan:** Badan Siber dan Sandi Negara (BSSN) — Tim Pengendalian Operasi Informasi (Dalinfo), Sub Tim Analisis Intelijen Siber  
 **Basis Dokumen:** PRD v3 (review dosen pembimbing) + Notulensi Rapat D22 Dalinfo + Arahan Teknis Bang Zazal + PRD v2 (usulan awal kelompok)  
-**Prinsip Desain:** *Keep it simple*, terukur secara matematis, *fail-open* bertingkat, dapat dimatikan via saklar fitur (*feature flags*), tidak menghentikan triase operasional, dan siap dilanjutkan langsung ke Tugas Akhir (TA).
+**Prinsip Desain:** *Keep it simple*, terukur secara matematis, *fail-open* bertingkat, dapat dimatikan via saklar fitur (*feature flags*), tidak menghentikan triase operasional, dan siap untuk operasional jangka panjang dan pengembangan berkelanjutan.
 
 ---
 
@@ -20,7 +20,7 @@
 | **v1.0** | Okt 2026 | Fondasi awal: Dual Intake, scraper Playwright headless, verifikasi SHA-256, HITL Telegram Bot, dan ekspor DOCX. |
 | **v2.0** | Okt 2026 | Penambahan memori preseden RAG, web dashboard analitik, ekstraksi topik/aktor/sumber, serta form catatan analis. |
 | **v3.0** | Okt 2026 | Penguatan sistemik menyeluruh: evaluasi buta RAG (FR-13), model ancaman keamanan (T1–T8), audit hash-chain, privasi *fail-closed*, fase rilis bertahap, dan 32 kriteria penerimaan (AC-01 s.d. AC-32). |
-| **v3.1** | **27 Okt 2026** | **Field-Aligned Final (Kondisi Lapangan Riil D22 Dalinfo):**<br>• Pintu masuk utama beralih penuh dari Bot Telegram ke **Browser Extension** (Chrome/Edge/Firefox MV3).<br>• Antrean validasi dipusatkan di **Web Dashboard Console**.<br>• Hierarki peran disederhanakan menjadi **3 Role** (`OPERATOR`, `ANALYST`, `ADMIN`); role `VIEWER` ditunda pasca-MVP.<br>• Taksonomi topik diselaraskan dengan **8 Bidang IPOLEKSOSBUDHANKAM**.<br>• Strategi akuisisi bukti beralih ke **Client-First Capture** (tangkapan layar tab aktif Full HD + DOM render + hash SHA-256 dihitung di browser klien via WebCrypto).<br>• Penerapan **Adapter Pattern** untuk platform media sosial (YouTube, TikTok, Instagram) serta dukungan X/Threads berbasis DOM aktif.<br>• Pemisahan tegas batasan scope program magang versus pengembangan lanjutan Tugas Akhir (TA). |
+| **v3.1** | **27 Okt 2026** | **Field-Aligned Final (Kondisi Lapangan Riil D22 Dalinfo):**<br>• Pintu masuk utama beralih penuh dari Bot Telegram ke **Browser Extension** (Chrome/Edge/Firefox MV3).<br>• Antrean validasi dipusatkan di **Web Dashboard Console**.<br>• Hierarki peran disederhanakan menjadi **3 Role** (`OPERATOR`, `ANALYST`, `ADMIN`); role `VIEWER` ditunda pasca-MVP.<br>• Taksonomi topik diselaraskan dengan **8 Bidang IPOLEKSOSBUDHANKAM**.<br>• Strategi akuisisi bukti beralih ke **Client-First Capture** (tangkapan layar tab aktif Full HD + DOM render + hash SHA-256 dihitung di browser klien via WebCrypto).<br>• Penerapan **Adapter Pattern** untuk platform media sosial (YouTube, TikTok, Instagram) serta dukungan X/Threads berbasis DOM aktif.<br>• Pemisahan tegas batasan scope implementasi operasional versus rencana pengembangan lanjutan. |
 
 ---
 
@@ -37,8 +37,8 @@
 | **Akuisisi Bukti Visual** | Scraper Playwright server-side | **Client-First Capture** + Playwright fallback | Anti login-wall & IP-block media sosial; menangkap persis apa yang dirender di layar mata personel. |
 | **Cakupan Platform** | 3 platform (YouTube, TikTok, IG) | **3 platform utama + Adapter Pattern** untuk X/Threads via active-tab capture | Menjawab kebutuhan operasional “semua platform” tanpa melanggar batasan stabilitas server. |
 | **Taksonomi Topik** | Kategori pelanggaran saja | **Kategori pelanggaran + Topik Terkontrol IPOLEKSOSBUDHANKAM** | Menjawab langsung notulensi rapat D22 Tim Dalinfo BSSN. |
-| **Evaluasi RAG (FR-13)** | Lengkap dengan evaluasi buta | **Dipertahankan penuh 100%** | Menjadi inti bobot ilmiah Tugas Akhir (TA) bidang Kecerdasan Buatan. |
-| **Audit Hash-Chain** | Hash-chain + jangkar DOCX harian | **Dipertahankan penuh 100%** | Menjadi inti bobot ilmiah Tugas Akhir (TA) Rekayasa Kriptografi & Bukti Digital. |
+| **Evaluasi RAG (FR-13)** | Lengkap dengan evaluasi buta | **Dipertahankan penuh 100%** | Menjadi landasan pembuktian empiris keandalan AI sebelum diaktifkan penuh. |
+| **Audit Hash-Chain** | Hash-chain + jangkar DOCX harian | **Dipertahankan penuh 100%** | Menjamin keabsahan rantai bukti digital (Chain of Custody) yang berkekuatan hukum. |
 | **Fase Rilis** | 3 fase implementasi | **3 fase dengan scope terfokus** | Sangat terukur, bertahap, dan realistis diselesaikan dalam periode magang. |
 
 > **Komponen yang Tidak Berubah dari v3:**  
@@ -57,7 +57,7 @@ Keputusan final analis disimpan sebagai **memori institusional** (*Retrieval-Aug
 Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Sub Tim Analisis Intelijen Siber, Tim Dalinfo BSSN:
 1. **Pintu Masuk Dialihkan ke Browser Extension**: Personel patroli bekerja aktif di peramban web workstation dinas; 1-klik ekstensi menangkap layar aktif, struktur DOM, metadata, dan nilai hash SHA-256 di sisi klien.
 2. **Validasi Dipusatkan di Web Dashboard**: Analis memvalidasi temuan pada antrean tiket terpusat di konsol web workstation.
-3. **Penyederhanaan Ruang Lingkup**: Memangkas kompleksitas non-esensial agar realistis diselesaikan oleh 3 mahasiswa magang dalam periode waktu yang tersedia, dengan arsitektur bersih yang siap dilanjutkan langsung ke Tugas Akhir.
+3. **Penyederhanaan Ruang Lingkup**: Memangkas kompleksitas non-esensial agar realistis diselesaikan oleh 3 mahasiswa magang dalam periode waktu yang tersedia, dengan arsitektur bersih yang siap diintegrasikan secara operasional berkelanjutan.
 
 ---
 
@@ -86,7 +86,7 @@ Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Su
 3. Menyatukan seluruh alur kerja: patroli (ekstensi) → analisis/validasi (dashboard) → laporan dinas (DOCX) dalam satu ekosistem terpadu.
 4. Menyediakan konsol dashboard analitik agregat yang aman, terisolasi, dan netral bagi analis dan pimpinan.
 5. Menghasilkan rantai bukti digital (*Chain of Custody*) dan jejak audit yang akuntabel dan tidak dapat disangkal.
-6. Menyiapkan arsitektur fondasi yang siap dilanjutkan ke Tugas Akhir (TA) tanpa perombakan scope.
+6. Membangun fondasi arsitektur modular yang stabil dan siap diekspansi tanpa perombakan struktur inti.
 
 **Non-Goals (Eksplisit Dilarang / Tidak Dikerjakan pada v3.1):**
 1. Vonis hukum atau tindakan *takedown* otomatis tanpa persetujuan analis manusia (*Human-in-the-Loop* mutlak).
@@ -95,8 +95,8 @@ Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Su
 4. Notifikasi *real-time* lonjakan isu otomatis (menghindari alarm palsu pada volume data awal).
 5. Scraping *server-side* untuk platform login-wall ketat seperti X (Twitter) atau Threads (cukup ditangani via *active-tab capture* ekstensi).
 6. Menambah kategori pelanggaran baru di luar taksonomi yang telah dibekukan tanpa persetujuan tertulis pemangku kepentingan.
-7. Analisis sentimen dan emosi otomatis tingkat lanjut (ditunda ke Tugas Akhir).
-8. Proyeksi/risiko eskalasi konflik sosial berbasis machine learning (ditunda ke Tugas Akhir).
+7. Analisis sentimen dan emosi otomatis tingkat lanjut (ditunda ke fase pengembangan lanjutan).
+8. Proyeksi/risiko eskalasi konflik sosial berbasis machine learning (ditunda ke fase pengembangan lanjutan).
 9. *Profiling* individu privat atau pemeringkatan aktor berdasarkan "asumsi kesalahan".
 10. Integrasi SSO instansi, aplikasi mobile native, atau implementasi role VIEWER di tahap MVP.
 11. Menggunakan nilai `skor_keyakinan` AI sebagai ambang batas pengambilan keputusan.
@@ -273,7 +273,7 @@ Sistem menggunakan satu tabel identitas tunggal (`users`) untuk otentikasi ekste
 | **NFR-11** | **Pencadangan & Uji Pemulihan** | Backup otomatis harian (`pg_dump` dan arsip bukti) terenkripsi kunci publik dengan retensi 30 hari, disertai prosedur uji pemulihan (*restore test*) bulanan. |
 | **NFR-12** | **Observabilitas Sistem** | Log terstruktur format JSON, visualisasi metrik kesehatan sistem pada dashboard admin, dan monitoring antrean worker. |
 | **NFR-13** | **Standar Ekstensi Peramban** | Memenuhi arsitektur Manifest V3 resmi, tanpa dependensi pustaka pihak ketiga yang tidak aman, dan bebas dari pelacakan latar belakang (*zero-telemetry*). |
-| **NFR-14** | **Arsitektur Gateway Netral** | Menggunakan layer abstraksi AI yang siap dialihkan ke model sumber terbuka (*Open-Source LLM*) secara lokal di workstation tugas akhir. |
+| **NFR-14** | **Arsitektur Gateway Netral** | Menggunakan layer abstraksi AI yang siap dialihkan ke model sumber terbuka (*Open-Source LLM*) secara lokal di workstation dinas. |
 
 ---
 
@@ -725,7 +725,7 @@ Konsol admin menyediakan halaman kesehatan sistem dengan **10 indikator alarm di
 │ • Verifikasi Hash di Worker    │ • Ekspor DOCX & CSV Aman      │ • Pengujian Hipotesis │
 │ • Antrean Validasi Dashboard   │ • Kurasi Entitas & Topik      │ • Go/No-Go Decision   │
 │ • Deteksi Duplikat (pHash)     │ • Review Audit Hash-Chain     │ • Standardisasi Basis │
-│ • KB Mode Bayangan (Shadow)    │ • Evaluasi Buta Baseline      │   Tugas Akhir (TA)    │
+│ • KB Mode Bayangan (Shadow)    │ • Evaluasi Buta Baseline      │   Fase Ekspansi Lanjutan  │
 └────────────────────────────────┴───────────────────────────────┴───────────────────────┘
 ```
 
@@ -797,17 +797,17 @@ Konsol admin menyediakan halaman kesehatan sistem dengan **10 indikator alarm di
 
 ---
 
-## 6. Kesiapan Menuju Tugas Akhir (TA)
+## 6. Rencana Pengembangan Lanjutan (Roadmap Ekspansi Sistem)
 
-Seluruh rancangan arsitektur PRD v3.1 sengaja dibangun agar hasil kerja selama masa magang dapat langsung diangkat menjadi Tugas Akhir (TA) di kampus tanpa perombakan scope:
+Rancangan arsitektur PRD v3.1 sengaja dibangun secara modular agar hasil implementasi operasional di lokus D22 siap dikembangkan lebih lanjut pada fase berikutnya tanpa perombakan arsitektur inti:
 
-| Fokus Skripsi / TA | Pilar Relevan Kampus | Inti Kontribusi Ilmiah TA | Modul Basis v3.1 yang Siap |
+| Domain Fungsional | Pilar Keamanan Siber | Inti Kapabilitas Sistem | Modul Fondasi yang Siap |
 |---|---|---|---|
-| **Rekayasa Forensik Digital & Kripto** | Pilar 1 & 3.2 | Akuisisi bukti web berstandar forensik, verifikasi hash seketika di peramban klien, dan rantai audit *hash-chain* kekal. | FR-01, FR-03, FR-08, AC-08, AC-20, AC-28. |
-| **Kecerdasan Buatan (Multimodal RAG)** | Pilar 4.2 | Evaluasi buta multimodal RAG untuk triase konten dinamis dengan kontrol *Human-in-the-Loop*. | FR-04, FR-09, FR-13, AC-05, AC-06, AC-11, AC-19. |
-| **Data & Intelijen Sosial** | Pilar 3.2 & 4.2 | Resolusi entitas kanonikal, pemantauan isu strategis IPOLEKSOSBUDHANKAM, dan *content clustering*. | FR-06, FR-10, FR-11, AC-07, AC-25, AC-32. |
+| **Rekayasa Forensik Digital & Kripto** | Kriptografi & Bukti Digital | Akuisisi bukti web berstandar forensik, verifikasi hash seketika di peramban klien, dan rantai audit *hash-chain* kekal. | FR-01, FR-03, FR-08, AC-08, AC-20, AC-28. |
+| **Kecerdasan Buatan (Multimodal RAG)** | AI Terukur & Teruji | Evaluasi buta multimodal RAG untuk triase konten dinamis dengan kontrol *Human-in-the-Loop*. | FR-04, FR-09, FR-13, AC-05, AC-06, AC-11, AC-19. |
+| **Data & Intelijen Sosial** | Intelijen Data & Analitik | Resolusi entitas kanonikal, pemantauan isu strategis IPOLEKSOSBUDHANKAM, dan *content clustering*. | FR-06, FR-10, FR-11, AC-07, AC-25, AC-32. |
 
-> **Komponen yang Ditunda ke Pengembangan Tugas Akhir (Bukan Dibuang):**
+> **Komponen yang Ditunda ke Fase Pengembangan Lanjutan:**
 > 1. Analisis sentimen, emosi, dan sarkasme otomatis tingkat lanjut.
 > 2. Model proyeksi dan prediksi eskalasi konflik sosial berbasis machine learning.
 > 3. *Hybrid search* (gabungan BM25 + pgvector + Reciprocal Rank Fusion / RRF).
@@ -827,9 +827,9 @@ Seluruh rancangan arsitektur PRD v3.1 sengaja dibangun agar hasil kerja selama m
 | **Role VIEWER pada Tahap MVP** | **Ditunda** ke Rilis Pasca-MVP | Realistis diselesaikan oleh 3 orang tim magang; pimpinan cukup menerima laporan DOCX/CSV. |
 | **Autentikasi 2FA via OTP Telegram** | **Ditolak** (Gunakan Standar RFC 6238 TOTP) | Akun Telegram yang disusupi pihak ketiga dapat meruntuhkan lapisan keamanan 2FA. |
 | **Scraping Server-Side untuk Semua Platform** | **Dikurangi** Menjadi Mode Fallback | *Client-first capture* via ekstensi jauh lebih tahan terhadap login-wall dan bot protection. |
-| **Hybrid Search (BM25 + Vektor) di MVP** | **Ditunda** ke Pengembangan Tugas Akhir | Kompleksitas indeks ganda belum diperlukan pada volume data tahap awal. |
-| **Analisis Sentimen & Emosi Otomatis** | **Ditunda** ke Pengembangan Tugas Akhir | Memerlukan korpus anotasi bahasa daerah dan persetujuan taksonomi tersendiri. |
-| **AI Gateway On-Premise (LiteLLM/vLLM) di MVP** | **Ditunda** ke Pengembangan Tugas Akhir | Keterbatasan kartu grafis (GPU) server workstation dinas selama periode magang. |
+| **Hybrid Search (BM25 + Vektor) di MVP** | **Ditunda** ke Fase Pengembangan Lanjutan | Kompleksitas indeks ganda belum diperlukan pada volume data tahap awal. |
+| **Analisis Sentimen & Emosi Otomatis** | **Ditunda** ke Fase Pengembangan Lanjutan | Memerlukan korpus anotasi bahasa daerah dan persetujuan taksonomi tersendiri. |
+| **AI Gateway On-Premise (LiteLLM/vLLM) di MVP** | **Ditunda** ke Fase Pengembangan Lanjutan | Keterbatasan kartu grafis (GPU) server workstation dinas selama periode magang. |
 | **Bidang IPOLEKSOSBUDHANKAM Dijadikan Kategori** | **Dipetakan** ke Katalog Topik Terkontrol | Menjaga konsistensi 6 kategori pelanggaran baku tanpa merusak skema basis data. |
 | **Failover Otomatis Model Embedding** | **Ditolak** Keras | Ruang vektor antar-model embedding berbeda tidak kompatibel untuk perbandingan kemiripan. |
 | **Menyimpan Narasi Buatan AI ke Knowledge Base** | **Ditolak** Keras | Mencegah model AI mengutip hasil halusinasinya sendiri secara berulang (*circular bias*). |

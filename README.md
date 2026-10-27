@@ -32,7 +32,7 @@
 - [Panduan Cepat Menjalankan Sistem](#-panduan-cepat-menjalankan-sistem)
 - [Fitur Utama Web Dashboard Analitik](#-fitur-utama-web-dashboard-analitik)
 - [Struktur Direktori Proyek](#-struktur-direktori-proyek)
-- [Pengujian Otomatis & Kesiapan Tugas Akhir](#-pengujian-otomatis--kesiapan-tugas-akhir)
+- [Pengujian Otomatis & Roadmap Ekspansi](#-pengujian-otomatis--roadmap-ekspansi)
 
 ---
 
@@ -324,7 +324,7 @@ cyber-patrol-assistant/
 
 ---
 
-## 🧪 Pengujian Otomatis & Kesiapan Tugas Akhir
+## 🧪 Pengujian Otomatis & Roadmap Ekspansi
 
 ### 1. Test Suite Otomatis Backend (18 Pengujian Lulus)
 ```bash
@@ -357,9 +357,9 @@ dist/assets/index-Cqlw0vKn.js   351.36 kB │ gzip: 99.43 kB
 ✓ built in 4.93s
 ```
 
-### 3. Kesiapan Menuju Tugas Akhir (TA)
-Arsitektur PRD v3.1 sengaja dirancang agar pekerjaan selama masa magang dapat langsung dilanjutkan menjadi Tugas Akhir tanpa perombakan:
-- **Pilar RPL / Forensik Digital**: Akuisisi bukti web ber-SHA-256 seketika di peramban klien, verifikasi worker, dan rantai audit *hash-chain* dengan jangkar eksternal.
+### 3. Rencana Pengembangan Lanjutan (Roadmap Ekspansi Sistem)
+Arsitektur PRD v3.1 sengaja dirancang secara modular agar sistem operasional ini siap dikembangkan lebih lanjut pada fase berikutnya:
+- **Pilar Forensik Digital**: Akuisisi bukti web ber-SHA-256 seketika di peramban klien, verifikasi worker, dan rantai audit *hash-chain* dengan jangkar eksternal.
 - **Pilar Kecerdasan Buatan (AI/RAG)**: Evaluasi buta multimodal RAG untuk triase konten dinamis dengan pengujian hipotesis pra-registrasi teruji (FR-13).
 - **Pilar Data / Intelijen Sosial**: Pemantauan isu strategis 8 Bidang IPOLEKSOSBUDHANKAM, resolusi entitas kanonikal, dan *content clustering*.
 
