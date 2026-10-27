@@ -131,6 +131,28 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
+    // Extract direct media image url from active tab
+    let mediaImageUrl = null;
+    if (typeof chrome !== "undefined" && chrome.scripting && currentTab?.id) {
+      try {
+        const [results] = await chrome.scripting.executeScript({
+          target: { tabId: currentTab.id },
+          func: () => {
+            const og = document.querySelector('meta[property="og:image"]')?.content ||
+                       document.querySelector('meta[name="twitter:image"]')?.content;
+            if (og && !og.includes('favicon')) return og;
+            const img = document.querySelector('article img, main img, img[srcset], video[poster]');
+            return img ? (img.src || img.getAttribute('poster')) : null;
+          }
+        });
+        if (results && results.result) {
+          mediaImageUrl = results.result;
+        }
+      } catch (err) {
+        console.warn("Scripting extraction error in popup:", err);
+      }
+    }
+
     btnText.textContent = "Mengirim ke Pipeline AI...";
 
     try {
@@ -140,6 +162,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         reporter_identifier: analystId,
         notes: notes || undefined,
         screenshot_base64: screenshotBase64 || undefined,
+        media_image_url: mediaImageUrl || undefined,
       };
 
       const res = await fetch(`${DEFAULT_API_BASE}/api/v1/assistant/intake`, {

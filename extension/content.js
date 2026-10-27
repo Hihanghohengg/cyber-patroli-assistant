@@ -39,6 +39,36 @@
       console.warn("Gagal meminta tangkapan layar ke background:", err);
     }
 
+    // 2. Ekstraksi visual media URL postingan (og:image atau foto postingan utama di artikel)
+    let mediaImageUrl = null;
+    try {
+      const ogImg = document.querySelector('meta[property="og:image"]')?.content ||
+                    document.querySelector('meta[name="twitter:image"]')?.content;
+      if (ogImg && !ogImg.includes("favicon")) {
+        mediaImageUrl = ogImg;
+      } else {
+        const postImages = Array.from(document.querySelectorAll('article img, main img, img[srcset], video[poster]'));
+        for (const img of postImages) {
+          const src = img.src || img.getAttribute("poster");
+          if (src && !src.startsWith("data:") && !src.includes("avatar") && !src.includes("profile")) {
+            mediaImageUrl = src;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("Ekstraksi gambar media gagal:", e);
+    }
+
+    // 3. Ekstraksi teks caption postingan
+    let captionText = null;
+    try {
+      captionText = document.querySelector('meta[property="og:description"]')?.content ||
+                    document.querySelector('article [data-ad-preview="message"]')?.textContent ||
+                    document.querySelector('article')?.innerText?.slice(0, 400) ||
+                    document.title;
+    } catch (e) {}
+
     btn.querySelector(".cp-badge-text").textContent = "Menganalisis AI...";
 
     try {
@@ -49,8 +79,9 @@
           url: window.location.href,
           source_channel: "BROWSER_EXTENSION",
           reporter_identifier: "In-Page-Floating-Agent",
-          notes: "Intake instan via tombol mengambang in-page",
-          screenshot_base64: screenshotBase64 || undefined
+          notes: captionText || "Intake instan via tombol mengambang in-page",
+          screenshot_base64: screenshotBase64 || undefined,
+          media_image_url: mediaImageUrl || undefined
         })
       });
 

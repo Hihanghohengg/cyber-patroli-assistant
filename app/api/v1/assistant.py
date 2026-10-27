@@ -38,6 +38,7 @@ class ChannelIntakeRequest(BaseModel):
     reporter_telegram_id: Optional[int] = Field(default=None, description="Telegram User ID (jika melalui Telegram).")
     notes: Optional[str] = Field(default=None, description="Catatan opsional dari analis atau pelapor.")
     screenshot_base64: Optional[str] = Field(default=None, description="Tangkapan layar base64 langsung dari klien/browser.")
+    media_image_url: Optional[str] = Field(default=None, description="URL gambar media langsung dari halaman postingan (og:image / article img).")
 
 
 class WhatsAppWebhookPayload(BaseModel):
@@ -189,7 +190,26 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
             except Exception as ex:
                 logger.warning(f"Gagal memproses screenshot_base64: {ex}")
 
-        # If no screenshot was provided from client, generate an official forensic evidence banner
+        # If no client screenshot, but media_image_url was extracted from the post (og:image / post image)
+        if (not evidence_storage_path or not os.path.exists(evidence_storage_path)) and payload.media_image_url:
+            try:
+                import urllib.request
+                req = urllib.request.Request(
+                    payload.media_image_url,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    downloaded_bytes = resp.read()
+                if downloaded_bytes and len(downloaded_bytes) > 500:
+                    with open(target_path, "wb") as f:
+                        f.write(downloaded_bytes)
+                    evidence_storage_path = target_path
+                    evidence_sha256 = hashlib.sha256(downloaded_bytes).hexdigest()
+                    logger.info(f"Berhasil mengunduh foto postingan asli dari media_image_url ({len(downloaded_bytes)} bytes)")
+            except Exception as ex:
+                logger.warning(f"Gagal mengunduh foto media_image_url: {ex}")
+
+        # If no screenshot was provided from client or downloaded, generate an official forensic evidence banner
         if not evidence_storage_path or not os.path.exists(evidence_storage_path):
             try:
                 from PIL import Image, ImageDraw
