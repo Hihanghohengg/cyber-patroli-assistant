@@ -94,7 +94,7 @@ class Report(Base):
     ai_reasoning = Column(JSONB, nullable=True)
     ai_output = Column(JSONB, nullable=True)  # Full raw AI output dictionary
 
-    # --- Extended AI Fields (PRD v2.2) ---
+    # --- Extended AI Fields (PRD v3.0) ---
     ai_topic_raw = Column(String(255), nullable=True)
     ai_actors_raw = Column(JSONB, default=list)
     ai_source_raw = Column(String(255), nullable=True)

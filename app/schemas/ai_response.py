@@ -6,7 +6,7 @@ class AIPatrolAnalysis(BaseModel):
     """Structured JSON output expected from the multimodal AI model.
 
     Standardized schema for cyber patrol triage and intelligence analysis.
-    Extended with PRD v2 fields: topik, aktor_target, sumber_konten, tipe_sumber.
+    Extended with PRD v3 fields: topik, aktor_target, sumber_konten, tipe_sumber.
     """
     status_keamanan: Literal["AMAN", "POTENSI_BAHAYA", "BERPOTENSI_BAHAYA"] = Field(
         default="AMAN",
@@ -38,7 +38,7 @@ class AIPatrolAnalysis(BaseModel):
         description="Deskripsi lugas mengenai inti klaim atau narasi yang dibangun dalam 1-2 kalimat.",
     )
 
-    # --- PRD v2 Extensions ---
+    # --- PRD v3 Extensions ---
     topik: str = Field(
         default="",
         description="Topik utama konten, singkat (contoh: kenaikan harga BBM, pemilu, bansos).",

@@ -1,4 +1,4 @@
-"""Entity and Alias normalization models for PRD v2.
+"""Entity and Alias normalization models for PRD v3.
 
 Stores canonical topics, target actors, and content sources, along with
 their alias mappings for exact and fuzzy normalization.

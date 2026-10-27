@@ -5,7 +5,6 @@
   "ignorePaths": [
     "cspell.json",
     ".vscode/**",
-    "prd.txt",
     "README.md",
     "**/*.txt",
     "**/*.md",

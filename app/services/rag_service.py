@@ -1,4 +1,4 @@
-"""RAG (Retrieval-Augmented Generation) Service for Cyber Patrol Assistant (PRD v2).
+"""RAG (Retrieval-Augmented Generation) Service for Cyber Patrol Assistant (PRD v3).
 
 Provides vector embedding generation via Gemini Embedding API, cosine similarity
 retrieval of past verified cases, prompt block formatting, and quality-controlled

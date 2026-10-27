@@ -99,7 +99,7 @@ Tugas Anda: Melakukan analisis terukur, objektif, dan berbasis bukti terhadap po
    - "TINGGI": Berpotensi memicu kegaduhan massal, kerusuhan, kerugian finansial luas, atau pencatutan instansi negara.
    - "SEDANG": Narasi bias berpotensi membingungkan publik, memerlukan klarifikasi.
    - "RENDAH": Risiko minimal atau konten netral/aman.
-4. Ekstraksi Entitas & Topik (PRD v2):
+4. Ekstraksi Entitas & Topik (PRD v3):
    - "topik": Topik utama konten secara singkat (contoh: "Pemilu 2024", "Kenaikan Harga BBM", "Bansos").
    - "aktor_target": Daftar tokoh, pejabat, institusi, atau kelompok sasaran (contoh: ["KPU", "Presiden"]). Boleh kosong [].
    - "sumber_konten": Nama media atau kanal asal (contoh: "Tribunnews", "Kompas", atau username jika akun pribadi).

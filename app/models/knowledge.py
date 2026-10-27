@@ -1,4 +1,4 @@
-"""Knowledge Base models for RAG system (PRD v2).
+"""Knowledge Base models for RAG system (PRD v3).
 
 Stores past analyst decisions with vector embeddings to augment future
 AI triages with verified institutional context.

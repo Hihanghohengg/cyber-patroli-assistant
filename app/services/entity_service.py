@@ -1,4 +1,4 @@
-"""Entity normalization and alias deduplication service (PRD v2).
+"""Entity normalization and alias deduplication service (PRD v3).
 
 Provides exact and fuzzy matching to canonicalize Topics, Target Actors,
 and Content Sources into unified entities.

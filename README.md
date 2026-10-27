@@ -296,7 +296,7 @@ cyber-patrol-assistant/
 ├── Dockerfile                # Docker image (Python 3.11 + Playwright Chromium)
 ├── docker-compose.yml        # Orkestrasi multi-container (PostgreSQL pgvector, Redis, App, Worker)
 ├── requirements.txt          # Dependensi Python backend
-├── prd.txt                   # Dokumen Spesifikasi Kebutuhan Produk (PRD v2.2) & DFD Level 0-2
+├── PRD v3 - Asisten Patroli Siber (RAG Terukur + Dashboard Analitik).md # Spesifikasi Kebutuhan Produk & DFD Level 0-2 (v3.0)
 ├── README.md                 # Dokumentasi resmi panduan sistem (File ini)
 ├── tests/                    # Test suite otomatis (18 unit tests terverifikasi)
 ├── dashboard/                # Frontend Web Dashboard (React 18 + TypeScript + Vite)
@@ -386,4 +386,4 @@ dist/assets/index-Cqlw0vKn.js   351.36 kB │ gzip: 99.43 kB
 
 ---
 
-**Asisten Patroli Siber v2.2** | *Subdirektorat Operasi Siber / Tim Tanggap Insiden Keamanan Siber (CSIRT / SOC).*
+**Asisten Patroli Siber v3.0** | *Subdirektorat Operasi Siber / Tim Tanggap Insiden Keamanan Siber (CSIRT / SOC).*
