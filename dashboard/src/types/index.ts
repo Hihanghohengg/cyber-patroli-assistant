@@ -138,6 +138,7 @@ export interface ContentDetail {
   url: string;
   title?: string;
   caption?: string;
+  transcript?: string;
   author: {
     username?: string;
     display_name?: string;

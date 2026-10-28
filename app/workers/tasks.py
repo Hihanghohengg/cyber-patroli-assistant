@@ -86,11 +86,31 @@ def process_patrol_url(
     db = SessionLocal()
     try:
         platform = BaseScraper.detect_platform(url)
-        scraper = SCRAPERS[platform]
+        scraper = SCRAPERS.get(platform)
 
         # ── Step 1: Metadata ──
         logger.info("[%s] Extracting metadata for %s", ticket_number, url)
-        meta = scraper.extract_metadata(url)
+        if scraper:
+            meta = scraper.extract_metadata(url)
+        else:
+            from urllib.parse import urlparse
+            p = urlparse(url)
+            domain = p.netloc.replace("www.", "") or platform
+            meta = {
+                "account": {
+                    "username": domain,
+                    "display_name": f"{domain.capitalize()} ({platform.capitalize()})",
+                    "profile_url": f"{p.scheme}://{p.netloc}" if p.netloc else url,
+                    "subscribers_count": 0,
+                },
+                "canonical_url": url,
+                "platform_content_id": url,
+                "caption": f"Tautan patroli siber ({platform.upper()})",
+                "likes_count": 0,
+                "views_count": 0,
+                "comments_count": 0,
+                "posted_at": None,
+            }
 
         # ── Step 2: Upsert Account ──
         account = (
@@ -148,13 +168,16 @@ def process_patrol_url(
         logger.info("[%s] Capturing visual evidence", ticket_number)
         evidence_data = {}
         try:
-            evidence_data = _run_async(
-                scraper.capture_visual_evidence(
-                    post_url=meta["canonical_url"],
-                    profile_url=meta["account"].get("profile_url", ""),
-                    ticket_number=ticket_number,
+            if scraper:
+                evidence_data = _run_async(
+                    scraper.capture_visual_evidence(
+                        post_url=meta["canonical_url"],
+                        profile_url=meta["account"].get("profile_url", ""),
+                        ticket_number=ticket_number,
+                    )
                 )
-            )
+            else:
+                evidence_data = {}
         except Exception as scrap_err:
             logger.warning("[%s] Scraper capture failed, switching to MANUAL_FALLBACK: %s", ticket_number, scrap_err)
             report.status = "MANUAL_FALLBACK"

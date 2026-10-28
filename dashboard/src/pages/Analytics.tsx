@@ -38,12 +38,12 @@ export const AnalyticsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-cyan-400" />
-            Statistik & Analisis Tren Narasi Siber
+            Statistik & Tren Narasi
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Visualisasi historis volume temuan, interaksi audiens, dan dinamika sentimen.
+          <p className="text-xs text-slate-400 mt-0.5">
+            Historis volume temuan, sebaran sentimen, dan keterlibatan audiens.
           </p>
         </div>
 

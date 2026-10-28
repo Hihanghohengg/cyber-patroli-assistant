@@ -21,6 +21,7 @@ import {
   Fingerprint,
   CheckCheck,
   RefreshCw,
+  Volume2,
 } from 'lucide-react';
 
 export const ContentDetailPage: React.FC = () => {
@@ -159,8 +160,17 @@ export const ContentDetailPage: React.FC = () => {
               {detail.title || 'Konten Temuan Patroli Siber'}
             </h1>
 
-            <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
-              <span className="text-slate-200">@{author.username || 'Anonim'}</span>
+            <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-slate-400">
+              <span className="text-slate-100 font-semibold">{author.display_name || author.username || 'Anonim'}</span>
+              <span className="text-slate-400">(@{author.username || 'anonim'})</span>
+              {author.followers_count ? (
+                <>
+                  <span>•</span>
+                  <span className="text-cyan-400 font-semibold">
+                    {author.followers_count.toLocaleString()} {detail.platform === 'youtube' ? 'subscribers' : 'pengikut'}
+                  </span>
+                </>
+              ) : null}
               <span>•</span>
               <a
                 href={detail.url}
@@ -174,19 +184,25 @@ export const ContentDetailPage: React.FC = () => {
             </div>
 
             {/* Engagement Stats */}
-            <div className="flex items-center gap-4 text-xs font-mono text-slate-400 pt-2">
-              <span className="flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5 text-slate-500" />
+            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-400 pt-2">
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300">
+                <Eye className="w-3.5 h-3.5 text-cyan-400" />
                 {interaction.views_count?.toLocaleString() || 0} tayangan
               </span>
-              <span className="flex items-center gap-1">
-                <ThumbsUp className="w-3.5 h-3.5 text-slate-500" />
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300">
+                <ThumbsUp className="w-3.5 h-3.5 text-emerald-400" />
                 {interaction.likes_count?.toLocaleString() || 0} suka
               </span>
-              <span className="flex items-center gap-1">
-                <MessageSquare className="w-3.5 h-3.5 text-slate-500" />
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300">
+                <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
                 {interaction.comments_count?.toLocaleString() || 0} komentar
               </span>
+              {interaction.shares_count ? (
+                <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-900 border border-slate-800 text-slate-300">
+                  <Share2 className="w-3.5 h-3.5 text-indigo-400" />
+                  {interaction.shares_count?.toLocaleString()} dibagikan
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -271,7 +287,7 @@ export const ContentDetailPage: React.FC = () => {
               {verifying ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-cyan-400" />
-                  Menguji Integritas Kriptografis...
+                  Menguji Integritas Kriptografi...
                 </>
               ) : (
                 <>
@@ -335,6 +351,24 @@ export const ContentDetailPage: React.FC = () => {
               {detail.caption || '(Tidak ada teks caption)'}
             </div>
           </div>
+
+          {/* Spoken Dialogue Transcript Section */}
+          {detail.transcript && (
+            <div className="space-y-1.5 pt-2">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                  Transkrip Percakapan / Audio Lengkap:
+                </h4>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-300">
+                  AI Transcribe
+                </span>
+              </div>
+              <div className="p-3.5 rounded-lg bg-slate-950/80 border border-cyan-900/40 text-xs text-slate-300 max-h-48 overflow-y-auto whitespace-pre-wrap leading-relaxed select-text font-mono">
+                {detail.transcript}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* AI Patrol Analysis & Triase Card */}

@@ -192,7 +192,7 @@ export const OmnichannelAssistantPage: React.FC = () => {
               <span className="text-emerald-300 font-mono text-[10px]">/whatsapp/webhook</span>
             </div>
             <div className="flex justify-between">
-              <span>Kompabilitas:</span>
+              <span>Kompatibilitas:</span>
               <span className="text-slate-300 font-medium">Twilio / Meta API</span>
             </div>
           </div>

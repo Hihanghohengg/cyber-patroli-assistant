@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 MIN_SCREENSHOT_BYTES = 20 * 1024
 
 CANDIDATE_MODELS = [
-    "gemini-flash-latest",
-    "gemini-3.5-flash",
     "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-pro",
 ]
 
 

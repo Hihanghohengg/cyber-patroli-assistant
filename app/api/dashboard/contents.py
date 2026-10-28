@@ -214,12 +214,26 @@ def get_content_detail(
             "validated_at": report.validated_at.isoformat() if report.validated_at else None,
         }
 
+    # Extract transcript if present
+    content_transcript = None
+    if content.extra_metadata and isinstance(content.extra_metadata, dict):
+        content_transcript = content.extra_metadata.get("transcript")
+    if not content_transcript and content.caption_text and "[TRANSKRIP AUDIO" in content.caption_text:
+        parts = content.caption_text.split("[TRANSKRIP AUDIO", 1)
+        sub_part = parts[1]
+        for delim in [":\n", "]:\n", "]:"]:
+            if delim in sub_part:
+                sub_part = sub_part.split(delim, 1)[1]
+                break
+        content_transcript = sub_part.strip()
+
     return ContentDetailResponse(
         content_id=content.content_id,
         platform=content.platform,
         url=content.canonical_url,
         title=content.title,
         caption=content.caption_text,
+        transcript=content_transcript,
         author=author_dict,
         interaction=interaction_dict,
         created_at=content.created_at,

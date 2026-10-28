@@ -130,7 +130,7 @@ export const CurationPage: React.FC = () => {
 
   // Handle Deactivate Knowledge Base Entry (Soft-delete NFR-07)
   const handleDeactivateKnowledge = async (entryId: string) => {
-    if (!window.confirm('Yakin ingin menonaktifkan entri preseden RAG ini? Entri tidak dihapus secara fisik (NFR-07) melainkan dinonaktifkan logis.')) {
+    if (!window.confirm('Yakin ingin menonaktifkan entri preseden RAG ini?')) {
       return;
     }
     try {
@@ -239,11 +239,11 @@ export const CurationPage: React.FC = () => {
         <div className="w-16 h-16 rounded-full bg-rose-950/60 border border-rose-800 flex items-center justify-center mx-auto text-rose-400">
           <Lock className="w-8 h-8" />
         </div>
-        <h2 className="text-lg font-bold text-white tracking-wide uppercase font-mono">
+        <h2 className="text-base font-bold text-white tracking-wide uppercase font-mono">
           Akses Terbatas: Khusus Administrator
         </h2>
         <p className="text-xs text-slate-400 leading-relaxed">
-          Akun Anda saat ini memiliki peran <span className="font-mono text-cyan-400 font-bold">{user.role}</span> (Read-Only). Halaman Pusat Kurasi, Manajemen Whitelist Bot Telegram, dan Pengaturan Knowledge Base RAG dilindungi oleh kebijakan keamanan RBAC (NFR-05) dan hanya dapat diakses oleh Administrator.
+          Akun Anda memiliki hak akses analis (<span className="font-mono text-cyan-400">{user.role}</span>). Pusat Kurasi, manajemen entitas, dan konfigurasi preseden RAG hanya dapat diakses oleh Administrator.
         </p>
       </div>
     );
@@ -254,12 +254,12 @@ export const CurationPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             <Database className="w-5 h-5 text-cyan-400" />
-            Pusat Kurasi RAG & Tata Kelola Administrasi (Admin)
+            Pusat Kurasi & Manajemen RAG
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Kelola data preseden RAG, normalisasi entitas 3 pilar, whitelist bot Telegram, dan audit log forensik.
+          <p className="text-xs text-slate-400 mt-0.5">
+            Basis pengetahuan preseden RAG, normalisasi entitas, dan audit operasional.
           </p>
         </div>
 
@@ -271,7 +271,7 @@ export const CurationPage: React.FC = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 text-emerald-300 border border-emerald-800/40 text-xs font-semibold transition-colors disabled:opacity-50"
           >
             <FileDown className="w-3.5 h-3.5" />
-            <span>{exporting ? 'Mengunduh...' : 'Ekspor CSV Rekap (Aman)'}</span>
+            <span>{exporting ? 'Mengunduh...' : 'Ekspor Data'}</span>
           </button>
         </div>
       </div>
@@ -458,7 +458,7 @@ export const CurationPage: React.FC = () => {
                             <button
                               onClick={() => handleDeactivateKnowledge(k.entry_id)}
                               className="px-2.5 py-1 rounded bg-rose-950/80 hover:bg-rose-900/80 text-rose-300 border border-rose-800/60 text-[10px] font-semibold transition-colors"
-                              title="Nonaktifkan logis (NFR-07)"
+                              title="Nonaktifkan entri"
                             >
                               Nonaktifkan
                             </button>

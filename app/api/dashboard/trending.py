@@ -199,7 +199,7 @@ def get_trending_topic_detail(
                     source_name=acc.username or acc.display_name or "Anonim",
                     platform=acc.platform,
                     content_count=count,
-                    url=acc.url,
+                    url=acc.profile_url if hasattr(acc, 'profile_url') else None,
                 )
             )
 

@@ -275,5 +275,19 @@ export const apiClient = {
       return res.data;
     },
   },
+  assistant: {
+    intake: async (payload: {
+      url: string;
+      source_channel?: string;
+      reporter_identifier?: string;
+      notes?: string;
+      screenshot_base64?: string;
+      media_image_url?: string;
+    }) => {
+      const res = await apiV1.post<any>('/assistant/intake', payload);
+      return res.data;
+    },
+  },
 };
+
 

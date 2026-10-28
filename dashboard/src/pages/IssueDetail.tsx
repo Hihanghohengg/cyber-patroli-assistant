@@ -134,10 +134,10 @@ export const IssueDetailPage: React.FC = () => {
                 Trending Score
               </div>
               <div className="text-xs text-slate-400 font-mono mt-0.5">
-                Pertumbuhan: <span className="text-emerald-400">+{issue.growth_rate}%</span>
+                Pertumbuhan: <span className="text-emerald-400">+{Number(issue.growth_rate).toFixed(1)}%</span>
               </div>
               <div className="text-xs text-slate-400 font-mono">
-                Kecepatan: <span className="text-cyan-300">{issue.velocity}/jam</span>
+                Kecepatan: <span className="text-cyan-300">{Number(issue.velocity).toFixed(1)}/jam</span>
               </div>
             </div>
             <ScoreGauge score={issue.trending_score} size={80} />
@@ -228,7 +228,7 @@ export const IssueDetailPage: React.FC = () => {
             <span className="text-[11px] font-mono text-cyan-400">Snapshot Berkala</span>
           </div>
           <p className="text-xs text-slate-400">
-            Pergerakan skor trending isu dari waktu ke waktu berdasarkan pembobotan otomatis engine.
+            Tren pergerakan skor isu dari waktu ke waktu.
           </p>
           <div className="pt-2">
             <TrendTimelineChart data={timeline} height={190} metric="trending_score" color="#00f0ff" />

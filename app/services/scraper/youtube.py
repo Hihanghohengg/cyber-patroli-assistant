@@ -71,13 +71,18 @@ class YouTubeScraper(BaseScraper):
 
             tags = info.get("tags") or []
             categories = info.get("categories") or []
+            video_id = info.get("id") or ""
+
+            # Extract spoken dialogue transcript (Indonesian / English)
+            transcript_text = self._extract_transcript(video_id, info)
 
             return {
                 "platform": "youtube",
                 "canonical_url": info.get("webpage_url", url),
-                "platform_content_id": info.get("id"),
+                "platform_content_id": video_id,
                 "title": info.get("title", ""),
                 "caption": info.get("description", ""),
+                "transcript": transcript_text,
                 "duration": duration_str,
                 "duration_seconds": duration_sec,
                 "likes_count": info.get("like_count", 0) or 0,
@@ -95,6 +100,83 @@ class YouTubeScraper(BaseScraper):
                     "is_verified": False,
                 },
             }
+
+    def _extract_transcript(self, video_id: str, info: dict) -> str:
+        """Extract full spoken dialogue transcript in Indonesian or English with multi-tier fallback."""
+        if not video_id:
+            return ""
+
+        # Tier 1: youtube-transcript-api
+        try:
+            from youtube_transcript_api import YouTubeTranscriptApi
+            ytt = YouTubeTranscriptApi()
+            transcript_list = ytt.list(video_id)
+            
+            chosen_transcript = None
+            for pref in ["id", "id-orig", "en", "en-orig"]:
+                try:
+                    chosen_transcript = transcript_list.find_transcript([pref])
+                    if chosen_transcript:
+                        break
+                except Exception:
+                    continue
+            
+            if not chosen_transcript:
+                for t in transcript_list:
+                    chosen_transcript = t
+                    break
+
+            if chosen_transcript:
+                data = chosen_transcript.fetch()
+                parts = [item.text for item in data if item.text and item.text.strip()]
+                extracted = " ".join(parts).strip()
+                if extracted:
+                    logger.info("Successfully extracted transcript (%d chars) via YouTubeTranscriptApi for %s", len(extracted), video_id)
+                    return extracted
+        except Exception as api_err:
+            logger.debug("YouTubeTranscriptApi note for %s: %s", video_id, api_err)
+
+        # Tier 2: yt-dlp subtitles & automatic_captions json3 stream
+        try:
+            import urllib.request
+            import json
+            all_subs = {**(info.get("automatic_captions") or {}), **(info.get("subtitles") or {})}
+            sub_url = None
+            for lang in ["id", "id-orig", "en", "en-orig"]:
+                if lang in all_subs:
+                    for fmt in all_subs[lang]:
+                        if fmt.get("ext") == "json3":
+                            sub_url = fmt.get("url")
+                            break
+                if sub_url:
+                    break
+            
+            if not sub_url and all_subs:
+                for _, fmts in all_subs.items():
+                    for fmt in fmts:
+                        if fmt.get("ext") == "json3":
+                            sub_url = fmt.get("url")
+                            break
+                    if sub_url:
+                        break
+
+            if sub_url:
+                req = urllib.request.Request(sub_url, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=6) as r:
+                    data = json.loads(r.read().decode("utf-8", errors="ignore"))
+                    lines = []
+                    for ev in data.get("events", []):
+                        text = "".join([s.get("utf8", "") for s in ev.get("segs", [])]).strip()
+                        if text and text != "\n":
+                            lines.append(text)
+                    extracted = " ".join(lines).strip()
+                    if extracted:
+                        logger.info("Successfully extracted transcript (%d chars) via yt-dlp json3 stream for %s", len(extracted), video_id)
+                        return extracted
+        except Exception as sub_err:
+            logger.debug("yt-dlp subtitle stream note for %s: %s", video_id, sub_err)
+
+        return ""
 
     async def _dismiss_consent_and_overlays(self, page):
         """Dismiss Google/YouTube consent dialogs and hide distracting popups."""

@@ -52,7 +52,7 @@ export const App: React.FC = () => {
             <Route path="contents" element={<ContentExplorerPage />} />
             <Route path="contents/:id" element={<ContentDetailPage />} />
             <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="assistant" element={<OmnichannelAssistantPage />} />
+            <Route path="assistant" element={<Navigate to="/contents" replace />} />
             <Route path="curation" element={<CurationPage />} />
           </Route>
 

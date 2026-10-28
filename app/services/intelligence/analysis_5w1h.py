@@ -18,9 +18,9 @@ from app.services.intelligence.text_processor import IndonesianTextProcessor
 logger = logging.getLogger(__name__)
 
 CANDIDATE_MODELS = [
-    "gemini-flash-latest",
     "gemini-2.5-flash",
-    "gemini-1.5-flash",
+    "gemini-flash-latest",
+    "gemini-2.5-pro",
 ]
 
 MIN_SCREENSHOT_BYTES = 20 * 1024

@@ -18,9 +18,15 @@
     "**/.git/**",
     "**/package-lock.json",
     "**/*.log",
-    ".env*"
+    ".env*",
+    ".gitignore",
+    ".dockerignore"
   ],
   "words": [
+    "Disulih",
+    "disulih",
+    "segs",
+    "Kriptografis",
     "Omnichannel",
     "omnichannel",
     "Terindikasi",
@@ -1531,6 +1537,27 @@
     "yaitu",
     "Yakin",
     "yakni",
-    "youtu"
+    "youtu",
+    "celerybeat",
+    "checkpw",
+    "didistribusikan",
+    "Didistribusikan",
+    "diedit",
+    "eslintcache",
+    "gensalt",
+    "hashpw",
+    "kompatibilitas",
+    "Kompatibilitas",
+    "menginstalnya",
+    "mengklik",
+    "sdist",
+    "telp",
+    "Telp",
+    "terformat",
+    "termanipulasi",
+    "TERMANIPULASI",
+    "tersalin",
+    "Tersalin",
+    "venv"
   ]
 }

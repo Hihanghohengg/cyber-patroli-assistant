@@ -15,10 +15,11 @@ export const TrendingTopicsPage: React.FC = () => {
 
   const categories = [
     { id: 'ALL', label: 'Semua Kategori' },
-    { id: 'HOAKS', label: 'HOAKS' },
-    { id: 'DI_LUAR_KONTEKS', label: 'DI_LUAR_KONTEKS' },
-    { id: 'UJARAN_KEBENCIAN', label: 'UJARAN_KEBENCIAN' },
-    { id: 'PROVOKASI_SARA', label: 'PROVOKASI_SARA' },
+    { id: 'Kejahatan Finansial', label: 'Kejahatan Finansial' },
+    { id: 'Perjudian Daring', label: 'Perjudian Daring' },
+    { id: 'Disinformasi Politik & Kebijakan Publik', label: 'Disinformasi Politik' },
+    { id: 'Hoaks Kesehatan & Pangan', label: 'Hoaks Kesehatan' },
+    { id: 'Klarifikasi & Edukasi Resmi', label: 'Klarifikasi Resmi' },
   ];
 
   const fetchTopics = async () => {
@@ -51,12 +52,12 @@ export const TrendingTopicsPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h2 className="text-lg font-bold tracking-tight text-white flex items-center gap-2">
             <Flame className="w-5 h-5 text-amber-500" />
-            Radar Trending Topics Media Sosial
+            Radar Trending Topics
           </h2>
-          <p className="text-xs text-slate-400 mt-1">
-            Topik diurutkan berdasarkan skor algoritma terbobot (Volume 30%, Pertumbuhan 30%, Kecepatan 15%, Keberagaman 10%, Resensi 10%, Relevansi 5%).
+          <p className="text-xs text-slate-400 mt-0.5">
+            Deteksi lonjakan narasi dan agregasi isu terkini lintas platform.
           </p>
         </div>
 
@@ -141,12 +142,12 @@ export const TrendingTopicsPage: React.FC = () => {
                       }`}
                     >
                       {topic.growth_rate >= 0 ? '+' : ''}
-                      {topic.growth_rate}%
+                      {Number(topic.growth_rate).toFixed(1)}%
                     </div>
                   </div>
                   <div>
                     <div className="text-[10px] text-slate-400 uppercase">Kecepatan</div>
-                    <div className="text-xs font-bold text-cyan-300 mt-0.5">{topic.velocity}/jam</div>
+                    <div className="text-xs font-bold text-cyan-300 mt-0.5">{Number(topic.velocity).toFixed(1)}/jam</div>
                   </div>
                 </div>
 

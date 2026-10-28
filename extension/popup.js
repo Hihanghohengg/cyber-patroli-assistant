@@ -131,22 +131,138 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // Extract direct media image url from active tab
-    let mediaImageUrl = null;
+    // Extract in-depth structured metadata and direct media image url from active tab
+    let inPageMeta = {};
     if (typeof chrome !== "undefined" && chrome.scripting && currentTab?.id) {
       try {
         const [results] = await chrome.scripting.executeScript({
           target: { tabId: currentTab.id },
           func: () => {
+            function parseNum(text) {
+              if (!text) return 0;
+              const clean = text.trim().toLowerCase().replace(/,/g, ".");
+              const m = clean.match(/([\d\.]+)/);
+              if (!m) return 0;
+              let v = parseFloat(m[1]);
+              if (clean.includes("m") || clean.includes("jt")) v *= 1000000;
+              else if (clean.includes("k") || clean.includes("rb")) v *= 1000;
+              return Math.round(v);
+            }
+
+            const url = window.location.href.toLowerCase();
+            const res = {
+              username: null,
+              display_name: null,
+              followers_count: 0,
+              title: null,
+              caption: null,
+              likes_count: 0,
+              views_count: 0,
+              comments_count: 0,
+              shares_count: 0,
+              media_image_url: null,
+            };
+
+            // Image
             const og = document.querySelector('meta[property="og:image"]')?.content ||
                        document.querySelector('meta[name="twitter:image"]')?.content;
-            if (og && !og.includes('favicon')) return og;
-            const img = document.querySelector('article img, main img, img[srcset], video[poster]');
-            return img ? (img.src || img.getAttribute('poster')) : null;
+            if (og && !og.includes('favicon')) res.media_image_url = og;
+
+            // YouTube
+            if (url.includes("youtube.com") || url.includes("youtu.be")) {
+              const ch = document.querySelector("#channel-name a") || document.querySelector("#owner #text a");
+              res.display_name = ch?.textContent?.trim();
+              const chHref = ch?.getAttribute("href") || "";
+              res.username = chHref.includes("@") ? chHref.split("@")[1].split("/")[0] : res.display_name;
+              const subEl = document.querySelector("#owner-sub-count") || document.querySelector("#subscriber-count");
+              if (subEl) res.followers_count = parseNum(subEl.textContent);
+              const tit = document.querySelector("#title h1 yt-formatted-string") || document.querySelector("h2.ytd-reel-player-header-renderer");
+              res.title = tit?.textContent?.trim() || document.title.replace(" - YouTube", "");
+              const descText = document.querySelector("#description-inline-expander yt-attributed-string") ||
+                               document.querySelector("#description-text") ||
+                               document.querySelector("ytd-text-inline-expander #plain-snippet-text") ||
+                               document.querySelector("#description yt-formatted-string") ||
+                               document.querySelector("meta[name='description']");
+              let rawDesc = descText?.textContent?.trim() || descText?.content || document.querySelector("#description-inline-expander")?.textContent?.trim();
+              if (rawDesc) {
+                res.caption = rawDesc
+                  .replace(/\.\.\.selengkapnya/gi, "")
+                  .replace(/Lebih sedikit/gi, "")
+                  .replace(/Ikuti menggunakan transkrip\./gi, "")
+                  .replace(/Tampilkan transkrip/gi, "")
+                  .replace(/Cara konten ini dibuat/gi, "")
+                  .replace(/Disulih suara otomatis/gi, "")
+                  .replace(/Trek audio untuk beberapa bahasa dibuat secara otomatis\./gi, "")
+                  .replace(/Pelajari lebih lanjut/gi, "")
+                  .replace(/\d+([,\.]\d+)?\s*(rb|jt|k|m)?\s*subscriber/gi, "")
+                  .replace(/VideoTentangInstagram\S*/gi, "")
+                  .replace(/\n\s*\n\s*\n/g, "\n\n")
+                  .trim();
+              }
+              const tNodes = document.querySelectorAll("ytd-transcript-segment-renderer .segment-text, #segments-container yt-formatted-string");
+              if (tNodes && tNodes.length > 0) {
+                const tLines = Array.from(tNodes).map(n => n.textContent.trim()).filter(Boolean);
+                if (tLines.length > 0) res.transcript = tLines.join(" ");
+              }
+              const view = document.querySelector("#info-container span");
+              if (view) res.views_count = parseNum(view.textContent);
+              const like = document.querySelector("like-button-view-model button");
+              if (like) res.likes_count = parseNum(like.getAttribute("aria-label") || like.textContent);
+              const comm = document.querySelector("#comments #count span");
+              if (comm) res.comments_count = parseNum(comm.textContent);
+            }
+            // Instagram
+            else if (url.includes("instagram.com")) {
+              const u = document.querySelector("header a[role='link']") || document.querySelector("article header a") || document.querySelector("h2");
+              res.username = u?.textContent?.trim()?.replace(/^@/, "");
+              if (!res.username) {
+                const sm = window.location.href.match(/instagram\.com\/(?:stories\/)?([a-zA-Z0-9_\.]+)/);
+                if (sm && !['p', 'reel', 'explore', 'stories'].includes(sm[1])) res.username = sm[1];
+              }
+              res.display_name = res.username ? `@${res.username}` : "Pengguna Instagram";
+              const cap = document.querySelector("h1[dir='auto']") || document.querySelector("article span._a9zs") || document.querySelector("meta[property='og:description']");
+              res.caption = cap?.textContent?.trim() || cap?.content;
+              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : `Instagram Post (${res.username || 'Media'})`;
+              const lk = document.querySelector("section button span") || document.querySelector("a[href*='/liked_by/'] span");
+              if (lk) res.likes_count = parseNum(lk.textContent);
+            }
+            // TikTok
+            else if (url.includes("tiktok.com")) {
+              const tu = document.querySelector("[data-e2e='user-title']");
+              res.username = tu?.textContent?.trim()?.replace(/^@/, "");
+              res.display_name = res.username ? `@${res.username}` : "TikTok Creator";
+              const tc = document.querySelector("[data-e2e='browse-video-desc']");
+              res.caption = tc?.textContent?.trim();
+              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : `TikTok Video @${res.username}`;
+              const tlk = document.querySelector("[data-e2e='like-count']");
+              if (tlk) res.likes_count = parseNum(tlk.textContent);
+              const tcm = document.querySelector("[data-e2e='comment-count']");
+              if (tcm) res.comments_count = parseNum(tcm.textContent);
+              const tsh = document.querySelector("[data-e2e='share-count']");
+              if (tsh) res.shares_count = parseNum(tsh.textContent);
+            }
+            // X / Twitter
+            else if (url.includes("twitter.com") || url.includes("x.com")) {
+              const xu = document.querySelector("[data-testid='User-Name']");
+              if (xu) {
+                const links = xu.querySelectorAll("a");
+                res.display_name = links[0]?.textContent?.trim();
+                res.username = links[1]?.textContent?.trim()?.replace(/^@/, "");
+              }
+              const xt = document.querySelector("[data-testid='tweetText']");
+              res.caption = xt?.textContent?.trim();
+              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : "Postingan X (Twitter)";
+              const xlk = document.querySelector("[data-testid='like']");
+              if (xlk) res.likes_count = parseNum(xlk.textContent);
+              const xcm = document.querySelector("[data-testid='reply']");
+              if (xcm) res.comments_count = parseNum(xcm.textContent);
+            }
+
+            return res;
           }
         });
         if (results && results.result) {
-          mediaImageUrl = results.result;
+          inPageMeta = results.result;
         }
       } catch (err) {
         console.warn("Scripting extraction error in popup:", err);
@@ -160,9 +276,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         url: targetUrl,
         source_channel: "BROWSER_EXTENSION",
         reporter_identifier: analystId,
-        notes: notes || undefined,
+        notes: notes || inPageMeta.caption || undefined,
         screenshot_base64: screenshotBase64 || undefined,
-        media_image_url: mediaImageUrl || undefined,
+        media_image_url: inPageMeta.media_image_url || undefined,
+        username: inPageMeta.username || undefined,
+        display_name: inPageMeta.display_name || undefined,
+        followers_count: inPageMeta.followers_count || 0,
+        title: inPageMeta.title || undefined,
+        caption: inPageMeta.caption || undefined,
+        transcript: inPageMeta.transcript || undefined,
+        likes_count: inPageMeta.likes_count || 0,
+        views_count: inPageMeta.views_count || 0,
+        comments_count: inPageMeta.comments_count || 0,
+        shares_count: inPageMeta.shares_count || 0,
       };
 
       const res = await fetch(`${DEFAULT_API_BASE}/api/v1/assistant/intake`, {
@@ -178,11 +304,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       resultCard.style.display = "block";
       resultTicket.textContent = data.ticket_number;
-      resultDesc.textContent = `Konten ${data.platform.toUpperCase()} berhasil dimasukkan ke antrean triase AI & preseden RAG. Buka dashboard untuk meninjau hasil.`;
-      btnText.textContent = "✅ Laporan Berhasil Dikirim";
+      resultDesc.textContent = `Konten ${data.platform ? data.platform.toUpperCase() : ''} berhasil dicatat ke antrean validasi bukti digital.`;
+      if (data.content_id) {
+        const link = document.getElementById("link-dashboard");
+        if (link) link.href = `http://localhost:5173/#/contents/${data.content_id}`;
+      }
+      btnText.textContent = "✅ Berhasil Diproses";
     } catch (err) {
       alert("Gagal memproses triase: " + err.message);
-      btnText.textContent = "⚡ Triase & Kirim ke AI (1-Click)";
+      btnText.textContent = "⚡ Triase Konten";
       btnSubmit.disabled = false;
     }
   });

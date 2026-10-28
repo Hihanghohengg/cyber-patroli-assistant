@@ -172,6 +172,7 @@ class ContentDetailResponse(BaseModel):
     url: str
     title: Optional[str] = None
     caption: Optional[str] = None
+    transcript: Optional[str] = None
     author: Dict[str, Any] = {}
     interaction: Dict[str, Any] = {}
     created_at: datetime

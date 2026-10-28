@@ -39,12 +39,21 @@ class BaseScraper(ABC):
     @staticmethod
     def detect_platform(url: str) -> str:
         """Detect social media platform from a URL string."""
-        url_lower = url.lower()
+        url_lower = url.lower().strip()
         if re.search(r"(youtube\.com|youtu\.be)", url_lower):
             return "youtube"
         elif re.search(r"tiktok\.com", url_lower):
             return "tiktok"
         elif re.search(r"instagram\.com", url_lower):
             return "instagram"
+        elif re.search(r"(twitter\.com|x\.com)", url_lower):
+            return "x"
+        elif re.search(r"(facebook\.com|fb\.watch)", url_lower):
+            return "facebook"
+        elif re.search(r"threads\.net", url_lower):
+            return "threads"
+        elif url_lower.startswith("http://") or url_lower.startswith("https://"):
+            return "web"
         else:
-            raise ValueError(f"Platform tidak dikenali dari URL: {url}")
+            raise ValueError(f"Platform tidak didukung atau format URL tidak valid: {url}")
+

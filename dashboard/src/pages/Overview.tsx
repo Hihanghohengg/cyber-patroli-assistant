@@ -234,44 +234,39 @@ export const OverviewPage: React.FC = () => {
       {/* ── Page Header & Tabs ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
-              <ShieldCheck className="w-6 h-6 text-cyan-400" />
-              Dashboard Analitik Patroli Siber & Profiling Akun
-            </h1>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 text-cyan-400 border border-cyan-500/30">
-              v2.2 Enterprise Edition
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Visualisasi operasional patroli siber terintegrasi (FR-01 s.d. FR-12, DFD Level 0–2, ERD 11 Tabel Fisik).
+          <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2.5">
+            <ShieldCheck className="w-5 h-5 text-cyan-400" />
+            Operasional Patroli Siber
+          </h1>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Monitoring intelijen media sosial, deteksi narasi berisiko, dan profil akun terindikasi.
           </p>
         </div>
 
         {/* Tab Selector & Export Button */}
         <div className="flex items-center gap-3">
-          <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 flex items-center text-xs">
+          <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-800 flex items-center text-xs">
             <button
               onClick={() => setActiveTab('proposal')}
               className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'proposal'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <BarChart2 className="w-3.5 h-3.5" />
-              <span>Analitik Proposal (8 Visual)</span>
+              <span>Ringkasan Metrik</span>
             </button>
             <button
               onClick={() => setActiveTab('intel')}
               className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'intel'
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
               <Flame className="w-3.5 h-3.5" />
-              <span>Radar 5W+1H & Topik Tren</span>
+              <span>Radar & Sentimen</span>
             </button>
           </div>
 
@@ -279,7 +274,7 @@ export const OverviewPage: React.FC = () => {
             onClick={handleExportCSV}
             disabled={exporting}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30 transition-all disabled:opacity-50"
-            title="Ekspor data hasil filter ke CSV aman (Bearer Token)"
+            title="Ekspor data hasil filter ke CSV"
           >
             <FileDown className="w-3.5 h-3.5" />
             <span>{exporting ? 'Mengunduh...' : 'Ekspor CSV'}</span>
@@ -287,12 +282,12 @@ export const OverviewPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── 1. BAR FILTER UTAMA (Proposal FR-11) ── */}
-      <div className="cyber-card p-4 rounded-xl border border-slate-800 space-y-3">
+      {/* ── 1. BAR FILTER UTAMA ── */}
+      <div className="cyber-card p-4 rounded-xl border border-slate-800/80 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-            <Filter className="w-4 h-4 text-cyan-400" />
-            <span>Bar Filter Utama (Drill-Down Multi-Dimensi)</span>
+            <Filter className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Filter Data</span>
           </div>
           {hasActiveFilters && (
             <button
@@ -433,7 +428,7 @@ export const OverviewPage: React.FC = () => {
                 title="Total Laporan"
                 value={summary?.total_laporan ?? 0}
                 icon={<FileText className="w-5 h-5 text-cyan-400" />}
-                subtitle="Seluruh temuan masuk"
+                subtitle="Total data terhimpun"
                 accentColor="cyan"
               />
             </div>
@@ -447,7 +442,7 @@ export const OverviewPage: React.FC = () => {
                 title="Temuan Tervalidasi"
                 value={summary?.temuan_tervalidasi ?? 0}
                 icon={<CheckCircle className="w-5 h-5 text-emerald-400" />}
-                subtitle="Status VALIDATED + MODIFIED"
+                subtitle="Terverifikasi analis"
                 accentColor="emerald"
               />
             </div>
@@ -461,7 +456,7 @@ export const OverviewPage: React.FC = () => {
                 title="Koreksi Analis"
                 value={summary?.koreksi_analis ?? 0}
                 icon={<Edit3 className="w-5 h-5 text-amber-400" />}
-                subtitle="Putusan MODIFIED"
+                subtitle="Penyesuaian manual"
                 accentColor="amber"
               />
             </div>
@@ -475,24 +470,24 @@ export const OverviewPage: React.FC = () => {
                 title="Bukan Pelanggaran"
                 value={summary?.bukan_pelanggaran ?? 0}
                 icon={<XCircle className="w-5 h-5 text-rose-400" />}
-                subtitle="Putusan REJECTED (False Pos)"
+                subtitle="Ditolak / Nihil"
                 accentColor="rose"
               />
             </div>
           </div>
 
-          {/* ── 3. 8 GRAFIK VISUAL WAJIB PROPOSAL ── */}
+          {/* ── 3. GRAFIK ANALITIK UTAMA ── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Visual 1 (Tren Waktu): Line Chart Ganda Laporan vs Tervalidasi */}
+            {/* Visual 1 (Tren Waktu) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    Visual 1: Tren Waktu Temuan Harian
+                    Tren Aktivitas Temuan
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Perbandingan garis Laporan Masuk vs Temuan Tervalidasi per hari.
+                    Perbandingan volume laporan masuk dan temuan tervalidasi per hari.
                   </p>
                 </div>
               </div>
@@ -510,16 +505,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 2 (Per Platform): Vertical Bar Chart Platform */}
+            {/* Visual 2 (Per Platform) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Layers className="w-4 h-4 text-cyan-400" />
-                    Visual 2: Distribusi Temuan Per Platform
+                    Distribusi Platform
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Jumlah temuan tervalidasi pada Instagram, TikTok, dan YouTube.
+                    Sebaran temuan pada TikTok, YouTube, dan Instagram.
                   </p>
                 </div>
               </div>
@@ -532,16 +527,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 3 (Per Kategori): Horizontal Bar Chart final_label */}
+            {/* Visual 3 (Per Kategori) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Tag className="w-4 h-4 text-amber-400" />
-                    Visual 3: Distribusi Kategori Isu Final
+                    Kategori Isu
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Jumlah temuan berdasarkan final_label putusan analis.
+                    Klasifikasi temuan berdasarkan analisis final.
                   </p>
                 </div>
               </div>
@@ -553,16 +548,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 4 (Distribusi Risiko): Donut Chart final_risk */}
+            {/* Visual 4 (Distribusi Risiko) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <AlertTriangle className="w-4 h-4 text-rose-400" />
-                    Visual 4: Proporsi Tingkat Risiko Final
+                    Tingkat Risiko
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Persentase tingkat risiko final (Sedang, Tinggi, Rendah).
+                    Proporsi tingkat risiko rendah, sedang, dan tinggi.
                   </p>
                 </div>
               </div>
@@ -576,16 +571,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 5 (Topik Teratas): Horizontal Bar Chart TOPIC */}
+            {/* Visual 5 (Topik Teratas) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    Visual 5: Topik Hangat Teratas (TOPIC)
+                    Topik Teratas
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Entitas kanonikal bertipe TOPIC paling sering muncul dalam temuan.
+                    Entitas topik yang paling sering terdeteksi.
                   </p>
                 </div>
               </div>
@@ -602,16 +597,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 6 (Aktor Target Teratas): Horizontal Bar Chart ACTOR (via report_actors) */}
+            {/* Visual 6 (Aktor Target Teratas) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <UserCheck className="w-4 h-4 text-emerald-400" />
-                    Visual 6: Aktor / Figur Sasaran Teratas (ACTOR)
+                    Aktor & Tokoh Sasaran
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Entitas bertipe ACTOR yang dihubungkan melalui tabel relasi report_actors.
+                    Profil dan figur yang sering menjadi sasaran narasi.
                   </p>
                 </div>
               </div>
@@ -628,16 +623,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 7 (Sumber Konten Teratas): Horizontal Bar Chart SOURCE */}
+            {/* Visual 7 (Sumber Konten Teratas) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <Radio className="w-4 h-4 text-violet-400" />
-                    Visual 7: Sumber Konten Dominan (SOURCE)
+                    Kanal Sumber Konten
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Kanal penyebar disinformasi / konten yang paling sering dipantau.
+                    Saluran dan akun dominan penyebar konten.
                   </p>
                 </div>
               </div>
@@ -654,16 +649,16 @@ export const OverviewPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Visual 8 (Kesepakatan AI vs Analis): Vertical Bar Chart */}
+            {/* Visual 8 (Kesepakatan AI vs Analis) */}
             <div className="cyber-card p-5 rounded-xl space-y-3">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-bold text-white flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    Visual 8: Kesepakatan AI vs Putusan Analis
+                    Akurasi AI vs Analis
                   </h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Perbandingan jumlah putusan VALIDATED, MODIFIED, dan REJECTED.
+                    Tingkat kesesuaian rekomendasi AI dengan validasi analis.
                   </p>
                 </div>
               </div>
@@ -677,33 +672,23 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ── 4. BANNER DISCLAIMER NETRALITAS WAJIB (Proposal NFR-06) ── */}
-          <div className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/30 flex items-start gap-3 shadow-md">
-            <Info className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-slate-300 leading-relaxed font-sans">
-              <span className="font-bold text-cyan-300">Disclaimer Netralitas Data (NFR-06): </span>
-              Frekuensi kemunculan topik, aktor, dan sumber tidak menunjukkan kesalahan pihak mana pun. Status tiket dan
-              keputusan analis merupakan hasil simulasi triase teknis operasional, bukan penetapan hukum otomatis.
-            </div>
-          </div>
-
           {/* ── 5. TABEL LAPORAN HASIL DRILL-DOWN ── */}
           <div className="cyber-card rounded-xl p-5 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <FileText className="w-4 h-4 text-cyan-400" />
-                  Daftar Tiket Temuan Patroli ({reports.length} Data Ditampilkan)
+                  Daftar Temuan Terfilter ({reports.length})
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Daftar laporan yang tersinkronisasi sesuai filter dan interaksi drill-down di atas.
+                  Laporan yang tersinkronisasi dengan filter aktif di atas.
                 </p>
               </div>
               <Link
                 to="/contents"
                 className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
               >
-                <span>Buka Content Explorer Lengkap</span>
+                <span>Lihat Semua Temuan</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
@@ -877,10 +862,10 @@ export const OverviewPage: React.FC = () => {
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Flame className="w-4 h-4 text-amber-400" />
-                  Klaster Topik Paling Hangat Saat Ini
+                  Topik Tren Teratas
                 </h3>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Topik dikelompokkan dengan cosine similarity & pembobotan kecepatan pertumbuhan.
+                  Topik dengan volume interaksi dan pertumbuhan tertinggi saat ini.
                 </p>
               </div>
               <Link
