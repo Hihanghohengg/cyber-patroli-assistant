@@ -368,7 +368,7 @@ export const DonutChart: React.FC<{
           return (
             <div
               key={idx}
-              className="flex items-center justify-between text-xs gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 px-2 py-1 rounded transition-colors"
+              className="flex items-center justify-between text-xs gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.04] px-2 py-1 rounded transition-colors"
               onClick={() => onItemClick?.(item)}
             >
               <div className="flex items-center gap-1.5">
@@ -408,7 +408,7 @@ export const HorizontalBarList: React.FC<{
         return (
           <div
             key={idx}
-            className="space-y-1 group cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-850/60 p-1 rounded-md transition-colors"
+            className="space-y-1 group cursor-pointer hover:bg-slate-50 dark:hover:bg-white/[0.04] p-1.5 rounded-lg transition-colors"
             onClick={() => onBarClick?.(item)}
           >
             <div className="flex justify-between text-xs">
@@ -456,7 +456,7 @@ export const ScoreGauge: React.FC<{ score: number; size?: number; label?: string
 
   return (
     <div
-      className="shrink-0 relative flex items-center justify-center rounded-full bg-slate-100 dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 shadow-sm"
+      className="shrink-0 relative flex items-center justify-center rounded-full bg-slate-50 dark:bg-[#0c121d] border border-slate-200 dark:border-white/[0.08] shadow-sm"
       style={{ width: size, height: size }}
     >
       <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">

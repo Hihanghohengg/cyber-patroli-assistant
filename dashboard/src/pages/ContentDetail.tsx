@@ -435,7 +435,7 @@ export const ContentDetailPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => copyToClipboard(primaryEvidence.sha256, 'sha256')}
-                      className="p-1 rounded hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+                      className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
                       title="Salin SHA-256 Lengkap"
                     >
                       {copiedHash === 'sha256' ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}
@@ -452,7 +452,7 @@ export const ContentDetailPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => copyToClipboard(primaryEvidence.hmac_tag!, 'hmac')}
-                        className="p-1 rounded hover:bg-white/[0.08] text-slate-400 hover:text-white transition-colors"
+                        className="p-1 rounded hover:bg-slate-100 dark:hover:bg-white/[0.08] text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
                         title="Salin HMAC Tag Lengkap"
                       >
                         {copiedHash === 'hmac' ? <Check className="w-3 h-3 text-emerald-500" /> : <Copy className="w-3 h-3" />}

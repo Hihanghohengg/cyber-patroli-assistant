@@ -20,6 +20,7 @@ import {
   ArrowRight,
   TrendingUp,
   UserCheck,
+  ShieldCheck,
   FileDown,
   Download,
   Filter,
@@ -380,6 +381,25 @@ export const OverviewPage: React.FC = () => {
         </div>
       ) : (
         <div className="space-y-5">
+          {/* Zero-Data Fresh Install Banner */}
+          {summary?.total_laporan === 0 && !hasActiveFilters && (
+            <div className="cyber-card rounded-xl p-4 sm:p-5 border border-blue-500/25 bg-blue-500/5 dark:bg-blue-500/[0.03] space-y-2">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center shrink-0 mt-0.5">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="text-xs font-bold font-mono text-slate-900 dark:text-white uppercase tracking-wider">
+                    Sistem Pemantauan Siap Operasi — 100% On-Premise & Rantai Bukti Digital
+                  </h4>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Belum ada rekaman temuan yang terakuisisi. Gunakan <strong>Ekstensi Peramban TILIK</strong> pada browser Anda untuk menangkap bukti postingan media sosial secara instan dan menyegelnya dengan kriptografi <strong>NIST FIPS 198-1 HMAC-SHA256</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── 2. KARTU KPI RINGKAS (4 KPI STRIP) ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KPICard
@@ -541,7 +561,7 @@ export const OverviewPage: React.FC = () => {
                       color: '#3b82f6',
                       subtitle: t.category,
                     }))}
-                    onBarClick={() => navigate('/trending')}
+                    onBarClick={(item) => navigate(`/trending?q=${encodeURIComponent(item.label)}`)}
                   />
                 )}
               </div>
@@ -575,7 +595,7 @@ export const OverviewPage: React.FC = () => {
                       color: '#10b981',
                       subtitle: a.category,
                     }))}
-                    onBarClick={() => navigate('/trending')}
+                    onBarClick={(item) => navigate(`/trending?actor=${encodeURIComponent(item.label)}`)}
                   />
                 )}
               </div>

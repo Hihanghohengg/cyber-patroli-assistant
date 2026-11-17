@@ -270,7 +270,7 @@ export const IssueDetailPage: React.FC = () => {
             Tren pergerakan skor isu dari waktu ke waktu.
           </p>
           <div className="pt-2">
-            <TrendTimelineChart data={timeline} height={190} metric="trending_score" color="#00f0ff" />
+            <TrendTimelineChart data={timeline} height={190} metric="trending_score" color="#2563eb" />
           </div>
         </div>
 

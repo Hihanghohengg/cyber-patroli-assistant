@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { TrendingResponse, TrendingTopicItem } from '../types';
 import { ScoreGauge } from '../components/common/Charts';
@@ -72,6 +72,7 @@ const matchTopic = (topic: TrendingTopicItem, filter: ActiveFilter): boolean => 
 };
 
 export const TrendingTopicsPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<TrendingResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +83,19 @@ export const TrendingTopicsPage: React.FC = () => {
 
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedPillar, setSelectedPillar] = useState<'ALL' | 'AKTUAL' | 'KRITIKAL' | 'TEMATIK'>('ALL');
+
+  // Listen to incoming search params from Overview page
+  useEffect(() => {
+    const qParam = searchParams.get('q');
+    const actorParam = searchParams.get('actor');
+    if (qParam) {
+      setActiveFilter({ type: 'KEYWORD', value: qParam });
+      setSearchInput(qParam);
+    } else if (actorParam) {
+      setActiveFilter({ type: 'ACTOR', value: actorParam });
+      setSearchInput('');
+    }
+  }, [searchParams]);
 
   const categories = [
     { id: 'ALL', label: 'Semua' },
@@ -208,7 +222,7 @@ export const TrendingTopicsPage: React.FC = () => {
                   setActiveFilter(null);
                 }
               }}
-              className="absolute right-2 top-2 text-slate-400 hover:text-slate-200"
+              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -568,8 +582,37 @@ export const TrendingTopicsPage: React.FC = () => {
             <p className="text-rose-500 text-sm font-semibold">{error}</p>
           </div>
         ) : filteredTopics.length === 0 ? (
-          <div className="cyber-card rounded-xl p-10 text-center text-slate-400 font-mono text-xs">
-            Tidak ada isu yang sesuai filter saat ini.
+          <div className="cyber-card rounded-xl p-10 sm:p-14 text-center border border-slate-200 dark:border-white/[0.06] space-y-3">
+            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mx-auto">
+              <Flame className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 font-mono">
+                {activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL'
+                  ? 'Tidak Ada Isu yang Sesuai Filter'
+                  : 'Radar Isu Siap — Belum Ada Klaster Narasi'}
+              </h4>
+              <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+                {activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL'
+                  ? 'Coba ubah kata kunci atau tekan tombol reset untuk menampilkan seluruh klaster radar.'
+                  : 'Klaster narasi strategis, HotScore, dan awan kata kunci akan terbentuk secara otonom saat patroli ruang siber mulai mengakuisisi data temuan.'}
+              </p>
+            </div>
+            {(activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL') && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFilter(null);
+                  setSelectedCategory('ALL');
+                  setSelectedPillar('ALL');
+                  setSearchInput('');
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Seluruh Filter</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-2.5">

@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('cyber_patrol_theme');
+    const saved = localStorage.getItem('tilik_theme') || localStorage.getItem('cyber_patrol_theme');
     if (saved === 'light' || saved === 'dark') {
       return saved;
     }
@@ -31,6 +31,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.classList.remove('dark');
       root.classList.add('light');
     }
+    localStorage.setItem('tilik_theme', newTheme);
     localStorage.setItem('cyber_patrol_theme', newTheme);
 
     // Clean up transition class after animation finishes so regular interactions are instant

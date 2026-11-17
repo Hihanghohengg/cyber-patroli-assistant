@@ -156,8 +156,37 @@ export const ContentExplorerPage: React.FC = () => {
           <p className="text-rose-500 text-sm font-semibold">{error}</p>
         </div>
       ) : contents.length === 0 ? (
-        <div className="cyber-card rounded-xl p-10 text-center text-slate-400 font-mono text-xs">
-          Belum ada konten temuan yang sesuai filter.
+        <div className="cyber-card rounded-xl p-10 sm:p-14 text-center border border-slate-200 dark:border-white/[0.06] space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mx-auto">
+            <Search className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 font-mono">
+              {search || platform || category || sentiment || status
+                ? 'Tidak Ada Temuan yang Sesuai Kriteria Filter'
+                : 'Arsip Temuan Siap — Belum Ada Rekam Bukti'}
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+              {search || platform || category || sentiment || status
+                ? 'Coba sesuaikan kata kunci atau kosongkan filter pencarian untuk menampilkan seluruh arsip.'
+                : 'Seluruh tangkapan layar, teks ekstraksi OCR, dan segel kriptografi NIST FIPS 198-1 HMAC-SHA256 akan otomatis tersimpan rapi di sini setelah akuisisi patroli.'}
+            </p>
+          </div>
+          {(search || platform || category || sentiment || status) && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                setPlatform('');
+                setCategory('');
+                setSentiment('');
+                setStatus('');
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
+            >
+              <span>Reset Seluruh Filter</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="cyber-card rounded-xl overflow-hidden border border-slate-200 dark:border-white/[0.06]">
