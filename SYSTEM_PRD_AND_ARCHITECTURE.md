@@ -1,15 +1,15 @@
 # DOKUMEN SPESIFIKASI KEBUTUHAN PRODUK & ARSITEKTUR SISTEM
 ## ASISTEN PATROLI SIBER & INTELIJEN MEDIA SOSIAL (TILIK)
-### Hybrid 5-Platform Acquisition + NIST FIPS 198-1 HMAC-SHA256 Integrity + RapidOCR + BGE-M3 Cross-Lingual Self-Learning + Web Forensic Cockpit
+### Hybrid 5-Platform Acquisition + NIST FIPS 198-1 HMAC-SHA256 Integrity + RapidOCR + BGE-M3 Cross-Lingual Self-Learning + Unified Operational Cockpit
 
 ---
 
 **Identifikasi Dokumen:** `SYS-PRD-ARCH-2026-FINAL`  
 **Status:** DRAF RESMI FINAL — TUGAS AKHIR D4 REKAYASA PERANGKAT LUNAK KRIPTOGRAFI (RPLK)  
-**Versi:** 5.0 (*Hybrid 5-Platform Acquisition, Forensic Sealing, RapidOCR & Cross-Lingual Self-Learning*)  
-**Tanggal Rilis:** 15 November 2026  
+**Versi:** 5.2 (*Unified Operational Cockpit, Zero-Dead-End Intelligence Workflow, Anti-Slop UI/UX Standard, & Automated HITL Learning Loop*)  
+**Tanggal Rilis:** 17 November 2026  
 **Lokus Penugasan:** Analisis Intelijen Siber Ruang Digital — Penanganan Isu Strategis Nasional IPOLEKSOSBUDHANKAM  
-**Prinsip Desain:** *100% Local-First / On-Premise*, *Forensic Integrity (NIST FIPS 198-1)*, *100% Indonesian Output*, *Multi-User LAN Concurrency*, *Selective Compute*, *Anti-Noise Content/Metadata Disambiguation*, dan *Human-in-the-Loop Supremacy*.
+**Prinsip Desain:** *100% Local-First / On-Premise*, *Forensic Integrity (NIST FIPS 198-1)*, *100% Indonesian Output*, *Multi-User LAN Concurrency*, *Selective Compute*, *Anti-Noise Content/Metadata Disambiguation*, *Human-in-the-Loop Supremacy*, *Unified Single-Stream Cockpit*, *Anti-Slop & High-Craft Intelligence UI/UX*, *100% Dark/Light Theme Parity*, *Automated In-Dossier HITL Learning*, dan *Zero Dead-End Interconnectivity*.
 
 ---
 
@@ -20,9 +20,9 @@
   - [1.1 Ringkasan Eksekutif & Latar Belakang](#11-ringkasan-eksekutif--latar-belakang)
   - [1.2 Batasan Arsitektur Utama (Core Architectural Constraints)](#12-batasan-arsitektur-utama-core-architectural-constraints)
   - [1.3 Profil Pengguna & Matriks Hak Akses (RBAC)](#13-profil-pengguna--matriks-hak-akses-rbac)
-  - [1.4 Ruang Lingkup Sistem & Batasan Batas (Scope \& Boundary)](#14-ruang-lingkup-sistem--batasan-batas-scope--boundary)
-  - [1.5 Kebutuhan Fungsional (FR-01 s.d. FR-20)](#15-kebutuhan-fungsional-fr-01-sd-fr-20)
-  - [1.6 Kebutuhan Non-Fungsional (NFR-01 s.d. NFR-15)](#16-kebutuhan-non-fungsional-nfr-01-sd-nfr-15)
+  - [1.4 Ruang Lingkup Sistem & Batasan Batas (Scope & Boundary)](#14-ruang-lingkup-sistem--batasan-batas-scope--boundary)
+  - [1.5 Kebutuhan Fungsional (FR-01 s.d. FR-24)](#15-kebutuhan-fungsional-fr-01-sd-fr-24)
+  - [1.6 Kebutuhan Non-Fungsional (NFR-01 s.d. NFR-09)](#16-kebutuhan-non-fungsional-nfr-01-sd-nfr-09)
 - [BAB II: DATA FLOW DIAGRAM (DFD) & WORKFLOW PIPELINES LENGKAP](#bab-ii-data-flow-diagram-dfd--workflow-pipelines-lengkap)
   - [2.1 DFD Level 0 (Context Diagram)](#21-dfd-level-0-context-diagram)
   - [2.2 DFD Level 1 (Dekomposisi Proses Utama Sistem)](#22-dfd-level-1-dekomposisi-proses-utama-sistem)
@@ -33,8 +33,8 @@
     - [2.3.4 DFD Level 2.4: MemPrompt In-Context Learning & Deduplikasi Semantik](#234-dfd-level-24-memprompt-in-context-learning--deduplikasi-semantik)
     - [2.3.5 DFD Level 2.5: Inferensi Ollama Local LLM & GPU Semaphore Guard](#235-dfd-level-25-inferensi-ollama-local-llm--gpu-semaphore-guard)
     - [2.3.6 DFD Level 2.6: Autonomous Background Trending Synchronizer](#236-dfd-level-26-autonomous-background-trending-synchronizer)
-    - [2.3.7 DFD Level 2.7: Siklus Validasi Human-in-the-Loop (HITL) Analis](#237-dfd-level-27-siklus-validasi-human-in-the-loop-hitl-analis)
-    - [2.3.8 DFD Level 2.8: Pembangkit Dokumen Berita Acara & Dossier Resmi](#238-dfd-level-28-pembangkit-dokumen-berita-acara--dossier-resmi)
+    - [2.3.7 DFD Level 2.7: Siklus Validasi & Pembelajaran Otomatis Human-in-the-Loop (HITL)](#237-dfd-level-27-siklus-validasi--pembelajaran-otomatis-human-in-the-loop-hitl)
+    - [2.3.8 DFD Level 2.8: Pembangkit Dokumen Berita Acara & Laporan Analitis Multivariat](#238-dfd-level-28-pembangkit-dokumen-berita-acara--laporan-analitis-multivariat)
   - [2.4 End-to-End Sequence Diagram](#24-end-to-end-sequence-diagram)
 - [BAB III: ARSITEKTUR SISTEM & PERANCANGAN TEKNIS DETAIL](#bab-iii-arsitektur-sistem--perancangan-teknis-detail)
   - [3.1 Blok Arsitektur C4 / Komponen Fisik & Logis](#31-blok-arsitektur-c4--komponen-fisik--logis)
@@ -47,6 +47,13 @@
   - [3.4 Arsitektur Basis Data: SQLite WAL High-Concurrency & Skema Relasional](#34-arsitektur-basis-data-sqlite-wal-high-concurrency--skema-relasional)
   - [3.5 Cryptographic Integrity Engine (NIST FIPS 198-1 HMAC-SHA256)](#35-cryptographic-integrity-engine-nist-fips-198-1-hmac-sha256)
   - [3.6 Mesin Dokumen: ReportLab Two-Pass Numbered PDF Dossier](#36-mesin-dokumen-reportlab-two-pass-numbered-pdf-dossier)
+  - [3.7 Arsitektur Web Cockpit Intelijen (React 18, TypeScript, Vite & Tailwind CSS)](#37-arsitektur-web-cockpit-intelijen-react-18-typescript-vite--tailwind-css)
+    - [3.7.1 Alur Navigasi 3 Menu Inti & Collapsible Sidebar](#371-alur-navigasi-3-menu-inti--collapsible-sidebar)
+    - [3.7.2 Konsol Operasional Tunggal Terpadu (Overview.tsx) & Mesin Visualisasi SVG](#372-konsol-operasional-tunggal-terpadu-overviewtsx--mesin-visualisasi-svg)
+    - [3.7.3 Radar Isu Terkoneksi (TrendingTopics.tsx) & Sinkronisasi Query Parameter](#373-radar-isu-terkoneksi-trendingtopicstsx--sinkronisasi-query-parameter)
+    - [3.7.4 Editorial Intelligence Dossier (ContentDetail.tsx) & Hierarki 5W+1H](#374-editorial-intelligence-dossier-contentdetailtsx--hierarki-5w1h)
+    - [3.7.5 Standar Estetika Anti-Slop, Kicker Taktis Indonesia & Paritas Tema Ganda](#375-standar-estetika-anti-slop-kicker-taktis-indonesia--paritas-tema-ganda)
+    - [3.7.6 Generator Laporan PDF Analitis Multidimensi](#376-generator-laporan-pdf-analitis-multidimensi)
 - [BAB IV: MESIN KECERDASAN BUATAN (AI), VISION, & PEMBELAJARAN ADAPTIF](#bab-iv-mesin-kecerdasan-buatan-ai-vision--pembelajaran-adaptif)
   - [4.1 Transisi 100% On-Premise: Ollama Local LLM](#41-transisi-100-on-premise-ollama-local-llm)
   - [4.2 Selective Local OCR Engine & Smart Noise Gate](#42-selective-local-ocr-engine--smart-noise-gate)
@@ -71,12 +78,14 @@ Tantangan utama yang dihadapi di lapangan:
 1. **Perubahan DOM & Pengacakan Selektor CSS:** Platform media sosial modern secara berkala mengacak class name dan mengubah hierarki DOM, menyebabkan skrip scraper konvensional mudah rusak atau salah mengambil teks bilah sisi (seperti widget rekomendasi *"Relevant people"* atau *"What's happening"*).
 2. **Kerapuhan Rantai Bukti Digital (*Chain of Custody*):** Tangkapan layar tanpa pengikatan kriptografis deterministik rentan terhadap sanggahan di persidangan karena mudah dimanipulasi dengan inspect element atau image editor.
 3. **Kerahasiaan Data & Ketergantungan Cloud:** Penggunaan API kecerdasan buatan komersial berbasis cloud berisiko membocorkan data intelijen dinas ke yurisdiksi luar negeri.
+4. **Fragmentasi Antarmuka & Hambatan Kognitif:** Sistem intelijen sering kali menghadirkan terlalu banyak tab terpisah dan menu navigasi yang bertele-tele, memperlambat proses pengambilan keputusan kritis analis.
 
-**TILIK** (*Sistem Pemantauan & Analisis Konten Siber*) dibangun dengan 4 pilar arsitektur operasional:
+**TILIK** (*Sistem Pemantauan & Analisis Konten Siber*) dibangun dengan 5 pilar arsitektur operasional:
 1. **Penyegelan Kriptografis Sejak Titik Akuisisi (NIST FIPS 198-1):** Setiap konten yang ditangkap langsung diikat secara kanonikal dengan **HMAC-SHA256** simetris server menggunakan format JSON deterministik bebas ambiguitas delimiter, melindungi rantai bukti (*Chain of Custody*) dari penyangkalan (*non-repudiation*) dan manipulasi.
 2. **Universal 3-Layer Content Acquisition & Anti-Noise Disambiguation:** Ekstensi peramban Manifest V3 dengan penyaringan spasial anti-sidebar, heuristik kepadatan teks (*text density*), auto-expander postingan panjang (*Show more*), serta isolasi tegas antara konten narasi murni dan metadata akun.
 3. **Local-First AI Engine & MemPrompt In-Context Learning:** Pemrosesan AI 100% lokal melalui inferensi **Ollama** (`qwen2.5:7b`), didukung oleh **Selective Local OCR** (hanya memproses jika teks DOM $< 30$ karakter untuk menghemat komputasi), proyeksi vektor padat 384-dimensi, dan deduplikasi semantik kembar harian ($\ge 0.85$).
-4. **Forensic Cockpit & Dual-Format Reporting:** Dasbor taktis responsif berkontras tinggi (Cyber-Dark & Light Mode), penyinkron tren otomatis latar belakang, serta ekspor laporan resmi dalam format **Markdown (.md)** dan **Two-Pass Numbered PDF Dossier (ReportLab)**.
+4. **Automated In-Dossier HITL Learning:** Promosi preseden kasus tervalidasi ke basis memori dinamis (`validated_memory`) berjalan otomatis seketika saat analis menyimpan keputusan pada dossier temuan, tanpa membebani operator dengan halaman kurasi terpisah.
+5. **Unified Single-Stream Intelligence Cockpit:** Antarmuka web operasional yang menyatukan seluruh metrik, grafik tren harian, proporsi risiko, distribusi kanal/kategori, serta topik dan sasaran strategis dalam satu aliran kerja vertikal intuitif; dilengkapi navigasi *collapsible sidebar*, paritas tema ganda 100% (*Cyber-Dark Obsidian* & *Clean Light Mode*), dan generator dokumen PDF analitis multidimensi.
 
 ---
 
@@ -113,10 +122,10 @@ graph TD
 | **Melihat Dashboard & Radar Tren** | ✅ | ✅ | ✅ | Situasi kesadaran operasional (*situational awareness*). |
 | **Pencarian Arsip Temuan & Filter** | ✅ | ✅ | ✅ | Penelusuran data historis patroli lintas platform. |
 | **Verifikasi Integritas Segel HMAC** | ✅ | ✅ | ✅ | Pengujian keabsahan bukti elektronik seketika. |
-| **Validasi Bukti (HITL Curation)** | ❌ | ✅ | ✅ | Wewenang analis untuk menetapkan vonis resmi. |
-| **Koreksi Kategori & Rekam Memori** | ❌ | ✅ | ✅ | Memasukkan preseden kasus ke `validated_memory`. |
-| **Ekspor Laporan PDF & Markdown** | ❌ | ✅ | ✅ | Kerahasiaan dokumen Berita Acara dinas intelijen. |
-| **Simulasi Tamper Bukti (Dry-Run)** | ❌ | ❌ | ✅ | Pengujian forensik supervisor/sidang pembuktian. |
+| **Validasi Bukti (HITL Dossier)** | ❌ | ✅ | ✅ | Wewenang analis untuk menetapkan vonis resmi pada dossier temuan. |
+| **Koreksi Kategori & Rekam Memori** | ❌ | ✅ | ✅ | Otomatis dipromosikan ke `validated_memory` saat analis menyimpan vonis. |
+| **Ekspor Laporan PDF & Markdown** | ❌ | ✅ | ✅ | Kerahasiaan dokumen Berita Acara dan laporan analitis dinas. |
+| **Simulasi Tamper Bukti (Dry-Run)** | ❌ | ❌ | ✅ | Pengujian forensik supervisor/sidang pembuktian integritas bukti. |
 | **Manajemen Pengguna & Konfigurasi** | ❌ | ❌ | ✅ | Mencegah eskalasi hak akses (*least privilege*). |
 
 ---
@@ -126,7 +135,7 @@ graph TD
 ### Dalam Ruang Lingkup (In-Scope — Terimplementasi 100%):
 1. **Universal 3-Layer Browser Extension (MV3)**: Google Chrome / Microsoft Edge / Brave dengan ekstraksi anti-noise, isolasi kontainer `<article>`, penanganan highlight operator, dan stempel waktu ISO-8601 UTC.
 2. **Cakupan 5 Sumber Target Utama**:
-   - **X / Twitter**: Isolasi kontainer artikel di titik tengah viewport, pembuangan menu/tren.
+   - **X / Twitter**: Isolasi kontainer artikel di titik tengah viewport, pembuangan menu/tren sampingan.
    - **Instagram & Threads**: Ekstraksi caption, username kreator, dan pemisahan poster gambar.
    - **Facebook**: Ekstraksi post timeline dan metadata pengunggah.
    - **YouTube**: Ekstraksi judul, deskripsi kanal, dan metadata durasi/penayangan.
@@ -135,7 +144,8 @@ graph TD
 4. **Selective Local OCR Engine**: Pemrosesan OCR lokal cerdas yang otomatis melewati teks DOM panjang ($\ge 30$ chars) dan hanya memproses gambar berteks minim.
 5. **MemPrompt Adaptive Learning**: Proyeksi vektor dense 384-dimensi, dynamic few-shot prompt injection dari kasus tervalidasi analis, dan deduplikasi semantik kembar harian ($\ge 0.85$).
 6. **Local LLM Triage (Ollama)**: Inferensi lokal `qwen2.5:7b` dengan pembatas semafor GPU dan ekstraksi skema JSON baku 5W+1H dan 8 kategori IPOLEKSOSBUDHANKAM.
-7. **Web Cockpit & Laporan Berpenomoran**: Dasbor Cyber-Dark/Light dengan saklar taktil, auto-trending background worker, dan ekspor laporan resmi Markdown serta PDF Dossier ReportLab.
+7. **Unified Operational Cockpit (React 18 + Vite)**: Dasbor analitik terpadu 3 menu inti (**Ringkasan**, **Radar Isu**, **Arsip Temuan**), *collapsible sidebar* berpersistensi lokal, paritas tema 100% (*Cyber-Dark Obsidian* & *Clean Light Mode*), dan estetika *Anti-Slop* berkarakter intelijen (*Linear/Palantir Gotham*).
+8. **Dual Reporting & Multi-Dimensional PDF Generator**: Ekspor Berita Acara harian (Markdown & ReportLab Numbered PDF) serta modal filter Laporan PDF Analitis (Harian, Mingguan, Kustom) langsung dari konsol operasional.
 
 ---
 
@@ -161,20 +171,26 @@ graph TD
 | **FR-16** | **Autonomous Trending Engine** | Penghitungan tren topik berjalan mandiri tiap 5 menit di latar belakang tanpa tombol manual. | ✅ Selesai |
 | **FR-17** | **Daily Intelligence Export** | Ekspor rekapitulasi harian dalam format Markdown (.md) dan Dossier PDF resmi berpenomoran (ReportLab). | ✅ Selesai |
 | **FR-18** | **Quantitative Evaluation Suite** | Skrip evaluasi komparatif 24 kasus mengukur Akurasi, Precision, Recall, Macro-F1, dan Latensi. | ✅ Selesai |
-| **FR-19** | **HITL Analyst Promotion** | Antarmuka validasi kurasi untuk menyetujui/mengubah prediksi AI dan mempromosikannya ke `validated_memory`. | ✅ Selesai |
+| **FR-19** | **Automated In-Dossier HITL Loop** | Validasi vonis analis di `ContentDetail.tsx` otomatis memicu `MemoryService.add_validated_case` ke `validated_memory` di balik layar tanpa halaman kurasi manual. | ✅ Selesai |
 | **FR-20** | **Direct Link Web Triage** | Fasilitas triase URL langsung dari konsol dasbor bagi analis tanpa ekstensi terpasang. | ✅ Selesai |
+| **FR-21** | **Analytical PDF Dossier Generator**| Modal filter PDF analitis (Harian, Mingguan, Kustom + Filter Kategori) dari tombol ikon kompak di halaman Ringkasan. | ✅ Selesai |
+| **FR-22** | **Unified Single-Stream Overview** | Penggabungan metrik operasi, grafik aktivitas, proporsi risiko, kanal platform, serta topik & aktor sasaran dalam 1 halaman terpadu. | ✅ Selesai |
+| **FR-23** | **Collapsible Tactical Sidebar** | Sidebar responsif dapat dilipat (`w-[68px]`) atau diperluas (`w-60`) dengan persistensi `localStorage`. | ✅ Selesai |
+| **FR-24** | **Editorial Dossier & Anti-Slop UI**| Tata letak 5W+1H hierarkis asimetris, *kicker* taktis Indonesia, paritas Dark/Light 100%, dan status fresh-install database. | ✅ Selesai |
 
 ---
 
 ## 1.6 Kebutuhan Non-Fungsional (*Non-Functional Requirements*)
 
-* **NFR-01 (Kerahasiaan Data / Data Privacy):** 0% payload data dikirim ke luar jaringan LAN lokal.
+* **NFR-01 (Kerahasiaan Data / Data Privacy):** 0% payload data dikirim ke luar jaringan LAN lokal dinas.
 * **NFR-02 (Integritas Bukti / Tamper Evidence):** Perubahan 1 bit pada berkas bukti visual atau karakter teks menghasilkan status `TAMPERED` seketika.
 * **NFR-03 (Latensi Kriptografi):** Verifikasi segel HMAC-SHA256 selesai dalam waktu $< 0.1$ milidetik.
 * **NFR-04 (Efisiensi Komputasi):** Selective OCR menghemat $> 80\%$ penggunaan memori dan siklus GPU pada artikel berita teks panjang.
-* **NFR-05 (Ketahanan Konkurensi LAN):** Basis data tidak mengalami error *database locked* saat diakses simultan oleh hingga 10 operator LAN.
-* **NFR-06 (Kebersihan Diagnostik):** 0 error kompilasi dan 0 peringatan cSpell pada seluruh basis kode sumber.
-* **NFR-07 (Ketahanan Ekstraksi Konten):** Sistem mampu membedakan konten narasi dan metadata serta kebal terhadap perubahan nama kelas CSS media sosial.
+* **NFR-05 (Ketahanan Konkurensi LAN):** Basis data tidak mengalami error *database locked* saat diakses simultan oleh hingga 10 operator LAN berkat mode SQLite WAL dan `busy_timeout=60000`.
+* **NFR-06 (Kebersihan Diagnostik & Build):** 0 error kompilasi TypeScript (`tsc`), 0 peringatan build Vite, dan 0 error kompilasi bytecode Python (`compileall`).
+* **NFR-07 (Ketahanan Ekstraksi Konten):** Sistem mampu membedakan konten narasi dan metadata serta kebal terhadap pengacakan nama kelas CSS media sosial.
+* **NFR-08 (Zero Dead-End Interconnectivity):** Seluruh metrik, topik teratas, tokoh sasaran, dan baris temuan pada antarmuka web terhubung langsung ke tampilan detail atau filter aktif tanpa jalan buntu.
+* **NFR-09 (Clean Fresh-Install Baseline):** Basis data terdistribusi dalam kondisi 0 baris transaksional kotor (*fresh-install ready*) dengan tabel pengguna bawaan (`admin`) siap pakai.
 
 ---
 
@@ -184,57 +200,45 @@ graph TD
 
 Diagram konteks menunjukkan interaksi tingkat tinggi antara entitas luar (Operator Patroli dan Analis Intelijen) dengan Sistem TILIK.
 
-```
-                     ┌──────────────────────────────────────────────┐
-                     │          OPERATOR PATROLI SIBER LAN          │
-                     └───────┬──────────────────────────────▲───────┘
-                             │                              │
-             Post Capture via│                              │Status Segel, Tiket,
-             Ekstensi MV3    │                              │& Notifikasi Kembar
-                             ▼                              │
-                     ┌──────────────────────────────────────┴───────┐
-                     │                                              │
-                     │                 SISTEM TILIK                 │
-                     │       (Sistem Pemantauan Siber Lokal)        │
-                     │                                              │
-                     └───────┬──────────────────────────────▲───────┘
-                             │                              │
-         Laporan PDF Dossier,│                              │Vonis Validasi, Catatan,
-         Markdown, & Analitik│                              │& Kurasi Preseden
-                             ▼                              │
-                     ┌──────────────────────────────────────┴───────┐
-                     │               ANALIS / SUPERVISOR            │
-                     └──────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Operator["👁️ OPERATOR PATROLI<br/>(Stasiun Kerja LAN)"]
+    Analis["🛡️ ANALIS INTELIJEN<br/>(Meja Analisis Kasus)"]
+    Sistem["⚙️ SISTEM TILIK v5.2<br/>(FastAPI + Ollama + SQLite WAL + Web Cockpit)"]
+
+    Operator -->|1. Postingan Media Sosial + Tangkapan Layar| Sistem
+    Sistem -->|2. Nomor Tiket Resmi + Status Segel HMAC| Operator
+
+    Sistem -->|3. Dashboard Tren, Radar Isu, & Dossier 5W+1H| Analis
+    Analis -->|4. Vonis Validasi HITL (VALIDATED / MODIFIED / REJECTED)| Sistem
+    Analis -->|5. Permintaan Laporan PDF Analitis / Berita Acara| Sistem
+    Sistem -->|6. Berkas Laporan Resmi PDF & Markdown (.md)| Analis
 ```
 
 ---
 
 ## 2.2 DFD Level 1 (Dekomposisi Proses Utama Sistem)
 
-Dekomposisi dari DFD Level 0 menjadi 8 modul fungsional utama yang saling terhubung:
+Dekomposisi proses utama memetakan 7 modul inti sistem TILIK:
 
 ```mermaid
 flowchart TD
-    classDef client fill:#1e3a5f,stroke:#60a5fa,stroke-width:2px,color:#fff;
-    classDef crypto fill:#064e3b,stroke:#34d399,stroke-width:2px,color:#fff;
-    classDef ai fill:#4c1d95,stroke:#a78bfa,stroke-width:2px,color:#fff;
-    classDef db fill:#451a03,stroke:#f59e0b,stroke-width:2px,color:#fff;
-
-    OP[Operator LAN] -->|1. Capture Post + Snapshot| P1[1.0 Universal 3-Layer Intake]:::client
-    P1 -->|2. Payload Raw + Timestamp UTC| P2[2.0 Sealing & Kanonisasi FIPS 198-1]:::crypto
+    Ext["Ekstensi Browser MV3"] -->|Payload Bukti & Tangkapan Layar| P1["1.0 Penerimaan & Normalisasi Intake"]
     
-    P2 -->|3. Teks DOM & Cek Panjang| P3[3.0 Multimodal Gate & Selective OCR]:::ai
-    P3 -->|4. Teks Bersih Naratif| P4[4.0 MemPrompt: Vektor & Deduplikasi]:::ai
+    P1 -->|Kanonisasi Data| P2["2.0 Integritas & Segel Kriptografi (NIST FIPS 198-1)"]
+    P2 -->|Simpan Segel| DB_Evidences[("D1: evidences")]
     
-    P4 -->|5. Teks + Top-3 Preseden| P5[5.0 Local LLM Triage Ollama]:::ai
-    P5 -->|6. Skema 5W1H & Prediksi| P6[6.0 Penyimpanan Transaksional WAL]:::db
+    P1 -->|Evaluasi Teks DOM| P3["3.0 Gatekeeper Selective Local OCR"]
+    P3 -->|Teks Terpulihkan| P4["4.0 Deduplikasi Semantik & MemPrompt Few-Shot"]
     
-    P6 --> D1[(SQLite WAL Database: patrol.db)]:::db
+    P4 -->|Prompt Diperkaya Preseden| P5["5.0 Inferensi Ollama Local LLM (Semaphore Guard)"]
+    P5 -->|Simpan Prediksi 5W+1H & Tiket| DB_Reports[("D2: reports & contents")]
     
-    D1 --> P7[7.0 Forensic Web Cockpit & HITL]:::client
-    P7 -->|7. Vonis Validasi & Koreksi| D1
-    P7 -->|8. Request Rekapitulasi| P8[8.0 Generator Dossier: MD & PDF]:::crypto
-    P8 -->|Unduh Berkas Laporan| AN[Analis / Supervisor]
+    DB_Reports -->|Data Kasus Mentah| P6["6.0 Dossier Intelijen & Siklus Validasi HITL"]
+    P6 -->|Promosi Otomatis Preseden| DB_Memory[("D3: validated_memory")]
+    
+    DB_Reports -->|Agregasi Berkala 5 Menit| P7["7.0 Sinkronisasi Tren & Laporan Analitis PDF"]
+    P7 -->|Pembaruan Klaster Isu| DB_Clusters[("D4: issue_clusters & topic_snapshots")]
 ```
 
 ---
@@ -242,251 +246,142 @@ flowchart TD
 ## 2.3 Rincian DFD Level 2 (Sub-Proses Kritis Kerja Sistem)
 
 ### 2.3.1 DFD Level 2.1: Akuisisi Presisi Universal 3-Layer & Pemisahan Noise Bilah Sisi
-
-Sub-proses ini berjalan di sisi peramban klien (*Browser Extension Content Script*):
-
 ```mermaid
 flowchart TD
-    A[Peramban Membuka Postingan] --> B{Apakah ada teks terpilih?}
-    B -- Ya (>=10 chars) --> C[Prioritas 0: User Highlight Mode]
-    B -- Tidak --> D{Apakah Portal Berita / YouTube?}
+    A[Klik Tombol Triase Ekstensi] --> B{Apakah Ada Teks yang Dihighlight?}
+    B -- Ya --> C[Prioritas 0: Ambil Seleksi Teks Pengguna]
+    B -- Tidak --> D{Apakah Tag OpenGraph/JSON-LD Tersedia?}
     
-    D -- Ya --> E[Layer 1: OpenGraph & JSON-LD Extractor]
-    D -- Tidak --> F[Layer 2: Isolasi Kolom Utama & Anti-Sidebar]
+    D -- Ya --> E[Layer 1: Ambil og:description / twitter:description]
+    D -- Tidak --> F[Layer 2: Viewport Semantic article Isolator]
     
-    F --> G[Kunci Elemen di dalam main role='main']
-    G --> H[Blacklist Mutlak aside, complementary, sidebar]
-    H --> I[Cari Jangkar Tautan Kanonik /status/ atau /p/]
+    F --> G[Picu Klik Otomatis 'Show more' / 'Selengkapnya']
+    G --> H[Penyaringan Spasial: Buang aside, bilah navigasi, widget tren]
+    H --> I[Hitung Text Density Heuristic: Pilih kontainer berbobot tertinggi]
     
-    I --> J[Deteksi Tombol Show More -> Auto Expand]
-    J --> K[Ekstraksi Teks Narasi via Text Density Algorithm]
-    K --> L[Ekstraksi Metadata Terpisah: Username, Nama, Timestamp]
+    C --> J[Sembunyikan Badge & UI Ekstensi via class .cp-capturing]
+    E --> J
+    I --> J
     
-    C --> M[Bungkus Payload: dom_text, metadata, screenshot]
-    E --> M
-    L --> M
-    M --> N[Sembunyikan Badge Triase: cp-capturing]
-    N --> O[Rekam Layar Murni JPEG 85%]
-    O --> P[Kirim HTTP POST /api/v1/assistant/intake]
+    J --> K[Jeda Render 120ms]
+    K --> L[CaptureVisibleTab: Perekaman Layar Murni JPEG 85%]
+    L --> M[Bungkus Metadata Akun, Timestamp UTC, & Kirim HTTP POST]
 ```
-
-**Aturan Kerja Sub-Proses 2.1:**
-1. **Penetapan Sasaran:** Menolak kontainer di luar kolom utama (`main`). Widget bilah sisi seperti *"Relevant people"* atau *"What's happening"* diblokir secara geometris dan struktural.
-2. **Pemisahan Data:** Teks postingan utama, nama pengunggah (`author_username`), nama tampilan (`display_name`), dan tanggal unggah (`posted_at`) dipetakan ke atribut masing-masing, bukan digabung menjadi satu teks mentah.
-3. **Perekaman Bersih:** Mengaktifkan kelas `.cp-capturing` untuk menyembunyikan tombol UI ekstensi selama proses `captureVisibleTab` berlangsung, menjamin berkas gambar bebas artefak antarmuka.
-
----
 
 ### 2.3.2 DFD Level 2.2: Penyegelan Kriptografi NIST FIPS 198-1 HMAC-SHA256
-
-Sub-proses ini dijalankan di backend (`app/services/crypto_service.py`) seketika saat data diterima:
-
+```mermaid
+flowchart TD
+    A[Terima Payload Bukti di Backend] --> B[Ekstrak: URL, DOM Text, OCR Text, Operator ID, Timestamp UTC]
+    B --> C[Hitung SHA-256 Tangkapan Layar: file_hash_sha256]
+    C --> D[Bentuk Kamus Python Berurutan Alfabetis]
+    D --> E["Kanonisasi JSON: json.dumps(dict, sort_keys=True, separators=(',', ':'))"]
+    E --> F[Hitung SHA-256 String Kanonik: canonical_hash]
+    F --> G["Hitung HMAC-SHA256(SECRET_HMAC_KEY, canonical_json): hmac_tag"]
+    G --> H[Simpan Bukti ke storage/evidences/ & Database dengan status VERIFIED]
 ```
-[ INPUT: screenshot_sha256, source_url, dom_text, ocr_text, captured_at_utc, operator_id ]
-                                   │
-                                   ▼
-          ┌──────────────────────────────────────────────────┐
-          │ 1. Kanonisasi Alfabetis Deterministik            │
-          │    dict_keys diurutkan alfabetis (sort_keys=True)│
-          │    Pemisah baku tanpa spasi (separators=(',',':'))│
-          │    Encoding UTF-8 murni (ensure_ascii=False)     │
-          └────────────────────────┬─────────────────────────┘
-                                   │
-                                   ▼
-          ┌──────────────────────────────────────────────────┐
-          │ 2. Pembentukan Bita Kanonikal                    │
-          │    canonical_bytes = json_str.encode('utf-8')    │
-          └────────────────────────┬─────────────────────────┘
-                                   │
-                     ┌─────────────┴─────────────┐
-                     ▼                           ▼
-          ┌───────────────────────┐   ┌────────────────────────────────┐
-          │ 3. Nilai Hash SHA-256 │   │ 4. Segel HMAC-SHA256           │
-          │    hashlib.sha256()   │   │    hmac.new(SECRET_HMAC_KEY,   │
-          │    (Fingerprint Data) │   │             canonical_bytes,   │
-          │                       │   │             hashlib.sha256)    │
-          └──────────┬────────────┘   └───────────────┬────────────────┘
-                     │                                │
-                     └────────────────┬───────────────┘
-                                      ▼
-          ┌──────────────────────────────────────────────────┐
-          │ 5. Penyimpanan ke Tabel 'contents'               │
-          │    canonical_hash, hmac_tag, verification_status │
-          └──────────────────────────────────────────────────┘
-```
-
-**Aturan Verifikasi & Simulasi Tamper:**
-* **Verifikasi *Constant-Time*:** Verifikasi keaslian bukti menggunakan `hmac.compare_digest(stored_tag, computed_tag)` untuk mencegah serangan analisis waktu (*timing attacks*).
-* **Simulasi Tamper Aman (*Dry-Run*):**
-  * `IMAGE_BIT_FLIP`: Membalik bit ke-0 dari citra gambar bukti ($b[0] \oplus 0x01$), membuktikan bahwa hash gambar berubah dan status segel langsung berubah menjadi `TAMPERED`.
-  * `TEXT_MUTATION`: Menambahkan karakter acak pada teks narasi, membuktikan deteksi perubahan narasi.
-  * `METADATA_SPOOF`: Memalsukan `operator_id` atau stempel waktu UTC, membuktikan deteksi pemalsuan jejak audit.
-
----
 
 ### 2.3.3 DFD Level 2.3: Multimodal Quality Gate & Selective Local OCR
-
-Sub-proses ini bertugas memastikan tidak ada informasi teks yang hilang atau tercemar:
-
 ```mermaid
 flowchart TD
-    A[Terima Payload Teks DOM & Berkas Gambar] --> B{Cek Teks DOM}
-    
-    B -- Teks DOM Kosong / Noise UI (e.g. 'Relevant people') --> C[Tolak Teks DOM sebagai Noise]
-    B -- Teks DOM Valid & Panjang >= 30 chars --> D[Bypass OCR: Hemat Waktu & GPU]
-    
-    C --> E[Picu Local OCR Engine Tesseract/EasyOCR]
-    B -- Teks DOM Valid tapi < 30 chars --> E
-    
-    E --> F[Ekstrak Teks Tulisan dari Screenshot Visual]
-    F --> G[Bersihkan Karakter Liar OCR]
-    
-    D --> H[Tetapkan Teks Akhir Narasi]
-    G --> H
-    
-    H --> I[Ekstraksi Identitas Akun dari Pola URL Kanonikal]
-    I --> J[Teks & Metadata Bersih Siap Masuk MemPrompt Engine]
+    A[Evaluasi Panjang Teks DOM Hasil Ekstraksi] --> B{len dom_text >= 30 Karakter?}
+    B -- Ya --> C{Apakah Teks Terindikasi Noise / Rekomendasi?}
+    C -- Tidak --> D[Bypass OCR: Hemat Waktu Komputasi & VRAM]
+    C -- Ya --> E[Jalankan RapidOCR / Local OCR pada Tangkapan Layar]
+    B -- Tidak --> E
+    E --> F[Bersihkan Karakter Sampah & Gabungkan dengan Teks DOM]
+    F --> G[Teruskan Teks Bersih ke Pipeline Analisis Intelijen]
+    D --> G
 ```
-
-**Kaidah Seleksi Komputasi:**
-$$\text{Eksekusi OCR} = \begin{cases} \text{False}, & \text{jika } \text{DOM Valid} \land \text{len}(\text{DOM}) \ge 30 \land \text{Bukan Noise} \\ \text{True}, & \text{jika } \text{DOM Kosong} \lor \text{len}(\text{DOM}) < 30 \lor \text{Terdeteksi Noise UI} \end{cases}$$
-
----
 
 ### 2.3.4 DFD Level 2.4: MemPrompt In-Context Learning & Deduplikasi Semantik
-
-Sub-proses ini menjalankan adaptasi klasifikasi tanpa *retraining* model:
-
 ```mermaid
 flowchart TD
-    A[Teks Narasi Bersih] --> B[Vektorisasi Padat 384-Dimensi L2-Normalized]
-    B --> C[Vektor Embedding Kasus Aktif: V_aktif]
+    A[Terima Teks Bersih] --> B[Hitung Embedding Vektor Dense 384-d]
+    B --> C[Ambil Kasus Hari Ini dari Tabel contents]
+    C --> D{Cosine Similarity >= 0.85 dengan Kasus Hari Ini?}
+    D -- Ya --> E[Tandai is_potential_duplicate = True & Cantumkan Tiket Rujukan]
+    D -- Tidak --> F[Tandai is_potential_duplicate = False]
     
-    C --> D[Pindai Database Hari Kalender yang Sama]
-    D --> E{Apakah Cosine Similarity >= 0.85?}
-    E -- Ya --> F[Tandai Tiket Duplikat: is_duplicate = True]
-    E -- Tidak --> G[Postingan Unik Baru]
-    
-    C --> H[Pindai Tabel validated_memory Kasus Bersejarah]
-    H --> I[Hitung Kemiripan Kosinus Terhadap Seluruh Preseden Analis]
-    I --> J[Pilih Top-3 Preseden dengan Kemiripan >= 0.45]
-    
-    J --> K[Susun Blok Teks Dynamic Few-Shot In-Context Prompt]
-    K --> L[Injeksi ke Prompt Utama Ollama LLM]
+    E --> G[Ambil Kasus Preseden dari validated_memory]
+    F --> G
+    G --> H[Peringkatkan Kasus Memori Berdasarkan Cosine Similarity]
+    H --> I[Pilih Top-3 Preseden Tervalidasi Analis]
+    I --> J[Suntikkan Pasangan Contoh Input-Output ke Prompt LLM]
 ```
-
----
 
 ### 2.3.5 DFD Level 2.5: Inferensi Ollama Local LLM & GPU Semaphore Guard
-
-Sub-proses ini menangani inferensi analitis pada unit pemrosesan lokal:
-
 ```mermaid
 flowchart TD
-    A[Prompt Terpadu: Aturan IPOLEKSOSBUDHANKAM + Preseden Few-Shot + Teks Postingan] --> B[Antrean Permintaan Analisis]
-    B --> C{GPU Semaphore Lock: asyncio.Semaphore(1)}
+    A[Request Analisis Tiba] --> B[Antrekan pada asyncio.Semaphore 1]
+    B --> C{Apakah Service Ollama Lokal Responsif?}
     
-    C -- Izin Diperoleh --> D[Uji Konektivitas Soket Ollama 127.0.0.1:11434]
+    C -- Ya --> D[Kirim Prompt Few-Shot MemPrompt ke qwen2.5:7b]
+    D --> E[Terima Respon JSON Baku 5W+1H & Kategori IPOLEKSOSBUDHANKAM]
     
-    D -- Ollama Aktif --> E[Kirim Permintaan ke Model qwen2.5:7b]
-    E --> F[Validasi Format JSON Baku: summary_5w1h & predicted_category]
+    C -- Tidak --> F[Failover: Eksekusi Deterministic Rule-Based Heuristic]
+    F --> G[Ekstrak Kata Kunci, Pola Sentimen, & Klasifikasi Kamus]
     
-    D -- Ollama Offline / Timeout --> G[Failopen: Panggil Ekstraktor Heuristik Deterministik]
-    G --> H[Ekstraksi Pola Regex Token Boundary & Kamus Indikator Bahaya]
-    
-    F --> I[Lepaskan Semaphore Lock]
-    H --> I
-    I --> J[Keluaran Terstruktur 5W+1H & Skor Urgensi 1 s.d. 5]
+    E --> H[Lepaskan Semaphore GPU]
+    G --> H
+    H --> I[Bentuk Tiket Kasus Resmi & Simpan Transaksional]
 ```
-
----
 
 ### 2.3.6 DFD Level 2.6: Autonomous Background Trending Synchronizer
-
-Sub-proses ini beroperasi mandiri di latar belakang server FastAPI tanpa campur tangan operator:
-
-```
-[ TIMER ASINKRON: SETIAP 300 DETIK (5 MENIT) ]
-                      │
-                      ▼
-┌────────────────────────────────────────────────────────┐
-│ 1. Pindai Seluruh Laporan Aktif dalam Jendela 24 Jam   │
-└─────────────────────┬──────────────────────────────────┘
-                      │
-                      ▼
-┌────────────────────────────────────────────────────────┐
-│ 2. Kelompokkan Laporan Berdasarkan Topik Kanonikal     │
-└─────────────────────┬──────────────────────────────────┘
-                      │
-                      ▼
-┌────────────────────────────────────────────────────────┐
-│ 3. Kalkulasi Skor Tren Gabungan:                       │
-│    Score = (w_vol * Volume) +                          │
-│            (w_vel * Pertumbuhan/Jam) +                 │
-│            (w_urg * Urgensi Maksimal) +                │
-│            (w_snt * Rasio Sentimen Negatif)            │
-└─────────────────────┬──────────────────────────────────┘
-                      │
-                      ▼
-┌────────────────────────────────────────────────────────┐
-│ 4. Perbarui Tabel 'topics' & 'topic_snapshots'         │
-│    (Tersedia Langsung di Radar Web Dashboard)          │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-### 2.3.7 DFD Level 2.7: Siklus Validasi Human-in-the-Loop (HITL) Analis
-
-Sub-proses penegakan supremasi pertimbangan manusia atas rekomendasi kecerdasan buatan:
-
 ```mermaid
 flowchart TD
-    A[Laporan Berstatus PENDING Tampil di Halaman Detail/Kurasi] --> B[Analis Memeriksa Bukti Visual & Analisis AI]
+    A[Timer Background Tiap 300 Detik / 5 Menit] --> B[Kueri Konten 48 Jam Terakhir dari Database]
+    B --> C[Hitung Matriks Jarak Semantik Antar-Konten]
+    C --> D[Klasterisasi DBSCAN / Greedy Single-Pass Clustering]
+    D --> E[Hitung HotScore = f Volume, Akselerasi, Urgensi Rata-rata]
+    E --> F[Ekstraksi Entitas Tokoh NER & Awan Kata Kunci Sastrawi]
+    F --> G[Perbarui Tabel issue_clusters & topic_snapshots]
+    G --> H[Selesai: Radar Isu Dashboard Menampilkan Tren Terkini]
+```
+
+### 2.3.7 DFD Level 2.7: Siklus Validasi & Pembelajaran Otomatis Human-in-the-Loop (HITL)
+```mermaid
+flowchart TD
+    A[Analis Membuka Halaman Dossier Analisis di /contents/:id] --> B[Analis Memeriksa Bukti Visual, Segel HMAC & Matriks 5W+1H]
     B --> C{Keputusan Analis}
     
     C -- Setuju Rekomendasi AI --> D[Pilih Vonis: VALIDATED]
     C -- Koreksi Label / Risiko --> E[Pilih Vonis: MODIFIED + Tentukan Kategori Baru]
-    C -- Bukan Pelanggaran --> F[Pilih Vonis: REJECTED + Non-Isu]
+    C -- Bukan Pelanggaran --> F[Pilih Vonis: REJECTED]
     
     D --> G[Simpan Catatan Koreksi & Identitas Analis]
     E --> G
     F --> G
     
     G --> H{Apakah Vonis VALIDATED atau MODIFIED?}
-    H -- Ya --> I[Hitung Vektor Dense 384-d dari Teks Valid]
-    I --> J[Promosikan Entri ke Tabel validated_memory]
-    J --> K[Preseden Baru Langsung Memperkuat Akurasi Few-Shot Berikutnya]
+    H -- Ya --> I[Backend FastAPI validation.py Otomatis Memicu MemoryService.add_validated_case]
+    I --> J[Hitung Vektor Dense 384-d & Promosikan ke validated_memory]
+    J --> K[Preseden Baru Langsung Memperkuat Few-Shot LLM Berikutnya]
     
-    H -- Tidak --> L[Perbarui Status Laporan Saja Tanpa Rekam Memori]
+    H -- Tidak (REJECTED) --> L[Bersihkan Preseden Memori Kasus Ini Secara Aman]
 ```
 
----
-
-### 2.3.8 DFD Level 2.8: Pembangkit Dokumen Berita Acara & Dossier Resmi
-
-Sub-proses pencetakan berkas laporan resmi dinas intelijen siber:
-
+### 2.3.8 DFD Level 2.8: Pembangkit Dokumen Berita Acara & Laporan Analitis Multivariat
 ```mermaid
 flowchart TD
-    A[Permintaan Ekspor Harian dari Analis] --> B{Pilihan Format Laporan}
+    A[Permintaan Ekspor Laporan dari Analis] --> B{Jenis Laporan}
     
-    B -- Format Markdown (.md) --> C[Susun Tabel Berita Acara 5W+1H]
+    B -- Berita Acara Kasus Harian (.md) --> C[Susun Tabel Berita Acara 5W+1H Markdown]
     C --> D[Lampirkan Nilai Hash SHA-256 & Tag HMAC Kriptografis]
     D --> E[Tulis Berkas storage/reports/Laporan_Patroli_YYYY-MM-DD.md]
     
-    B -- Format PDF Dossier (ReportLab) --> F[Lintasan 1: Ukur Dimensi Halaman & Aliran Flowable]
-    F --> G[Kompresi Citra Visual JPEG 85% In-Memory]
-    G --> H[Lintasan 2: NumberedCanvas Cetak Footer 'Halaman X dari Y']
-    H --> I[Cetak Stempel Segel HMAC & Matriks Kasus Terstruktur]
-    I --> J[Tulis Berkas storage/reports/Dossier_Patroli_YYYY-MM-DD.pdf]
+    B -- Dossier Resmi Kasus Harian (ReportLab PDF) --> F[Lintasan 1: Ukur Flowable & Resolusi Citra]
+    F --> G[Lintasan 2: NumberedCanvas Cetak Footer 'Halaman X dari Y']
+    G --> H[Tulis Berkas storage/reports/Dossier_Patroli_YYYY-MM-DD.pdf]
+    
+    B -- Laporan PDF Analitis Multivariat (Overview Modal) --> I[Baca Filter Periode: Harian / Mingguan / Kustom & Kategori]
+    I --> J[Agregasi Metrik Tren, Distribusi Risiko, Kanal & Ringkasan AI]
+    J --> K[Render Dua Lintasan ReportLab dengan Visualisasi & Narasi Eksekutif]
+    K --> L[Unduh Langsung Berkas PDF Analitis ke Peramban Analis]
 ```
 
 ---
 
 ## 2.4 End-to-End Sequence Diagram
-
-Diagram urutan berikut merangkum perjalanan satu bita data sejak diklik di peramban hingga tersimpan sebagai arsip laporan tervalidasi:
 
 ```mermaid
 sequenceDiagram
@@ -500,6 +395,7 @@ sequenceDiagram
     participant Ollama as Local Ollama LLM
     participant DB as SQLite WAL DB
     actor Analyst as Analis Intelijen
+    participant Web as Web Cockpit UI
 
     Operator->>Ext: Klik Tombol "Triase" pada Postingan
     Ext->>Ext: Anti-Sidebar Filter & Ekstraksi 3-Layer + Sembunyikan UI
@@ -527,12 +423,19 @@ sequenceDiagram
     DB-->>API: Tiket Terbit (Contoh: PS-A1B2C3D4)
     API-->>Ext: Respon Berhasil (Tiket, Status HMAC, Ringkasan)
     Ext-->>Operator: Tampilkan Modal Hasil Triase
+
+    Note over DB,Web: Pemantauan Real-time di Web Cockpit
+    Analyst->>Web: Akses /contents/:id (Dossier Analisis)
+    Web->>API: GET /api/dashboard/contents/:id
+    API-->>Web: Data Lengkap 5W+1H, Bukti Visual & Hash
     
-    Analyst->>DB: Buka Dasbor Web & Periksa Laporan Temuan
-    Analyst->>API: Kirim Vonis Validasi (VALIDATED/MODIFIED)
-    API->>DB: Promosikan Kasus ke validated_memory
-    Analyst->>API: Request Ekspor Dossier PDF Resmi
-    API-->>Analyst: Unduh Berkas PDF Dua Lintasan Bersegel Kriptografis
+    Analyst->>Web: Tetapkan Keputusan HITL (VALIDATED / MODIFIED)
+    Web->>API: POST /api/dashboard/contents/:id/validate
+    API->>Memory: add_validated_case (Otomatis Rekam Memori)
+    Memory->>DB: Simpan Vektor ke validated_memory
+    API->>DB: Perbarui Status Laporan & Catatan Analis
+    API-->>Web: Notifikasi Sukses Validasi
+    Web-->>Analyst: Tampilan Status Terverifikasi Seketika
 ```
 
 ---
@@ -549,51 +452,51 @@ sequenceDiagram
 │   │     Universal 3-Layer Browser Extension (MV3)    │  │   Web Intelligence UI    │  │
 │   │                                                  │  │     (React 18 + Vite)    │  │
 │   │  • Priority 0: Highlight-to-Capture              │  │                          │  │
-│   │  • Layer 1: OpenGraph & JSON-LD Extractor        │  │  • Tactical Cockpit      │  │
-│   │  • Layer 2: Viewport Semantic <article> Isolator │  │  • Content Explorer      │  │
-│   │  • Spatial Anti-Sidebar Exclusion Filter         │  │  • Auto-Trending Radar   │  │
-│   │  • Text Density Algorithm & Show More Expander   │  │  • HITL Curation Console │  │
-│   │  • JPEG 85% Clean Screen Capturer                │  │  • Tamper Test Simulator │  │
-│   │  • Dynamic LAN Host Router & Health Check        │  │  • Report Downloader     │  │
-│   │  • Strict ISO-8601 UTC Timestamp Binding         │  │  • Dual-Theme Switcher   │  │
-│   └─────────────────────────┬────────────────────────┘  └────────────┬─────────────┘  │
-└─────────────────────────────┼────────────────────────────────────────┼─────────────────┘
+│   │  • Layer 1: OpenGraph & JSON-LD Extractor        │  │  • Ringkasan (Unified)   │  │
+│   │  • Layer 2: Viewport Semantic <article> Isolator │  │  • Radar Isu & Tren      │  │
+│   │  • Spatial Anti-Sidebar Exclusion Filter         │  │  • Arsip Temuan          │  │
+│   │  • Text Density Algorithm & Show More Expander   │  │  • Editorial Dossier     │  │
+│   │  • JPEG 85% Clean Screen Capturer                │  │  • Automated HITL Action │  │
+│   │  • Dynamic LAN Host Router & Health Check        │  │  • Collapsible Sidebar   │  │
+│   │  • Strict ISO-8601 UTC Timestamp Binding         │  │  • Analytical PDF Modal  │  │
+│   └─────────────────────────┬────────────────────────┘  │  • 100% Theme Parity     │  │
+│                             │                           └────────────┬─────────────┘  │
+└─────────────────────────────┼────────────────────────────────────────┼────────────────┘
                               │ HTTP POST (Multipart & JSON)           │
                               ▼                                        ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                              APPLICATION SERVER TIER (FASTAPI REST API)                │
+│                          GATEWAY & SERVICE TIER (FASTAPI REST ENGINE)                  │
 │                                                                                        │
-│   ┌────────────────────────────────────────────────────────────────────────────────┐   │
-│   │  FastAPI Core Gateway (app.main:api)                                           │   │
-│   │  • OWASP Security Headers & Chrome PNA Middleware (Local LAN Support)          │   │
-│   │  • Autonomous Background Trending Worker (Every 5 Minutes)                     │   │
-│   │  • Single-Command Lifespan Manager (Graceful Shutdown)                         │   │
-│   │  • Multimodal Noise Gate & URL-Anchored Identity Parser                        │   │
-│   └──────────────┬──────────────────┬───────────────────┬──────────────────┬───────┘   │
-│                  │                  │                   │                  │           │
-│                  ▼                  ▼                   ▼                  ▼           │
-│   ┌───────────────────────┐ ┌───────────────┐ ┌──────────────────┐ ┌───────────────┐   │
-│   │ NIST FIPS 198-1       │ │ Selective OCR │ │ MemPrompt Vector │ │ Local Ollama  │   │
-│   │ Cryptographic Engine  │ │ Engine        │ │ & Deduplication  │ │ Engine        │   │
-│   │ • Canonical JSON      │ │ • DOM Filter  │ │ • 384-d Dense L2 │ │ • Qwen 2.5 7B │   │
-│   │ • HMAC-SHA256         │ │   (< 30 chars)│ │ • Top-3 Few-Shot │ │ • GPU Semafor │   │
-│   │ • Constant-Time Verify│ │ • Tesseract   │ │ • Twin Dedup     │ │ • 5W+1H JSON  │   │
-│   │ • Safe Dry-Run Tamper │ │ • EasyOCR     │ │   (Cosine >=0.85)│ │ • Failover    │   │
-│   └──────────────┬────────┘ └───────┬───────┘ └─────────┬────────┘ └───────┬───────┘   │
-└──────────────────┼──────────────────┼───────────────────┼──────────────────┼───────────┘
-                   │                  │                   │                  │
-                   ▼                  ▼                   ▼                  ▼
+│   ┌─────────────────────────┐  ┌─────────────────────────┐  ┌──────────────────────┐  │
+│   │   app/api/v1/assistant  │  │   app/api/v1/integrity  │  │ app/api/dashboard    │  │
+│   │   (Intake & Smart Gate) │  │   (HMAC & Tamper Test)  │  │ (Auth, Radar, HITL)  │  │
+│   └────────────┬────────────┘  └────────────┬────────────┘  └──────────┬───────────┘  │
+│                │                            │                          │              │
+│                ▼                            ▼                          ▼              │
+│   ┌────────────────────────────────────────────────────────────────────────────────┐  │
+│   │                            CORE BUSINESS SERVICES                              │  │
+│   │  • CryptoService: NIST FIPS 198-1 HMAC-SHA256 & Constant-Time Verification     │  │
+│   │  • OCRService: Selective RapidOCR Engine (< 30 chars threshold bypass)         │  │
+│   │  • MemoryService: Dense 384-d MemPrompt Few-Shot & Semantic Twin Deduplication │  │
+│   │  • OllamaService: Local Qwen2.5 / Llama3.1 with asyncio.Semaphore(1) Guard     │  │
+│   │  • PDFReportService: ReportLab Two-Pass Numbered Analytical Dossier Generator  │  │
+│   └────────────────────────────────────────┬───────────────────────────────────────┘  │
+└────────────────────────────────────────────┼───────────────────────────────────────────┘
+                                             │ SQL Statements & File I/O
+                                             ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                               PERSISTENCE & STORAGE TIER                               │
+│                        DATA TIER (PERSISTENSI LOKAL ON-PREMISE)                        │
 │                                                                                        │
-│   ┌──────────────────────────────────────────────┐  ┌──────────────────────────────┐   │
-│   │   SQLite Database in WAL Mode (patrol.db)    │  │ File Storage Repositories    │   │
-│   │   • contents, evidences, reports             │  │                              │   │
-│   │   • validated_memory (MemPrompt Presedens)   │  │ • storage/evidences/         │   │
-│   │   • topics & topic_snapshots (Tren Otomatis) │  │   (Tangkapan Layar Monitor)  │   │
-│   │   • audit_logs & dashboard_users             │  │ • storage/reports/           │   │
-│   │   • PRAGMA busy_timeout=60000; (LAN Safe)    │  │   (Dossier PDF & Berkas MD)  │   │
-│   └──────────────────────────────────────────────┘  └──────────────────────────────┘   │
+│   ┌──────────────────────────────────────────┐  ┌──────────────────────────────┐   │
+│   │   SQLite Database (storage/patrol.db)    │  │  Local Encrypted File System │   │
+│   │                                          │  │                              │   │
+│   │   • contents (Bukti Digital Kanonikal)   │  │ • storage/evidences/         │   │
+│   │   • reports (Vonis 5W+1H & Tiket)        │  │   (Tangkapan Layar Bersih)   │   │
+│   │   • validated_memory (MemPrompt Preseden)│  │ • storage/reports/           │   │
+│   │   • issue_clusters & topic_snapshots     │  │   (Dossier PDF & Berkas MD)  │   │
+│   │   • audit_logs & dashboard_users         │  │ • Fresh-Install Clean State  │   │
+│   │   • PRAGMA journal_mode=WAL; (LAN Safe)  │  │                              │   │
+│   └──────────────────────────────────────────┘  └──────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -633,7 +536,7 @@ Arsitektur backend memisahkan tanggung jawab modul secara tegas:
 * `app/api/v1/assistant.py`: Endpoint intake dan triase live (`/api/v1/assistant/intake`), dilengkapi *Smart Noise Gate* dan normalisasi identitas akun berbasis URL.
 * `app/api/v1/integrity.py`: Endpoint verifikasi integritas segel HMAC (`/api/v1/integrity/verify-canonical`) dan pengujian simulasi tamper dry-run (`/api/v1/integrity/tamper-test`).
 * `app/api/v1/report_export.py`: Endpoint ekspor rekapitulasi harian (`/api/v1/reports/daily/export`).
-* `app/api/dashboard/`: Autentikasi JWT, radar topik tren mandiri, dan antrean validasi kurasi analis HITL.
+* `app/api/dashboard/`: Autentikasi JWT, radar topik tren mandiri, endpoint analitik terpadu (`/api/dashboard/overview`), serta validasi HITL analis dengan pembelajaran otomatis (`/api/dashboard/contents/:id/validate`).
 * `app/services/`: Logika bisnis mandiri tanpa ketergantungan melingkar (*loose coupling*).
 
 ---
@@ -644,6 +547,7 @@ Basis data dirancang untuk menangani konkurensi multi-user LAN:
 * **Mode WAL (Write-Ahead Logging):** Membaca data tidak memblokir penulisan data (`Readers do not block writers, and writers do not block readers`).
 * **Busy Timeout 60 Detik:** Menghilangkan galat *database locked* saat banyak request intake masuk bersamaan dari berbagai workstation operator.
 * **Auto-Migration Engine:** `app/database.py` memeriksa dan menambahkan kolom-kolom baru secara otomatis tanpa merusak data yang telah ada.
+* **Fresh-Install Clean Baseline:** Seluruh tabel transaksional direset bersih (0 baris kotor) dengan akun `admin` bawaan tetap aktif, menjamin kesiapan instalasi baru dinas.
 
 ### Skema Entitas Relasional (ERD Inti):
 
@@ -740,6 +644,58 @@ erDiagram
 
 ---
 
+## 3.7 Arsitektur Web Cockpit Intelijen (React 18, TypeScript, Vite & Tailwind CSS)
+
+### 3.7.1 Alur Navigasi 3 Menu Inti & Collapsible Sidebar
+Arsitektur navigasi TILIK disederhanakan secara terfokus menjadi **3 menu inti**:
+1. **Ringkasan (`/`):** Pusat komando operasional terpadu yang menampilkan indikator KPI, grafik aktivitas, proporsi risiko, sebaran platform/kategori, serta ringkasan topik dan aktor sasaran.
+2. **Radar Isu (`/trending`):** Radar deteksi tren narasi viral nasional, kalkulasi HotScore dinamis, awan kata kunci, dan pemantauan entitas prioritas.
+3. **Arsip Temuan (`/contents`):** Buku besar forensik digital (*Forensic Ledger*) yang memuat seluruh tangkapan bukti, tiket investigasi, status validasi, dan penelusuran multivariat.
+
+Komponen **`Sidebar.tsx`** mengimplementasikan mekanisme *Collapsible Navigation*:
+* **Mode Terbuka (*Extended*, `w-60`):** Menampilkan logo TILIK, label grup operasional, ikon menu, dan teks navigasi lengkap.
+* **Mode Terlipat (*Collapsed*, `w-[68px]`):** Menyembunyikan label teks dan menyajikan ikon terpusat dengan *tooltip* saat kursor diarahkan (*hover*).
+* **Persistensi State:** Status lipat/buka disimpan secara deterministik di `localStorage` peramban (`tilik_sidebar_collapsed`) dan bertransisi mulus dengan durasi 200 ms.
+
+### 3.7.2 Konsol Operasional Tunggal Terpadu (`Overview.tsx`) & Mesin Visualisasi SVG
+Mengeliminasi tab pemisah guna menghadirkan alur pemantauan vertikal yang kohesif:
+1. **Baris 1 (Header & Filter):** *Kicker* taktis `KONSOL OPERASIONAL // TILIK`, judul resmi, tombol unduh PDF analitis minimalis berbentuk ikon persegi (`p-2.5 rounded-lg`), dan bilah parameter operasi (tanggal, platform, kategori, risiko).
+2. **Baris 2 (KPI Strip Asimetris):** 4 kartu ringkas (*Total Temuan*, *Isu Aktif*, *Urgensi Tinggi*, *Status Validasi*) dengan dukungan warna aksen (`accentColor`), indikator tren, dan mikro-interaksi klik taktil `active:scale-[0.98]`.
+3. **Baris 3 (Grafik Tren & Risiko):** Grid asimetris 8:4 memadukan grafik garis ganda SVG (`DualLineChart`: Laporan Masuk vs Tervalidasi) dan diagram donat interaktif (`DonutChart`: Distribusi Tingkat Risiko).
+4. **Baris 4 (Distribusi Kanal & Kategori):** Diagram batang vertikal kanal platform (`VerticalBarChart`) dan daftar progres horizontal kategori isu (`HorizontalBarList`).
+5. **Baris 5 (Radar & Sasaran 2 Kolom):** Daftar *Topik Isu Teratas* dan *Tokoh & Entitas Sasaran* berdampingan, masing-masing dilengkapi tautan cepat menuju radar isu.
+6. **Baris 6 (Tabel Temuan Prioritas Linear):** Daftar 8 laporan prioritas terbaru dengan badge risiko dan status berbahasa Indonesia yang dapat diklik langsung menuju dossier temuan.
+
+### 3.7.3 Radar Isu Terkoneksi (`TrendingTopics.tsx`) & Sinkronisasi Query Parameter
+* Menerima parameter pencarian URL (`?q=...` dan `?actor=...`) yang diteruskan saat analis mengeklik topik atau tokoh di halaman Ringkasan.
+* Komponen membaca parameter melalui `useSearchParams()` saat dimuat dan langsung mengaktifkan filter terkait tanpa perlu input manual.
+* Didukung pilar filter instan (*Isu Aktual*, *Isu Kritikal*, *Isu Tematik*, *Semua Isu*) tanpa mengunci atau mengenolkan penghitung metrik.
+
+### 3.7.4 Editorial Intelligence Dossier (`ContentDetail.tsx`) & Hierarki 5W+1H
+Halaman pemeriksaan bukti disusun dengan tata letak editorial intelijen komersial:
+* **Grid Asimetris 7:5:** Kolom kiri (7 kolom) mengisolasi bukti visual murni tangkapan layar, nilai hash SHA-256 dan tag HMAC monospaced dengan tombol salin seketika (*copy-to-clipboard*), aksi verifikasi integritas, tombol uji simulasi tamper bit-flip, serta teks narasi terjemahan berbahasa Indonesia.
+* **Hierarki Matriks 5W+1H:** Menghilangkan kotak-kotak seragam monoton dan menggantinya dengan struktur redaksional terarah:
+  - *Baris Utama:* **WHAT // Peristiwa Inti** selebar kartu dengan aksen garis kiri biru tebal.
+  - *Baris Konteks:* **WHO // Pihak Terlibat** (aksen emerald) berdampingan dengan **WHY // Motif & Indikasi** (aksen amber).
+  - *Baris Spatio-Temporal:* **WHEN // Waktu**, **WHERE // Lokasi**, dan **HOW // Modus Operandi** dalam grid 3 kolom taktis.
+* **Otomasi Pembelajaran HITL:** Tombol vonis analis (*Setuju*, *Ubah*, *Tolak*) langsung mengeksekusi validasi dan secara otonom mempromosikan entri ke `validated_memory` di backend.
+
+### 3.7.5 Standar Estetika Anti-Slop, Kicker Taktis Indonesia & Paritas Tema Ganda
+* **Anti-Slop Craft:** Menghindari template generik AI (gradasi ungu-biru seragam atau kartu monoton datar) dan menerapkan palet otoritatif intelijen (*Linear/Palantir Gotham*).
+* **Paritas 100% Dark & Light Mode:**
+  - *Dark Mode:* Latar belakang Obsidian Canvas (`#090A0F`), kartu Obsidian Surface (`#0F1117`), garis batas halus (`border-white/[0.08]`), dan teks kontras tinggi.
+  - *Light Mode:* Latar belakang bersih (`bg-slate-50`), permukaan kartu putih murni (`bg-white border-slate-200/80 shadow-xs`), teks gelap tegas (`text-slate-900` & `text-slate-600`).
+* **Workstation Login Paritas Penuh:** Halaman autentikasi (`Login.tsx`) dilengkapi sakelar `ThemeToggle` di sudut kanan atas dan mendukung penuh tema terang maupun gelap.
+* **Kicker Monospace Bahasa Indonesia:** Disematkan di seluruh tajuk halaman (`KONSOL OPERASIONAL // TILIK`, `RADAR INTELIJEN // TILIK`, `ARSIP FORENSIK // TILIK`, `DOSSIER ANALISIS // TILIK`, `DOSSIER KLUSTER ISU // TILIK`).
+
+### 3.7.6 Generator Laporan PDF Analitis Multidimensi
+* Modal filter laporan PDF analitis terintegrasi di pojok kanan atas halaman Ringkasan.
+* Mendukung 3 mode periode: **Harian (Daily)**, **Mingguan (Weekly)**, dan **Rentang Tanggal Kustom (Custom Date Range)**.
+* Dilengkapi dropdown filter kategori IPOLEKSOSBUDHANKAM.
+* Menghasilkan berkas PDF analitis resmi beresolusi tinggi, lengkap dengan visualisasi grafik, rekapitulasi numerik, dan narasi intelijen tanpa galat pembagian nol saat database bersih.
+
+---
+
 # BAB IV: MESIN KECERDASAN BUATAN (AI), VISION, & PEMBELAJARAN ADAPTIF
 
 ## 4.1 Transisi 100% On-Premise: Ollama Local LLM
@@ -767,62 +723,57 @@ Menggantikan ketergantungan API cloud eksternal dengan inferensi **Ollama lokal*
 
 ## 4.2 Selective Local OCR Engine & Smart Noise Gate
 
-Pemrosesan OCR lokal tradisional menghabiskan banyak sumber daya CPU/GPU. TILIK menerapkan **Selective OCR dengan Smart Noise Gate**:
-* **Aturan Seleksi:**
-  $$\text{Picu OCR} = \begin{cases} \text{False}, & \text{jika } \text{DOM Valid} \land \text{len}(\text{DOM}) \ge 30 \land \text{Bukan Noise UI} \\ \text{True}, & \text{jika } \text{DOM Kosong} \lor \text{len}(\text{DOM}) < 30 \lor \text{Terdeteksi Noise UI} \end{cases}$$
-* **Smart Noise Gate:** Jika teks DOM yang diterima hanya berisi frasa antarmuka seperti `"Relevant people"`, `"What's happening"`, atau `"Suggested for you"`, sistem menolak teks DOM tersebut dan otomatis membaca tulisan langsung dari gambar tangkapan layar via Tesseract OCR.
-* **Hasil Efisiensi:** Artikel berita teks panjang langsung mem-bypass OCR, menghemat $> 80\%$ penggunaan memori/waktu komputasi.
+1. **Ambang Batas Bypass Komputasi ($\ge 30$ Karakter):**
+   * Memeriksa panjang string `dom_text`. Jika $\ge 30$ karakter dan bukan karakter sampah, modul OCR dilewati total.
+   * Mengurangi latensi pipa analisis dari $\sim 3.2\text{ detik}$ menjadi $< 0.4\text{ detik}$ pada $80\%$ kasus teks panjang.
+2. **Selective Triggering:**
+   * Modul RapidOCR hanya aktif jika teks DOM kosong, teks $< 30$ karakter, atau terindikasi gambar poster/meme.
+3. **Smart Noise Gate:**
+   * Menganalisis rasio karakter alfanumerik terhadap total bita payload guna mencegah pemrosesan sampah teks navigasi platform.
 
 ---
 
 ## 4.3 MemPrompt In-Context Learning & Deduplikasi Semantik
 
-1. **Projeksi Vektor Dense 384-Dimensi:**
-   * Menggunakan proyeksi L2-normalized 384-dimensi.
-   * Ekstraksi vektor berjalan instan ($< 5\text{ ms}$) tanpa beban model transformator besar.
-2. **Penyuntikan Preseden Dinamis (Dynamic Few-Shot):**
-   * Saat memproses konten baru, sistem memindai tabel `validated_memory` untuk menemukan kasus historis tervalidasi dengan $\text{Cosine Similarity} \ge 0.45$.
-   * Top-3 kasus preseden teratas disuntikkan ke blok prompt LLM:
-     ```text
-     == MEMORI KASUS TERVALIDASI ANALIS (FEW-SHOT IN-CONTEXT LEARNING) ==
-     [Preseden #1 — Kemiripan: 78%]
-     - Potongan Teks : "Kelompok separatis menyebarkan selebaran makar..."
-     - Kategori Benar: Ideologi
-     - Alasan Analis : Upaya makar menolak Pancasila dan kedaulatan NKRI.
-     ====================================================================
-     ```
-   * Akurasi klasifikasi meningkat secara adaptif seiring bertambahnya validasi analis tanpa perlu pelatihan ulang (*retraining*) bobot model.
+1. **Vektorisasi Padat (Dense Embedding):**
+   * Menggunakan model transformer lokal untuk memetakan teks narasi ke dalam vektor dense 384-dimensi bernormalisasi $L_2$.
+2. **Dynamic In-Context Injection:**
+   * Saat menerima konten baru, sistem melakukan pencarian *Cosine Similarity* terhadap kasus-kasus yang tersimpan di `validated_memory`.
+   * Top-3 kasus paling mirip yang telah divalidasi oleh analis manusia disuntikkan secara dinamis ke dalam prompt Ollama sebagai panduan *Few-Shot*.
 3. **Deduplikasi Semantik Kembar Harian:**
-   * Menghitung kemiripan kosinus terhadap seluruh laporan pada hari kalender yang sama.
-   * Jika $\text{Similarity} \ge 0.85$, sistem memberi peringatan duplikasi tiket (`is_duplicate: true`, `duplicate_of_ticket: "PS-..."`).
+   * Jika nilai *Cosine Similarity* terhadap postingan lain pada hari yang sama mencapai $\ge 0.85$, sistem menandai kasus sebagai duplikat potensial dan menautkan nomor tiket asalnya untuk mencegah redundansi investigasi.
 
 ---
 
 ## 4.4 Struktur Ekstraksi Intelijen 5W+1H & Standar IPOLEKSOSBUDHANKAM
 
-Modul intelijen menghasilkan **sintesis analitis terstruktur**:
-* **WHAT:** Isu atau permasalahan utama yang diangkat dalam unggahan, dirangkum dalam kalimat analitis aktif (contoh: *"Konten membahas pernyataan politik terkait penanganan perkara penyadapan"*).
-* **WHO:** Pihak yang mengunggah, aktor sasaran, atau tokoh yang dicatut yang diekstrak menggunakan pencocokan pola gelar jabatan (*Jenderal, Presiden, Menteri*) dan entitas institusi.
-* **WHEN:** Waktu kejadian atau stempel publikasi konten terkonversi ke penanggalan resmi Indonesia.
-* **WHERE:** Kanal atau platform ruang digital penyebaran konten.
-* **WHY:** Motif atau latar belakang kausalitas (dideteksi via klausa konjungsi kausal: *karena, dalam rangka, terkait, setelah, pasca*).
-* **HOW:** Bagaimana narasi dibangun dan disebarkan ke publik.
+Sistem mengekstrak dimensi intelijen secara komprehensif:
+* **Who (Siapa):** Pelaku utama, akun penyebar, atau tokoh publik yang menjadi sasaran narasi.
+* **What (Apa):** Inti peristiwa atau substansi klaim yang dipersoalkan.
+* **When (Kapan):** Waktu terjadinya insiden atau stempel waktu publikasi.
+* **Where (Di Mana):** Lokasi geografis kejadian atau yurisdiksi ruang digital.
+* **Why (Mengapa):** Motif yang mendasari, provokasi terselubung, atau sentimen keresahan masyarakat.
+* **How (Bagaimana):** Modus operandi penyebaran narasi, fabrikasi bukti, atau taktik manipulasi informasi.
+
+Setiap temuan diklasifikasikan ke dalam salah satu dari 8 pilar ketahanan nasional:
+1. **Ideologi:** Paham radikalisme, separatisme, anti-Pancasila.
+2. **Politik:** Kampanye hitam, disinformasi pemilu, polarisasi kebijakan publik.
+3. **Ekonomi:** Penipuan finansial massal, rumor perbankan, kepanikan pangan.
+4. **Sosial:** Isu keresahan publik, konflik horizontal masyarakat.
+5. **Budaya:** Pelanggaran norma kesusilaan, degradasi nilai kearifan lokal.
+6. **Pertahanan:** Sabotase instalasi pertahanan, spionase, kebocoran alutsista.
+7. **Keamanan:** Perjudian daring, terorisme, kejahatan siber terorganisir.
+8. **Non-Isu:** Konten netral, hiburan wajar, atau klarifikasi resmi institusi.
 
 ---
 
 ## 4.5 Penanganan Konkurensi GPU & Zero-Lag Heuristic Failover
 
-1. **Semafor Konkurensi GPU (`asyncio.Semaphore(1)` / `threading.Semaphore(1)`):**
-   * Membatasi eksekusi inferensi Ollama menjadi 1 permintaan per satuan waktu.
-   * Permintaan bersamaan dari operator lain ditampung dalam antrean teratur, mencegah kepenuhan VRAM GPU dan kegagalan crash sistem.
-2. **Severity-Weighted Urgency Scoring (Skala 1–5):**
-   * Skor urgensi dinamis berbasis indikator kritis:
-     * **Skor 5 / Tingkat Bahaya Maksimal (Status: PERINGATAN):** Indikator `makar`, `teror bom`, `separatisme`, `khilafah`, `invasi militer`.
-     * **Skor 4 / Signifikan (Status: PERINGATAN):** Indikator `tersangka`, `tindak pidana`, `korupsi`, `ilegal akses`, `kejahatan siber`, `pembunuhan`.
-     * **Skor 3 / Waspada (Status: WASPADA):** Isu politik kekuasaan, mundurnya pejabat tinggi negara, `judi online`, `ujaran kebencian`.
-     * **Skor 1–2 / Aman (Status: AMAN):** Konten wajar, `Non-Isu` (edukasi, beasiswa, komunitas teknologi, rekrutmen).
-3. **Deterministic Heuristic Failover:**
-   * Jika layanan Ollama offline atau waktu tunggu habis, analisis otomatis beralih ke ekstraktor heuristik dengan token boundary regex (`\b`) yang menghasilkan sintesis ringkasan dan pertimbangan analis substantif tanpa mengorbankan integritas segel kriptografis HMAC-SHA256.
+1. **GPU Semaphore Guard:**
+   * Inferensi model AI lokal dilindungi oleh semafor asinkron `asyncio.Semaphore(1)` untuk mencegah *Out-of-Memory (OOM)* pada kartu grafis stasiun kerja lokal saat banyak operator mengirim data bersamaan.
+2. **Zero-Lag Heuristic Failover:**
+   * Apabila daemon Ollama mengalami kendala atau tidak aktif, sistem secara instan mengalihkan pipeline ke modul NLP heuristik berbasis aturan lokal (*rule-based fallback*).
+   * Menjamin bahwa seluruh proses intake dan penyegelan bukti kriptografis tetap berjalan lancar tanpa mengalami *timeout* atau kegagalan transmisi.
 
 ---
 
@@ -865,28 +816,37 @@ Rerata Latensi Pipeline   | 349.31 ms                  | 361.07 ms
 ## 5.2 Matriks Fitur Terimplementasi
 
 ```
-┌──────────────────────────────────────┬──────────────────────┬──────────────────┬─────────────────┐
-│ Modul / Fitur                        │ Status Implementasi  │ Uji Verifikasi   │ Lokasi Kode     │
-├──────────────────────────────────────┼──────────────────────┼──────────────────┼─────────────────┤
-│ Universal 3-Layer Extension (MV3)    │ 100% Siap Operasi    │ Terverifikasi    │ extension/      │
-│ Spatial Anti-Sidebar Filter          │ 100% Siap Operasi    │ Terverifikasi    │ content.js      │
-│ Clean Screenshot Rendering           │ 100% Siap Operasi    │ Terverifikasi    │ content.js      │
-│ NIST FIPS 198-1 HMAC-SHA256 Engine   │ 100% Siap Operasi    │ Terverifikasi    │ crypto_servi... │
-│ Constant-Time Integrity Verification │ 100% Siap Operasi    │ Terverifikasi    │ integrity.py    │
-│ Safe Dry-Run Tamper Simulation       │ 100% Siap Operasi    │ Terverifikasi    │ integrity.py    │
-│ SQLite WAL Multi-User Concurrency    │ 100% Siap Operasi    │ Terverifikasi    │ database.py     │
-│ Selective Local OCR & Smart Gate     │ 100% Siap Operasi    │ Terverifikasi    │ ocr_service.py  │
-│ Local Ollama AI (qwen2.5:7b)         │ 100% Siap Operasi    │ Terverifikasi    │ ollama_servi... │
-│ GPU Semaphore Guard & Failopen       │ 100% Siap Operasi    │ Terverifikasi    │ ollama_servi... │
-│ MemPrompt Dynamic Few-Shot Learning  │ 100% Siap Operasi    │ Terverifikasi    │ memory_servi... │
-│ Same-Day Semantic Twin Deduplication │ 100% Siap Operasi    │ Terverifikasi    │ memory_servi... │
-│ Autonomous Background Trending Engine│ 100% Siap Operasi    │ Terverifikasi    │ main.py         │
-│ ReportLab Two-Pass Numbered PDF      │ 100% Siap Operasi    │ Terverifikasi    │ pdf_report_s... │
-│ Daily Markdown (.md) Report Export   │ 100% Siap Operasi    │ Terverifikasi    │ report_expor... │
-│ High-Contrast Sidebar & Theme Switch │ 100% Siap Operasi    │ Terverifikasi    │ Sidebar.tsx     │
-│ Single-Command Runner (run.bat/py)   │ 100% Siap Operasi    │ Terverifikasi    │ run.py, run.bat │
-│ Quantitative Evaluation Benchmark    │ 100% Siap Operasi    │ Terverifikasi    │ evaluate_til... │
-└──────────────────────────────────────┴──────────────────────┴──────────────────┴─────────────────┘
+┌──────────────────────────────────────┬──────────────────────┬──────────────────┬──────────────────┐
+│ Modul / Fitur                        │ Status Implementasi  │ Uji Verifikasi   │ Lokasi Kode      │
+├──────────────────────────────────────┼──────────────────────┼──────────────────┼──────────────────┤
+│ Universal 3-Layer Extension (MV3)    │ 100% Siap Operasi    │ Terverifikasi    │ extension/       │
+│ Spatial Anti-Sidebar Filter          │ 100% Siap Operasi    │ Terverifikasi    │ content.js       │
+│ Clean Screenshot Rendering           │ 100% Siap Operasi    │ Terverifikasi    │ content.js       │
+│ Dynamic LAN Host Router              │ 100% Siap Operasi    │ Terverifikasi    │ popup.js         │
+│ NIST FIPS 198-1 HMAC-SHA256 Engine   │ 100% Siap Operasi    │ Terverifikasi    │ crypto_service.py│
+│ Constant-Time Integrity Verification │ 100% Siap Operasi    │ Terverifikasi    │ integrity.py     │
+│ Safe Dry-Run Tamper Simulation       │ 100% Siap Operasi    │ Terverifikasi    │ integrity.py     │
+│ SQLite WAL Multi-User Concurrency    │ 100% Siap Operasi    │ Terverifikasi    │ database.py      │
+│ Selective Local OCR & Smart Gate     │ 100% Siap Operasi    │ Terverifikasi    │ ocr_service.py   │
+│ Local Ollama AI (qwen2.5:7b)         │ 100% Siap Operasi    │ Terverifikasi    │ ollama_service.py│
+│ GPU Semaphore Asynchronous Guard     │ 100% Siap Operasi    │ Terverifikasi    │ ollama_service.py│
+│ Zero-Lag Heuristic Fallback Engine   │ 100% Siap Operasi    │ Terverifikasi    │ ollama_service.py│
+│ MemPrompt Dynamic Few-Shot Engine    │ 100% Siap Operasi    │ Terverifikasi    │ memory_service.py│
+│ Semantic Twin Deduplication (>= 0.85)│ 100% Siap Operasi    │ Terverifikasi    │ memory_service.py│
+│ Automated In-Dossier HITL Learning   │ 100% Siap Operasi    │ Terverifikasi    │ validation.py    │
+│ Autonomous Background Trending Engine│ 100% Siap Operasi    │ Terverifikasi    │ main.py          │
+│ Unified Single-Stream Overview Page  │ 100% Siap Operasi    │ Terverifikasi    │ Overview.tsx     │
+│ Collapsible Tactical Sidebar (w-60)  │ 100% Siap Operasi    │ Terverifikasi    │ Sidebar.tsx      │
+│ Editorial Dossier (Hierarki 5W+1H)   │ 100% Siap Operasi    │ Terverifikasi    │ ContentDetail.tsx│
+│ Radar Isu Terkoneksi (URL Params)    │ 100% Siap Operasi    │ Terverifikasi    │ TrendingTopics...│
+│ Analytical PDF Export Modal          │ 100% Siap Operasi    │ Terverifikasi    │ Overview.tsx     │
+│ 100% Dark/Light Theme Parity         │ 100% Siap Operasi    │ Terverifikasi    │ ThemeContext.tsx │
+│ ReportLab Two-Pass Numbered PDF      │ 100% Siap Operasi    │ Terverifikasi    │ pdf_report_ser...│
+│ Daily Markdown (.md) Report Export   │ 100% Siap Operasi    │ Terverifikasi    │ report_export.py │
+│ Fresh-Install Clean Baseline State   │ 100% Siap Operasi    │ Terverifikasi    │ storage/patrol.db│
+│ Single-Command Runner (run.bat/py)   │ 100% Siap Operasi    │ Terverifikasi    │ run.py, run.bat  │
+│ Quantitative Evaluation Benchmark    │ 100% Siap Operasi    │ Terverifikasi    │ evaluate_tilik.py│
+└──────────────────────────────────────┴──────────────────────┴──────────────────┴──────────────────┘
 ```
 
 ---
@@ -916,11 +876,11 @@ cyber-patrol-assistant/
 │   │   │   ├── integrity.py         # Endpoint verifikasi segel & simulasi tamper
 │   │   │   ├── report_export.py     # Endpoint ekspor rekap harian (.md & .pdf)
 │   │   │   └── admin.py             # Endpoint administratif
-│   │   └── dashboard/               # Endpoint web dashboard
+│   │   └── dashboard/               # Endpoint web dashboard cockpit
 │   │       ├── auth.py              # Login JWT & profil pengguna
 │   │       ├── contents.py          # Penjelajah konten dan visual bukti
-│   │       ├── validation.py        # Validasi HITL analis & rekam memori adaptif
-│   │       └── trending.py          # Radar isu viral dan klaster topik
+│   │       ├── validation.py        # Validasi HITL analis & rekam memori otomatis
+│   │       └── trending.py          # Radar isu viral, klaster topik & aktor sasaran
 │   │
 │   ├── models/                      # Skema Database Relasional (SQLAlchemy ORM)
 │   │   ├── report.py                # Model Account, Content, Report
@@ -937,15 +897,35 @@ cyber-patrol-assistant/
 │
 ├── dashboard/                       # Aplikasi Frontend Web (React 18 + TypeScript + Vite)
 │   ├── index.html                   # Template HTML
-│   ├── vite.config.ts               # Konfigurasi build Vite
+│   ├── vite.config.ts               # Konfigurasi build Vite & chunk splitting
+│   ├── package.json                 # Konfigurasi dependensi frontend
+│   ├── tailwind.config.js           # Konfigurasi palet tema Obsidian & typography
 │   ├── src/
-│   │   ├── App.tsx                  # Rute navigasi utama
-│   │   ├── api/client.ts            # Klien HTTP Axios/Fetch terpadu
-│   │   ├── pages/                   # Overview, ContentDetail, ContentExplorer, Curation, Login
+│   │   ├── App.tsx                  # Rute navigasi utama (3 menu inti + 2 detail + login)
+│   │   ├── index.css                # Style global, animasi shimmer & scrollbar
+│   │   ├── types.ts                 # Definisi tipe TypeScript domain patroli
+│   │   ├── api/client.ts            # Klien HTTP Axios terpadu
+│   │   ├── context/
+│   │   │   ├── AuthContext.tsx      # Manajemen sesi JWT pengguna
+│   │   │   └── ThemeContext.tsx     # Manajemen tema ganda Dark (Obsidian) & Light Mode
+│   │   ├── pages/
+│   │   │   ├── Overview.tsx         # Konsol Operasional Tunggal Terpadu & Modal PDF
+│   │   │   ├── TrendingTopics.tsx   # Radar Isu & Tren Strategis (Terkoneksi URL Params)
+│   │   │   ├── IssueDetail.tsx      # Dossier Kluster Isu & Dinamika Narasi
+│   │   │   ├── ContentExplorer.tsx  # Arsip Temuan Patroli & Forensic Ledger
+│   │   │   ├── ContentDetail.tsx    # Editorial Dossier Analisis & Validasi HITL
+│   │   │   └── Login.tsx            # Workstation Login dengan ThemeToggle Terintegrasi
 │   │   └── components/
-│   │       ├── layout/              # Sidebar (High-Contrast), Navbar, DashboardLayout
-│   │       └── common/              # ThemeToggle (Tactile Switch), Charts, KPICard, Badge
-│   └── dist/                        # Bundle produksi siap saji
+│   │       ├── layout/
+│   │       │   ├── Navbar.tsx       # Header minimalis & profil operator
+│   │       │   ├── Sidebar.tsx      # Collapsible Tactical Sidebar (w-60 / w-[68px])
+│   │       │   └── DashboardLayout.tsx # Layout shell responsif
+│   │       └── common/
+│   │           ├── ThemeToggle.tsx  # Sakelar taktil tema gelap / terang
+│   │           ├── Charts.tsx       # Mesin grafik responsif SVG (DualLine, Donut, Bars)
+│   │           ├── KPICard.tsx      # Kartu metrik dengan accent color & tactile click
+│   │           └── Badge.tsx        # Badge semantik platform, risiko, sentimen & status
+│   └── dist/                        # Bundle produksi frontend siap saji
 │
 ├── extension/                       # Ekstensi Peramban (Manifest V3)
 │   ├── manifest.json                # Konfigurasi Chrome MV3 resmi
@@ -958,10 +938,12 @@ cyber-patrol-assistant/
 │   └── ingest_real_patrol_data.py   # Seeding data patroli awal
 │
 ├── tests/                           # Test Suite Otomatis
-│   └── test_tilik_full_pipeline.py  # Uji otomatis seluruh pipeline TILIK (5/5 suites PASS)
+│   ├── test_tilik_full_pipeline.py  # Uji otomatis seluruh pipeline TILIK (5/5 suites PASS)
+│   ├── test_api_dashboard.py        # Uji otomatis endpoint dashboard & analitik
+│   └── test_rag_entities.py         # Uji modul retrieval MemPrompt & entitas
 │
 └── storage/                         # Repositori Penyimpanan Berkas Lokal
-    ├── patrol.db                    # Database SQLite WAL (beserta .db-wal dan .db-shm)
+    ├── patrol.db                    # Database SQLite WAL (Kondisi Fresh-Install Bersih)
     ├── evidences/                   # Direktori berkas tangkapan layar monitor
     ├── reports/                     # Direktori arsip berkas laporan PDF & Markdown
     ├── evaluation_results.json      # Keluaran detail benchmark evaluasi
@@ -1002,7 +984,9 @@ Cukup jalankan satu perintah berikut di terminal:
 ```powershell
 .\run.bat
 ```
-Server backend FastAPI dan Web Dashboard akan aktif seketika pada `http://127.0.0.1:8000/dashboard/`.
+Server backend FastAPI dan Web Dashboard akan aktif seketika pada:
+* **Web Cockpit Dashboard:** `http://127.0.0.1:8000/dashboard/`
+* **Dokumentasi Interaktif API (Swagger UI):** `http://127.0.0.1:8000/docs`
 
 ---
 
