@@ -1,12 +1,50 @@
-// Background Service Worker for Cyber Patrol Assistant Extension
+// @ts-nocheck
+/* cSpell:disable */
+// Background Service Worker for TILIK — Cyber Patrol Assistant Extension
+// Compliant with Manifest V3 and Multi-User LAN Dynamic Configuration
 
-const API_BASE = "http://localhost:8000";
+const DEFAULT_SERVER = "http://127.0.0.1:8000";
+
+async function getServerHosts() {
+  return new Promise((resolve) => {
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.get(["server_url"], (res) => {
+        const configured = (res.server_url || "").trim().replace(/\/+$/, "");
+        const hosts = [];
+        if (configured) hosts.push(configured);
+        if (!hosts.includes("http://127.0.0.1:8000")) hosts.push("http://127.0.0.1:8000");
+        if (!hosts.includes("http://localhost:8000")) hosts.push("http://localhost:8000");
+        resolve(hosts);
+      });
+    } else {
+      resolve(["http://127.0.0.1:8000", "http://localhost:8000"]);
+    }
+  });
+}
+
+async function fetchWithFallback(endpoint, options = {}) {
+  const hosts = await getServerHosts();
+  let lastError = null;
+
+  for (const host of hosts) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout for local AI inference
+      const url = `${host}${endpoint}`;
+      const res = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(timeoutId);
+      return res;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error(`Gagal terhubung ke backend server (${hosts.join(" / ")})`);
+}
 
 chrome.runtime.onInstalled.addListener(() => {
-  // Create context menu for right-clicking links
   chrome.contextMenus.create({
     id: "patrol_analyze_link",
-    title: "🛡️ Kirim Tautan ke Cyber Patrol Assistant (AI Triage)",
+    title: "🛡️ Kirim Tautan ke TILIK Cyber Patrol (AI Triage)",
     contexts: ["link", "page"]
   });
 });
@@ -16,57 +54,110 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const targetUrl = info.linkUrl || info.pageUrl;
     if (!targetUrl) return;
 
-    try {
-      const response = await fetch(`${API_BASE}/api/v1/assistant/intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: targetUrl,
-          source_channel: "BROWSER_EXTENSION",
-          reporter_identifier: "Context-Menu-Analyst",
-          notes: "Pelaporan cepat via klik kanan (Context Menu)"
-        })
-      });
+    chrome.storage.local.get(["operator_id"], async (res) => {
+      const operatorId = (res.operator_id || "op_d23_01").trim();
+      const capturedAtUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 
-      const data = await response.json();
-      if (response.ok) {
-        chrome.notifications.create({
-          type: "basic",
-          iconUrl: "icons/icon48.png",
-          title: "Patroli Siber — Laporan Diterima",
-          message: `Tiket ${data.ticket_number} untuk ${data.platform.toUpperCase()} berhasil dikirim ke antrean AI.`
+      try {
+        const response = await fetchWithFallback("/api/v1/assistant/intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: targetUrl,
+            source_channel: "BROWSER_EXTENSION",
+            reporter_identifier: operatorId,
+            operator_id: operatorId,
+            captured_at_utc: capturedAtUtc,
+            notes: "Pelaporan cepat via klik kanan (Context Menu)"
+          })
         });
-      } else {
-        chrome.notifications.create({
-          type: "basic",
-          iconUrl: "icons/icon48.png",
-          title: "Patroli Siber — Gagal",
-          message: data.detail || "URL tidak didukung."
-        });
+
+        const data = await response.json().catch(() => ({}));
+        if (response.ok) {
+          chrome.notifications.create({
+            type: "basic",
+            iconUrl: "icons/icon48.png",
+            title: "TILIK — Laporan Diterima",
+            message: `Tiket ${data.ticket_number} [HMAC: ${data.verification_status || 'VERIFIED'}] berhasil dicatat oleh ${operatorId}.`
+          });
+        } else {
+          const errorMsg = typeof data.detail === "string" ? data.detail : (data.detail ? JSON.stringify(data.detail) : "URL tidak didukung atau server sibuk.");
+          chrome.notifications.create({
+            type: "basic",
+            iconUrl: "icons/icon48.png",
+            title: "TILIK — Gagal",
+            message: errorMsg
+          });
+        }
+      } catch (err) {
+        console.error("Gagal mengirim intake via context menu:", err);
       }
-    } catch (err) {
-      console.error("Gagal mengirim intake via context menu:", err);
-    }
+    });
   }
 });
 
-// Handler for tab screenshot capture requested by content scripts
+// Handler for tab screenshot capture and background API proxy
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+  if (request.action === "submit_intake") {
+    fetchWithFallback("/api/v1/assistant/intake", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request.payload)
+    })
+      .then(async (res) => {
+        let data = {};
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          const rawText = await res.text().catch(() => "");
+          data = { detail: rawText || `Server HTTP ${res.status}: ${res.statusText || "Internal Error"}` };
+        }
+        sendResponse({ ok: res.ok, status: res.status, data: data });
+      })
+      .catch((err) => {
+        console.error("Background submit_intake fetch failed:", err);
+        let msg = "Gagal menghubungi server TILIK Cyber Patrol. Pastikan server backend sedang aktif di IP/Port yang sesuai.";
+        if (err.name === "AbortError") {
+          msg = "Batas waktu permintaan habis (timeout). Pipeline AI lokal membutuhkan waktu lebih lama.";
+        }
+        sendResponse({ ok: false, error: msg });
+      });
+    return true; // Keep asynchronous message channel open
+  }
+
+  if (request.action === "check_health") {
+    fetchWithFallback("/health")
+      .then((res) => sendResponse({ ok: res.ok }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || "Offline" }));
+    return true;
+  }
+
   if (request.action === "capture_tab_screenshot") {
-    const targetWinId = sender?.tab?.windowId || null;
-    chrome.tabs.captureVisibleTab(targetWinId, { format: "png" }, (dataUrl) => {
+    const options = { format: "jpeg", quality: 85 };
+    const winId = typeof sender?.tab?.windowId === "number" ? sender.tab.windowId : null;
+
+    // Prioritas 1: Capture current active window (null)
+    chrome.tabs.captureVisibleTab(null, options, (dataUrl) => {
       if (!chrome.runtime.lastError && dataUrl) {
         sendResponse({ ok: true, dataUrl: dataUrl });
-      } else {
-        // Fallback: try capturing without specific windowId
-        chrome.tabs.captureVisibleTab(null, { format: "png" }, (fallbackUrl) => {
-          if (!chrome.runtime.lastError && fallbackUrl) {
-            sendResponse({ ok: true, dataUrl: fallbackUrl });
+        return;
+      }
+
+      // Prioritas 2: Fallback ke windowId tab jika null gagal
+      if (typeof winId === "number") {
+        chrome.tabs.captureVisibleTab(winId, options, (dataUrl2) => {
+          if (!chrome.runtime.lastError && dataUrl2) {
+            sendResponse({ ok: true, dataUrl: dataUrl2 });
           } else {
-            console.error("Capture visible tab failed:", chrome.runtime.lastError?.message);
-            sendResponse({ ok: false, error: chrome.runtime.lastError?.message || "Capture failed" });
+            const err = chrome.runtime.lastError?.message || "Capture with winId failed";
+            console.warn("[TILIK Service Worker] Capture fallback warning:", err);
+            sendResponse({ ok: false, error: err });
           }
         });
+      } else {
+        const err = chrome.runtime.lastError?.message || "Capture active window failed";
+        console.warn("[TILIK Service Worker] Capture active window warning:", err);
+        sendResponse({ ok: false, error: err });
       }
     });
     return true; // Keep asynchronous message channel open

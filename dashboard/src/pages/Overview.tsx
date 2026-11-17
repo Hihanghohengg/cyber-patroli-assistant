@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -15,7 +15,6 @@ import {
 } from '../components/common/Charts';
 import {
   FileText,
-  Clock,
   Flame,
   CheckCircle,
   AlertTriangle,
@@ -24,19 +23,17 @@ import {
   ShieldCheck,
   UserCheck,
   Radio,
+  Download,
   FileDown,
-  Info,
   Filter,
   RotateCcw,
   ExternalLink,
   Layers,
-  Sparkles,
   BarChart2,
-  Calendar,
   XCircle,
   Tag,
-  Check,
   Edit3,
+  ChevronDown,
 } from 'lucide-react';
 
 export const OverviewPage: React.FC = () => {
@@ -53,6 +50,11 @@ export const OverviewPage: React.FC = () => {
   const [selectedRisk, setSelectedRisk] = useState<string>('Semua');
   const [selectedStatus, setSelectedStatus] = useState<string>('Semua');
 
+  // Export dropdown state
+  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
+  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'csv' | 'daily_md' | 'daily_pdf' | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
   // Data states
   const [summary, setSummary] = useState<any>(null);
   const [timeseries, setTimeseries] = useState<DualLinePoint[]>([]);
@@ -63,8 +65,18 @@ export const OverviewPage: React.FC = () => {
   const [trendingStats, setTrendingStats] = useState<any>(null);
 
   const [loading, setLoading] = useState<boolean>(true);
-  const [exporting, setExporting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Close export dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch all analytical data based on active filters
   const fetchData = async () => {
@@ -127,7 +139,6 @@ export const OverviewPage: React.FC = () => {
     setSelectedStatus('Semua');
   };
 
-  // Check if any filter is active
   const hasActiveFilters =
     dateFrom ||
     dateTo ||
@@ -136,20 +147,27 @@ export const OverviewPage: React.FC = () => {
     selectedRisk !== 'Semua' ||
     selectedStatus !== 'Semua';
 
-  // Secure Blob Export CSV
-  const handleExportCSV = async () => {
+  // Secure Blob Export PDF Dossier / CSV Metadata / Laporan Harian
+  const handleExport = async (fmt: 'pdf' | 'csv' | 'daily_md' | 'daily_pdf') => {
+    setShowExportMenu(false);
     try {
-      setExporting(true);
-      await apiClient.v1.exportBlob('csv', {
-        date_from: dateFrom || undefined,
-        date_to: dateTo || undefined,
-        category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
-        risk_level: selectedRisk !== 'Semua' ? selectedRisk : undefined,
-      });
+      setExportingFormat(fmt);
+      if (fmt === 'daily_md') {
+        await apiClient.reports.dailyExportBlob(undefined, 'md');
+      } else if (fmt === 'daily_pdf') {
+        await apiClient.reports.dailyExportBlob(undefined, 'pdf');
+      } else {
+        await apiClient.v1.exportBlob(fmt, {
+          date_from: dateFrom || undefined,
+          date_to: dateTo || undefined,
+          category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
+          risk_level: selectedRisk !== 'Semua' ? selectedRisk : undefined,
+        });
+      }
     } catch (err) {
-      alert('Gagal mengekspor berkas CSV.');
+      alert('Gagal mengekspor berkas laporan.');
     } finally {
-      setExporting(false);
+      setExportingFormat(null);
     }
   };
 
@@ -183,7 +201,7 @@ export const OverviewPage: React.FC = () => {
     return desired.map((cat) => ({
       label: cat.replace(/_/g, ' '),
       count: summary.distribusi_kategori[cat] || 0,
-      color: colorMap[cat] || '#00f0ff',
+      color: colorMap[cat] || '#3b82f6',
       key: cat,
     }));
   }, [summary]);
@@ -230,28 +248,25 @@ export const OverviewPage: React.FC = () => {
   }, [summary]);
 
   return (
-    <div className="space-y-6">
-      {/* ── Page Header & Tabs ── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-5">
+      {/* ── Page Header & Single Download Dropdown ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold tracking-tight text-white flex items-center gap-2.5">
-            <ShieldCheck className="w-5 h-5 text-cyan-400" />
+          <h1 className="text-base font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             Operasional Patroli Siber
           </h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Monitoring intelijen media sosial, deteksi narasi berisiko, dan profil akun terindikasi.
-          </p>
         </div>
 
-        {/* Tab Selector & Export Button */}
-        <div className="flex items-center gap-3">
-          <div className="bg-slate-900/80 p-1 rounded-lg border border-slate-800 flex items-center text-xs">
+        {/* Tab Selector & Sleek Download Dropdown Button */}
+        <div className="flex items-center gap-2.5">
+          <div className="bg-slate-200/80 dark:bg-slate-900/80 p-0.5 rounded-lg border border-slate-300 dark:border-slate-800 flex items-center text-xs">
             <button
               onClick={() => setActiveTab('proposal')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'proposal'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white dark:bg-blue-600/20 text-blue-600 dark:text-blue-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <BarChart2 className="w-3.5 h-3.5" />
@@ -259,10 +274,10 @@ export const OverviewPage: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('intel')}
-              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
+              className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 ${
                 activeTab === 'intel'
-                  ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-white dark:bg-blue-600/20 text-blue-600 dark:text-blue-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <Flame className="w-3.5 h-3.5" />
@@ -270,29 +285,79 @@ export const OverviewPage: React.FC = () => {
             </button>
           </div>
 
-          <button
-            onClick={handleExportCSV}
-            disabled={exporting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-600/30 transition-all disabled:opacity-50"
-            title="Ekspor data hasil filter ke CSV"
-          >
-            <FileDown className="w-3.5 h-3.5" />
-            <span>{exporting ? 'Mengunduh...' : 'Ekspor CSV'}</span>
-          </button>
+          {/* Single Download Dropdown Button */}
+          <div className="relative" ref={exportMenuRef}>
+            <button
+              onClick={() => setShowExportMenu(!showExportMenu)}
+              disabled={exportingFormat !== null}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-300 dark:border-slate-700 hover:border-blue-500 shadow-sm transition-all disabled:opacity-50"
+              title="Unduh / Ekspor data patroli"
+            >
+              <Download className={`w-3.5 h-3.5 text-blue-600 dark:text-blue-400 ${exportingFormat ? 'animate-bounce' : ''}`} />
+              <span>{exportingFormat ? `Mengunduh ${exportingFormat.toUpperCase()}...` : 'Ekspor'}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 mt-1.5 w-60 rounded-xl bg-white dark:bg-[#0f1523] border border-slate-200 dark:border-slate-800 shadow-xl py-1.5 z-50 text-xs">
+                <button
+                  onClick={() => handleExport('daily_pdf')}
+                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <FileText className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">Laporan Harian (PDF)</div>
+                    <div className="text-[10px] text-slate-500">Eksekutif IPOLEKSOSBUDHANKAM & Segel HMAC</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleExport('daily_md')}
+                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <FileText className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">Laporan Harian (Markdown)</div>
+                    <div className="text-[10px] text-slate-500">Tabel 5W+1H & Rantai Bukti Forensik</div>
+                  </div>
+                </button>
+                <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
+                <button
+                  onClick={() => handleExport('pdf')}
+                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <FileText className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">Dossier Lengkap (PDF)</div>
+                    <div className="text-[10px] text-slate-500">Seluruh temuan terfilter & visual</div>
+                  </div>
+                </button>
+                <button
+                  onClick={() => handleExport('csv')}
+                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <FileDown className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-slate-800 dark:text-slate-200">Metadata Temuan (CSV)</div>
+                    <div className="text-[10px] text-slate-500">Rekap tabular data olahan analis</div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── 1. BAR FILTER UTAMA ── */}
-      <div className="cyber-card p-4 rounded-xl border border-slate-800/80 space-y-3">
+      {/* ── 1. BAR FILTER COMPACT & CLEAN ── */}
+      <div className="cyber-card p-3 sm:p-4 rounded-xl border border-slate-200 dark:border-slate-800/80 space-y-2.5">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-xs font-semibold text-slate-300">
-            <Filter className="w-3.5 h-3.5 text-cyan-400" />
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+            <Filter className="w-3.5 h-3.5 text-blue-500" />
             <span>Filter Data</span>
           </div>
           {hasActiveFilters && (
             <button
               onClick={handleResetFilters}
-              className="text-[11px] font-mono text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/20 transition-colors"
+              className="text-[11px] font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
               Reset Filter
@@ -300,36 +365,33 @@ export const OverviewPage: React.FC = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          {/* Rentang Tanggal Mulai */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           <div>
-            <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Dari Tanggal</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Dari Tanggal</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0c121e] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
 
-          {/* Rentang Tanggal Selesai */}
           <div>
-            <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Sampai Tanggal</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Sampai Tanggal</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0c121e] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             />
           </div>
 
-          {/* Platform */}
           <div>
-            <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Platform</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Platform</label>
             <select
               value={selectedPlatform}
               onChange={(e) => setSelectedPlatform(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0c121e] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             >
               <option value="Semua">Semua Platform</option>
               <option value="Instagram">Instagram</option>
@@ -338,13 +400,12 @@ export const OverviewPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Kategori Isu */}
           <div>
-            <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Kategori Isu</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Kategori</label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0c121e] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             >
               <option value="Semua">Semua Kategori</option>
               <option value="HOAKS">HOAKS</option>
@@ -354,13 +415,12 @@ export const OverviewPage: React.FC = () => {
             </select>
           </div>
 
-          {/* Tingkat Risiko */}
-          <div>
-            <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Tingkat Risiko</label>
+          <div className="col-span-2 sm:col-span-1">
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Risiko</label>
             <select
               value={selectedRisk}
               onChange={(e) => setSelectedRisk(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
+              className="w-full bg-white dark:bg-[#0c121e] border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
             >
               <option value="Semua">Semua Risiko</option>
               <option value="TINGGI">TINGGI</option>
@@ -370,32 +430,31 @@ export const OverviewPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Active Filter Chips */}
+        {/* Filter Chips */}
         {hasActiveFilters && (
-          <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-mono text-slate-500 uppercase">Filter Aktif:</span>
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center gap-1.5">
             {selectedPlatform !== 'Semua' && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 px-2 py-0.5 rounded-md font-medium">
                 Platform: {selectedPlatform}
-                <button onClick={() => setSelectedPlatform('Semua')}><XCircle className="w-3 h-3 hover:text-white" /></button>
+                <button onClick={() => setSelectedPlatform('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
               </span>
             )}
             {selectedCategory !== 'Semua' && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-amber-950 text-amber-300 border border-amber-800 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 px-2 py-0.5 rounded-md font-medium">
                 Kategori: {selectedCategory}
-                <button onClick={() => setSelectedCategory('Semua')}><XCircle className="w-3 h-3 hover:text-white" /></button>
+                <button onClick={() => setSelectedCategory('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
               </span>
             )}
             {selectedRisk !== 'Semua' && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-rose-950 text-rose-300 border border-rose-800 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20 px-2 py-0.5 rounded-md font-medium">
                 Risiko: {selectedRisk}
-                <button onClick={() => setSelectedRisk('Semua')}><XCircle className="w-3 h-3 hover:text-white" /></button>
+                <button onClick={() => setSelectedRisk('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
               </span>
             )}
             {selectedStatus !== 'Semua' && (
-              <span className="inline-flex items-center gap-1 text-[11px] bg-purple-950 text-purple-300 border border-purple-800 px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 text-[11px] bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20 px-2 py-0.5 rounded-md font-medium">
                 Status: {selectedStatus}
-                <button onClick={() => setSelectedStatus('Semua')}><XCircle className="w-3 h-3 hover:text-white" /></button>
+                <button onClick={() => setSelectedStatus('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
               </span>
             )}
           </div>
@@ -403,23 +462,41 @@ export const OverviewPage: React.FC = () => {
       </div>
 
       {loading && !summary ? (
-        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
-          <div className="w-10 h-10 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs font-mono text-cyan-400">MENYINKRONKAN 8 GRAFIK PROPOSAL...</span>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="cyber-card p-4 sm:p-5 rounded-xl space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="h-3 w-20 rounded skeleton-shimmer" />
+                  <div className="h-7 w-7 rounded-lg skeleton-shimmer" />
+                </div>
+                <div className="h-7 w-28 rounded skeleton-shimmer" />
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+            <div className="cyber-card p-5 rounded-xl space-y-4">
+              <div className="h-4 w-40 rounded skeleton-shimmer" />
+              <div className="h-48 w-full rounded-lg skeleton-shimmer" />
+            </div>
+            <div className="cyber-card p-5 rounded-xl space-y-4">
+              <div className="h-4 w-40 rounded skeleton-shimmer" />
+              <div className="h-48 w-full rounded-lg skeleton-shimmer" />
+            </div>
+          </div>
         </div>
       ) : error ? (
         <div className="p-8 cyber-card rounded-xl text-center">
-          <AlertTriangle className="w-8 h-8 text-rose-400 mx-auto mb-2" />
-          <p className="text-rose-300 text-sm font-semibold">{error}</p>
+          <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
+          <p className="text-rose-600 dark:text-rose-300 text-sm font-semibold">{error}</p>
         </div>
       ) : activeTab === 'proposal' ? (
         /* ══════════════════════════════════════════════════════════════
-           TAB 1: RINGKASAN ANALITIK PROPOSAL (4 KPI + 8 VISUAL)
+           TAB 1: RINGKASAN METRIK
            ══════════════════════════════════════════════════════════════ */
-        <div className="space-y-6">
-          {/* ── 2. 4 KARTU KPI RINGKASAN (Sesuai Gambar L3.18) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Kartu 1: Total laporan */}
+        <div className="space-y-5">
+          {/* 4 Kartu KPI Ringkasan */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <div
               className="cursor-pointer transition-transform hover:-translate-y-0.5"
               onClick={() => setSelectedStatus('Semua')}
@@ -427,13 +504,11 @@ export const OverviewPage: React.FC = () => {
               <KPICard
                 title="Total Laporan"
                 value={summary?.total_laporan ?? 0}
-                icon={<FileText className="w-5 h-5 text-cyan-400" />}
-                subtitle="Total data terhimpun"
-                accentColor="cyan"
+                icon={<FileText className="w-4 h-4 text-blue-500" />}
+                accentColor="blue"
               />
             </div>
 
-            {/* Kartu 2: Temuan tervalidasi */}
             <div
               className="cursor-pointer transition-transform hover:-translate-y-0.5"
               onClick={() => setSelectedStatus('VALIDATED')}
@@ -441,13 +516,11 @@ export const OverviewPage: React.FC = () => {
               <KPICard
                 title="Temuan Tervalidasi"
                 value={summary?.temuan_tervalidasi ?? 0}
-                icon={<CheckCircle className="w-5 h-5 text-emerald-400" />}
-                subtitle="Terverifikasi analis"
+                icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
                 accentColor="emerald"
               />
             </div>
 
-            {/* Kartu 3: Koreksi analis */}
             <div
               className="cursor-pointer transition-transform hover:-translate-y-0.5"
               onClick={() => setSelectedStatus('MODIFIED')}
@@ -455,13 +528,11 @@ export const OverviewPage: React.FC = () => {
               <KPICard
                 title="Koreksi Analis"
                 value={summary?.koreksi_analis ?? 0}
-                icon={<Edit3 className="w-5 h-5 text-amber-400" />}
-                subtitle="Penyesuaian manual"
+                icon={<Edit3 className="w-4 h-4 text-amber-500" />}
                 accentColor="amber"
               />
             </div>
 
-            {/* Kartu 4: Bukan pelanggaran */}
             <div
               className="cursor-pointer transition-transform hover:-translate-y-0.5"
               onClick={() => setSelectedStatus('REJECTED')}
@@ -469,32 +540,26 @@ export const OverviewPage: React.FC = () => {
               <KPICard
                 title="Bukan Pelanggaran"
                 value={summary?.bukan_pelanggaran ?? 0}
-                icon={<XCircle className="w-5 h-5 text-rose-400" />}
-                subtitle="Ditolak / Nihil"
+                icon={<XCircle className="w-4 h-4 text-rose-500" />}
                 accentColor="rose"
               />
             </div>
           </div>
 
-          {/* ── 3. GRAFIK ANALITIK UTAMA ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Grafik Analitik Utama */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
             {/* Visual 1 (Tren Waktu) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    Tren Aktivitas Temuan
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Perbandingan volume laporan masuk dan temuan tervalidasi per hari.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                  Tren Aktivitas Temuan
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <DualLineChart
                   data={timeseries}
-                  height={190}
+                  height={185}
                   onPointClick={(pt) => {
                     if (pt.timestamp) {
                       setDateFrom(pt.timestamp.slice(0, 10));
@@ -506,41 +571,31 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             {/* Visual 2 (Per Platform) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-cyan-400" />
-                    Distribusi Platform
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Sebaran temuan pada TikTok, YouTube, dan Instagram.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-blue-500" />
+                  Distribusi Platform
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <VerticalBarChart
                   items={platformBarItems}
-                  height={190}
+                  height={185}
                   onBarClick={(item) => setSelectedPlatform(item.label)}
                 />
               </div>
             </div>
 
             {/* Visual 3 (Per Kategori) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Tag className="w-4 h-4 text-amber-400" />
-                    Kategori Isu
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Klasifikasi temuan berdasarkan analisis final.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-amber-500" />
+                  Kategori Isu
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <HorizontalBarList
                   items={categoryBarItems}
                   onBarClick={(item) => setSelectedCategory(item.key)}
@@ -549,19 +604,14 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             {/* Visual 4 (Distribusi Risiko) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-rose-400" />
-                    Tingkat Risiko
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Proporsi tingkat risiko rendah, sedang, dan tinggi.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-500" />
+                  Tingkat Risiko
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <DonutChart
                   items={riskDonutItems}
                   centerLabel="Temuan"
@@ -572,45 +622,35 @@ export const OverviewPage: React.FC = () => {
             </div>
 
             {/* Visual 5 (Topik Teratas) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-cyan-400" />
-                    Topik Teratas
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Entitas topik yang paling sering terdeteksi.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-blue-500" />
+                  Topik Teratas
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <HorizontalBarList
                   items={topTopics.map((t) => ({
                     label: t.name,
                     count: t.count,
-                    color: '#00f0ff',
+                    color: '#3b82f6',
                     subtitle: t.category,
                   }))}
-                  onBarClick={(item) => {}}
+                  onBarClick={() => {}}
                 />
               </div>
             </div>
 
             {/* Visual 6 (Aktor Target Teratas) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <UserCheck className="w-4 h-4 text-emerald-400" />
-                    Aktor & Tokoh Sasaran
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Profil dan figur yang sering menjadi sasaran narasi.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <UserCheck className="w-4 h-4 text-emerald-500" />
+                  Aktor & Tokoh Sasaran
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <HorizontalBarList
                   items={topActors.map((a) => ({
                     label: a.name,
@@ -618,25 +658,20 @@ export const OverviewPage: React.FC = () => {
                     color: '#10b981',
                     subtitle: a.category,
                   }))}
-                  onBarClick={(item) => {}}
+                  onBarClick={() => {}}
                 />
               </div>
             </div>
 
             {/* Visual 7 (Sumber Konten Teratas) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Radio className="w-4 h-4 text-violet-400" />
-                    Kanal Sumber Konten
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Saluran dan akun dominan penyebar konten.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <Radio className="w-4 h-4 text-violet-500" />
+                  Kanal Sumber Konten
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <HorizontalBarList
                   items={topSources.map((s) => ({
                     label: s.name,
@@ -644,108 +679,97 @@ export const OverviewPage: React.FC = () => {
                     color: '#a855f7',
                     subtitle: s.category,
                   }))}
-                  onBarClick={(item) => {}}
+                  onBarClick={() => {}}
                 />
               </div>
             </div>
 
             {/* Visual 8 (Kesepakatan AI vs Analis) */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                    Akurasi AI vs Analis
-                  </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
-                    Tingkat kesesuaian rekomendasi AI dengan validasi analis.
-                  </p>
-                </div>
+                <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" />
+                  Akurasi AI vs Analis
+                </h3>
               </div>
-              <div className="pt-2">
+              <div className="pt-1">
                 <VerticalBarChart
                   items={agreementBarItems}
-                  height={190}
+                  height={185}
                   onBarClick={(item) => setSelectedStatus(item.key || 'Semua')}
                 />
               </div>
             </div>
           </div>
 
-          {/* ── 5. TABEL LAPORAN HASIL DRILL-DOWN ── */}
-          <div className="cyber-card rounded-xl p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-cyan-400" />
-                  Daftar Temuan Terfilter ({reports.length})
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Laporan yang tersinkronisasi dengan filter aktif di atas.
-                </p>
-              </div>
+          {/* Tabel Laporan Hasil Filter */}
+          <div className="cyber-card rounded-xl p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-500" />
+                Daftar Temuan ({reports.length})
+              </h3>
               <Link
                 to="/contents"
-                className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
               >
-                <span>Lihat Semua Temuan</span>
+                <span>Lihat Semua</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {reports.length === 0 ? (
-              <div className="text-center py-12 text-slate-500 text-xs font-mono">
+              <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-xs font-mono">
                 Tidak ada laporan yang sesuai dengan kriteria filter saat ini.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900/90 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
+                  <thead className="bg-slate-100 dark:bg-slate-900/90 text-slate-600 dark:text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 dark:border-slate-800">
                     <tr>
                       <th className="py-2.5 px-3">Tiket & Waktu</th>
                       <th className="py-2.5 px-3">Platform & Akun</th>
-                      <th className="py-2.5 px-3">Kategori Final</th>
+                      <th className="py-2.5 px-3">Kategori</th>
                       <th className="py-2.5 px-3">Risiko</th>
                       <th className="py-2.5 px-3">Topik / Sasaran</th>
                       <th className="py-2.5 px-3">Status</th>
-                      <th className="py-2.5 px-3">Catatan Analis</th>
                       <th className="py-2.5 px-3 text-right">Aksi</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-mono">
                     {reports.map((r: any) => {
                       const statusColor =
                         r.status === 'VALIDATED'
-                          ? 'text-emerald-400 bg-emerald-950/60 border-emerald-800/40'
+                          ? 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/60 dark:border-emerald-800/40'
                           : r.status === 'MODIFIED'
-                          ? 'text-amber-400 bg-amber-950/60 border-amber-800/40'
+                          ? 'text-amber-700 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-950/60 dark:border-amber-800/40'
                           : r.status === 'REJECTED'
-                          ? 'text-rose-400 bg-rose-950/60 border-rose-800/40'
-                          : 'text-cyan-400 bg-cyan-950/60 border-cyan-800/40';
+                          ? 'text-rose-700 bg-rose-50 border-rose-200 dark:text-rose-400 dark:bg-rose-950/60 dark:border-rose-800/40'
+                          : 'text-blue-700 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-950/60 dark:border-blue-800/40';
 
                       const riskColor =
                         r.final_risk === 'TINGGI'
-                          ? 'text-rose-400'
+                          ? 'text-rose-600 dark:text-rose-400'
                           : r.final_risk === 'SEDANG'
-                          ? 'text-amber-400'
+                          ? 'text-amber-600 dark:text-amber-400'
                           : r.final_risk === 'RENDAH'
-                          ? 'text-emerald-400'
-                          : 'text-slate-400';
+                          ? 'text-emerald-600 dark:text-emerald-400'
+                          : 'text-slate-500';
 
                       return (
-                        <tr key={r.report_id} className="hover:bg-slate-800/40 transition-colors">
+                        <tr key={r.report_id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
                           <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-200">{r.ticket_number}</div>
-                            <div className="text-[10px] text-slate-500">
+                            <div className="font-bold text-slate-800 dark:text-slate-200">{r.ticket_number}</div>
+                            <div className="text-[10px] text-slate-400">
                               {r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '-'}
                             </div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="text-[11px] font-bold text-cyan-300 uppercase">{r.platform}</span>
-                            <div className="text-[10px] text-slate-400">@{r.account?.username || 'anonim'}</div>
+                            <span className="text-[11px] font-bold text-blue-600 dark:text-blue-300 uppercase">{r.platform}</span>
+                            <div className="text-[10px] text-slate-500 dark:text-slate-400">@{r.account?.username || 'anonim'}</div>
                           </td>
                           <td className="py-2.5 px-3">
-                            <span className="font-sans font-semibold text-slate-200">
+                            <span className="font-sans font-semibold text-slate-700 dark:text-slate-200">
                               {r.final_label || r.ai_predicted_label || '-'}
                             </span>
                           </td>
@@ -753,7 +777,7 @@ export const OverviewPage: React.FC = () => {
                             <span className={`font-bold ${riskColor}`}>{r.final_risk || 'NIHIL'}</span>
                           </td>
                           <td className="py-2.5 px-3 font-sans">
-                            <div className="text-slate-300 text-[11px] font-medium">{r.topic || '-'}</div>
+                            <div className="text-slate-700 dark:text-slate-300 text-[11px] font-medium">{r.topic || '-'}</div>
                             {r.actors && r.actors.length > 0 && (
                               <div className="text-[10px] text-slate-400">Sasaran: {r.actors.join(', ')}</div>
                             )}
@@ -763,22 +787,19 @@ export const OverviewPage: React.FC = () => {
                               {r.status}
                             </span>
                           </td>
-                          <td className="py-2.5 px-3 font-sans text-slate-400 text-[11px] max-w-xs truncate">
-                            {r.analyst_notes || '-'}
-                          </td>
                           <td className="py-2.5 px-3 text-right">
                             {r.url ? (
                               <a
                                 href={r.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[11px] text-cyan-400 hover:text-cyan-300"
+                                className="inline-flex items-center gap-1 text-[11px] text-blue-600 dark:text-blue-400 hover:underline"
                               >
                                 <span>Konten</span>
                                 <ExternalLink className="w-3 h-3" />
                               </a>
                             ) : (
-                              <span className="text-slate-600">-</span>
+                              <span className="text-slate-400">-</span>
                             )}
                           </td>
                         </tr>
@@ -792,132 +813,28 @@ export const OverviewPage: React.FC = () => {
         </div>
       ) : (
         /* ══════════════════════════════════════════════════════════════
-           TAB 2: RADAR 5W+1H & TOPIK TREN (FITUR SEKUNDER)
+           TAB 2: RADAR & SENTIMEN
            ══════════════════════════════════════════════════════════════ */
-        <div className="space-y-6">
-          {/* Trending & Sentiments Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Sentiment Gauge */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
-              <h3 className="text-sm font-bold text-white flex items-center justify-between">
-                <span>Sentimen Opini Publik</span>
-                <span className="text-[11px] font-mono text-cyan-400">Analisis Multimodal</span>
-              </h3>
-              {trendingStats?.sentiments && (
-                <DonutChart
-                  items={trendingStats.sentiments.map((s: any) => ({
-                    label: s.sentiment,
-                    count: s.count,
-                    color:
-                      s.sentiment === 'POSITIF'
-                        ? '#10b981'
-                        : s.sentiment === 'NEGATIF'
-                        ? '#ef4444'
-                        : '#0284c7',
-                  }))}
-                  centerLabel="Sentimen"
-                />
-              )}
-            </div>
-
-            {/* Score Gauge */}
-            <div className="cyber-card p-5 rounded-xl space-y-3 flex flex-col items-center justify-center text-center">
-              <h3 className="text-sm font-bold text-white mb-2">Indeks Keparahan Narasi Siber</h3>
-              <ScoreGauge score={68} size={110} />
-              <p className="text-[11px] text-slate-400 max-w-xs mt-2">
-                Agregasi indikasi disinformasi berbasis percepatan persebaran akun dan potensi provokasi SARA.
-              </p>
-            </div>
-
-            {/* 5W+1H Quick Extraction */}
-            <div className="cyber-card p-5 rounded-xl space-y-3">
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                Ekstraksi Intelijen 5W+1H
-              </h3>
-              <div className="space-y-2 text-xs">
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="font-bold text-cyan-400">WHAT: </span>
-                  <span className="text-slate-300">Disinformasi kebijakan & video daur ulang peristiwa lama.</span>
-                </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="font-bold text-emerald-400">WHO: </span>
-                  <span className="text-slate-300">Unit Pelayanan A, Lembaga Kesehatan B, Komunitas F.</span>
-                </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="font-bold text-amber-400">WHERE: </span>
-                  <span className="text-slate-300">Platform Instagram, TikTok, dan YouTube Shorts.</span>
-                </div>
-                <div className="bg-slate-900/60 p-2 rounded border border-slate-800">
-                  <span className="font-bold text-violet-400">WHY & HOW: </span>
-                  <span className="text-slate-300">Clickbait monetisasi engagement & fabrikasi narasi krisis.</span>
-                </div>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="cyber-card p-4 rounded-xl">
+              <span className="text-xs text-slate-500">Isu Aktif Terdeteksi</span>
+              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1">
+                {trendingStats?.active_issues_count || 0}
               </div>
             </div>
-          </div>
-
-          {/* Trending Topics Table */}
-          <div className="cyber-card rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Flame className="w-4 h-4 text-amber-400" />
-                  Topik Tren Teratas
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Topik dengan volume interaksi dan pertumbuhan tertinggi saat ini.
-                </p>
+            <div className="cyber-card p-4 rounded-xl">
+              <span className="text-xs text-slate-500">Menunggu Validasi</span>
+              <div className="text-2xl font-bold font-mono text-amber-500 mt-1">
+                {trendingStats?.pending_validations || 0}
               </div>
-              <Link
-                to="/trending"
-                className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
-              >
-                <span>Lihat Semua Topik</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
             </div>
-
-            {trendingStats?.latest_trending && trendingStats.latest_trending.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-900/80 text-slate-400 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="py-2 px-3">Topik Isu</th>
-                      <th className="py-2 px-3">Kategori Utama</th>
-                      <th className="py-2 px-3">Konten Terdeteksi</th>
-                      <th className="py-2 px-3">Skor Trending</th>
-                      <th className="py-2 px-3 text-right">Detail</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono">
-                    {trendingStats.latest_trending.map((item: any) => (
-                      <tr key={item.issue_id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 px-3 font-sans font-bold text-slate-200">{item.title}</td>
-                        <td className="py-2.5 px-3">
-                          <span className="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800">
-                            {item.main_category || 'UMUM'}
-                          </span>
-                        </td>
-                        <td className="py-2.5 px-3 text-slate-300">{item.content_count} konten</td>
-                        <td className="py-2.5 px-3 font-bold text-amber-400">{item.trending_score?.toFixed(1) || 0}</td>
-                        <td className="py-2.5 px-3 text-right">
-                          <Link
-                            to={`/trending/${item.issue_id}`}
-                            className="text-cyan-400 hover:text-cyan-300 text-xs font-sans font-semibold"
-                          >
-                            Buka Radar →
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            <div className="cyber-card p-4 rounded-xl">
+              <span className="text-xs text-slate-500">Konten Risiko Tinggi</span>
+              <div className="text-2xl font-bold font-mono text-rose-500 mt-1">
+                {trendingStats?.high_risk_contents || 0}
               </div>
-            ) : (
-              <div className="text-center py-8 text-slate-500 text-xs font-mono">
-                Belum ada klaster topik trending.
-              </div>
-            )}
+            </div>
           </div>
         </div>
       )}

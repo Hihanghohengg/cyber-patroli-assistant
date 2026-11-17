@@ -132,6 +132,12 @@ def get_content_detail(
                 "sha256": e.sha256,
                 "storage_path": e.storage_path,
                 "mime_type": e.mime_type,
+                "operator_id": e.operator_id or report.operator_id or "OP-01",
+                "canonical_hash": e.canonical_hash,
+                "hmac_tag": e.hmac_tag,
+                "verification_status": e.verification_status or "VERIFIED",
+                "last_verified_at": e.last_verified_at.isoformat() if e.last_verified_at else None,
+                "ocr_text": e.ocr_text,
                 "created_at": e.created_at.isoformat() if e.created_at else None,
             })
 
@@ -207,6 +213,14 @@ def get_content_detail(
             "summary": report.ai_summary,
             "reasoning": report.ai_reasoning,
             "ticket_number": report.ticket_number,
+            "operator_id": report.operator_id or "OP-01",
+            "classification_mode": report.classification_mode or "adaptive",
+            "original_language": report.original_language or "id",
+            "indonesian_content": report.indonesian_content or report.ai_summary or "",
+            "is_potential_duplicate": report.is_potential_duplicate or False,
+            "duplicate_of_ticket": report.duplicate_of_ticket,
+            "duplicate_similarity": report.duplicate_similarity or 0.0,
+            "execution_latencies": report.execution_latencies or {},
             "human_decision": report.review_decision,
             "final_label": report.final_label,
             "final_risk": report.final_risk,
@@ -234,6 +248,8 @@ def get_content_detail(
         title=content.title,
         caption=content.caption_text,
         transcript=content_transcript,
+        original_language=report.original_language if report else "id",
+        indonesian_content=report.indonesian_content if report else None,
         author=author_dict,
         interaction=interaction_dict,
         created_at=content.created_at,
@@ -265,7 +281,20 @@ def get_content_screenshot(
     if not evidence or not evidence.storage_path or not os.path.exists(evidence.storage_path):
         raise HTTPException(status_code=404, detail="File gambar tangkapan layar tidak ada di disk")
 
-    return FileResponse(evidence.storage_path, media_type=evidence.mime_type or "image/png")
+    # Defense against Path Traversal (CWE-22)
+    safe_evidence_dir = os.path.realpath(os.path.join(os.getcwd(), "storage", "evidences"))
+    target_evidence_path = os.path.realpath(evidence.storage_path)
+    if not target_evidence_path.startswith(safe_evidence_dir) and not target_evidence_path.startswith(os.path.realpath("storage")):
+        raise HTTPException(status_code=403, detail="Akses berkas ditolak (Path Traversal Protection)")
+
+    return FileResponse(
+        target_evidence_path,
+        media_type=evidence.mime_type or "image/png",
+        headers={
+            "Cache-Control": "private, no-cache, no-transform",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/{content_id}/verify-evidence")

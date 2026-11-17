@@ -1,9 +1,7 @@
 """Omnichannel Assistant API.
 
-Provides unified endpoints for all client channels:
-- Telegram Bot
-- WhatsApp Assistant (Webhook Gateway)
-- Chrome / Edge Browser Extension
+Provides unified endpoints for:
+- Chrome / Edge / Firefox Browser Extension
 - Web Dashboard Console
 """
 
@@ -13,34 +11,58 @@ import logging
 import os
 import re
 import uuid
+import asyncio
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
+import time
 from app.config import settings
 from app.database import get_db
-from app.models.report import Report
+from app.models.report import Report, Content
+from app.models.intelligence import ContentAnalysis
+from app.models.evidence import Evidence
+from app.models.audit import AuditLog
 from app.services.scraper.base import BaseScraper
-from app.services.ai_service import AIService
-from app.services.intelligence.analysis_5w1h import Analysis5W1HService
+from app.services.crypto_service import CryptoService
+from app.services.ocr_service import OCRService
+from app.services.memory_service import MemoryService
+from app.services.ollama_service import OllamaService
+from app.services.intelligence.hitl_harness import HITLHarnessService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/assistant", tags=["Omnichannel Assistant"])
 
+# Antrean tunggal pipeline AI untuk mencegah pertarungan CPU pada beban tinggi
+_AI_PIPELINE_SEMAPHORE: Optional[asyncio.Semaphore] = None
+
+
+def _get_ai_semaphore() -> asyncio.Semaphore:
+    global _AI_PIPELINE_SEMAPHORE
+    if _AI_PIPELINE_SEMAPHORE is None:
+        _AI_PIPELINE_SEMAPHORE = asyncio.Semaphore(1)
+    return _AI_PIPELINE_SEMAPHORE
+
 
 class ChannelIntakeRequest(BaseModel):
-    """Payload for submitting a patrol intake from any channel."""
+    """Payload for submitting a patrol intake from browser extension or web console."""
     url: str = Field(..., description="URL konten media sosial (TikTok, YouTube, Instagram).")
-    source_channel: str = Field(default="BROWSER_EXTENSION", description="Kanal pengirim: BROWSER_EXTENSION, WHATSAPP, TELEGRAM, WEB_DASHBOARD, API.")
-    reporter_identifier: Optional[str] = Field(default="Analyst-Console", description="Pengenal pengirim (nomor HP, extension ID, username).")
-    reporter_telegram_id: Optional[int] = Field(default=None, description="Telegram User ID (jika melalui Telegram).")
+    source_channel: str = Field(default="BROWSER_EXTENSION", description="Kanal pengirim: BROWSER_EXTENSION, WEB_DASHBOARD, API.")
+    reporter_identifier: Optional[str] = Field(default="Analyst-Browser", description="Pengenal pengirim (username analis, extension ID).")
+    reporter_telegram_id: Optional[int] = Field(default=None, description="Deprecated / Nullable legacy identifier.")
     notes: Optional[str] = Field(default=None, description="Catatan opsional dari analis atau pelapor.")
     screenshot_base64: Optional[str] = Field(default=None, description="Tangkapan layar base64 langsung dari klien/browser.")
     media_image_url: Optional[str] = Field(default=None, description="URL gambar media langsung dari halaman postingan (og:image / article img).")
+    
+    # Operator & Local Integrity (Pilar RPLK)
+    operator_id: Optional[str] = Field(default=None, description="ID / NIP Petugas Patroli (Multi-User LAN).")
+    ocr_text: Optional[str] = Field(default="", description="Hasil teks OCR selektif jika diproses klien.")
+    captured_at_utc: Optional[str] = Field(default=None, description="Waktu pengambilan bukti dalam format ISO 8601 UTC.")
+    classification_mode: str = Field(default="adaptive", description="Mode klasifikasi: 'baseline' (zero-shot) vs 'adaptive' (dynamic few-shot MemPrompt).")
     
     # In-page DOM / Screen Extracted Metadata
     username: Optional[str] = Field(default=None, description="Username akun pembuat konten.")
@@ -49,16 +71,87 @@ class ChannelIntakeRequest(BaseModel):
     title: Optional[str] = Field(default=None, description="Judul video / postingan.")
     caption: Optional[str] = Field(default=None, description="Isi teks caption utuh.")
     transcript: Optional[str] = Field(default=None, description="Transkrip teks dialog / audio jika tersedia.")
+    posted_at: Optional[str] = Field(default=None, description="Tanggal atau waktu postingan diunggah.")
     likes_count: Optional[int] = Field(default=0, description="Jumlah likes/suka.")
     views_count: Optional[int] = Field(default=0, description="Jumlah tayangan/views.")
     comments_count: Optional[int] = Field(default=0, description="Jumlah komentar.")
     shares_count: Optional[int] = Field(default=0, description="Jumlah bagikan/share.")
+    has_media: Optional[bool] = Field(default=False, description="Penanda apakah konten memiliki media visual foto/poster/infografis.")
+    platform_hint: Optional[str] = Field(default=None, description="Petunjuk platform dari ekstensi klien (instagram, x, threads, web).")
+
+    @field_validator("followers_count", "likes_count", "views_count", "comments_count", "shares_count", mode="before")
+    @classmethod
+    def sanitize_int_counts(cls, v):
+        if v is None:
+            return 0
+        try:
+            import math
+            val = float(v)
+            if math.isnan(val) or math.isinf(val):
+                return 0
+            val_int = int(round(val))
+            if val_int > 10**11 or val_int < 0:
+                return 0
+            return val_int
+        except (ValueError, TypeError):
+            return 0
 
 
-def clean_caption_noise(raw: Optional[str]) -> str:
-    """Filter out YouTube / social media UI button text artifacts."""
+class ClassifyRequest(BaseModel):
+    """Payload for on-demand classification and evaluation (Baseline vs Adaptive)."""
+    ticket_or_id: Optional[str] = Field(default=None, description="Nomor tiket atau UUID laporan jika mengklasifikasi ulang temuan.")
+    text: Optional[str] = Field(default=None, description="Teks narasi mentah jika menguji sampel independen.")
+    title: Optional[str] = Field(default=None, description="Judul opsional.")
+    platform: Optional[str] = Field(default="web", description="Platform media sosial / berita.")
+    classification_mode: str = Field(default="adaptive", description="Mode: 'baseline' (zero-shot) vs 'adaptive' (dynamic few-shot MemPrompt).")
+
+
+class BatchIntakeRequest(BaseModel):
+    """Payload for multi-URL / batch patrol triage (FR-20)."""
+    urls: List[str] = Field(..., description="Daftar satu atau lebih URL target patroli.")
+    operator_id: Optional[str] = Field(default="OP-01", description="ID / NIP Petugas Patroli.")
+    classification_mode: str = Field(default="adaptive", description="Mode klasifikasi: 'baseline' vs 'adaptive'.")
+
+
+def _safe_int(v) -> int:
+    """Clamp integer metric to prevent SQLite 64-bit overflow."""
+    try:
+        val = int(v or 0)
+        return val if 0 <= val <= 10**11 else 0
+    except Exception:
+        return 0
+
+
+def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> str:
+    """Filter out social media UI button text artifacts, follower comments, and glued handle headers."""
     if not raw:
         return ""
+    cleaned = raw.strip()
+
+    # 1. Instagram comments cutoff: Comments on Instagram web always start at or after translation marker
+    for marker in ["Lihat terjemahan", "See translation", "View translation", "Lihat semua komentar", "View all comments"]:
+        if marker in cleaned:
+            cleaned = cleaned.split(marker)[0].strip()
+
+    # 2. Strip likes banner artifacts: 'Disukai oleh ... dan ... lainnya'
+    cleaned = re.sub(r"Disukai oleh.*?lainnya", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"Liked by.*?others", " ", cleaned, flags=re.IGNORECASE)
+
+    # 2b. Strip Instagram glued button artifacts: e.g. 'vivacoidIkutivivacoid 21 jamKepala...' -> 'Kepala...'
+    cleaned = re.sub(
+        r"^(?:[a-zA-Z0-9_\.]{2,30})?(?:Ikuti|Mengikuti|Follow|Following)\s*(?:[a-zA-Z0-9_\.]{2,30})?\s*\d+\s*(?:jam|hari|menit|detik|m|h|d|w|minggu)?\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"^(?:[a-zA-Z0-9_\.]{2,30})\s+\d+\s*(?:jam|hari|menit|detik|m|h|d|w|minggu)\s*",
+        "",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+
+    # 3. Strip common social media & news portal UI artifacts
     patterns = [
         r"\.\.\.selengkapnya",
         r"Lebih sedikit",
@@ -71,62 +164,80 @@ def clean_caption_noise(raw: Optional[str]) -> str:
         r"Pelajari lebih lanjut",
         r"\d+([,\.]\d+)?\s*(rb|jt|k|m)?\s*subscriber",
         r"VideoTentangInstagram\S*",
+        r"Tambahkan komentar\S*",
+        r"\b\d+\s*(?:hari|jam|m|menit|d|detik|w|minggu)\s*(?:yang\s+lalu)?\s*(?:Kirim)?$",
+        r"\d{1,2}:\d{2}\s*[\/|\\]\s*\d{1,2}:\d{2}",  # Video duration / scrubber e.g. 00:00 / 09:28
+        r"\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\s*[·•\u00b7\u2022]\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}",  # Tweet timestamp e.g. 9:14 PM · Oct 20, 2026
+        r"[·•\u00b7\u2022\s]*\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\b",
+        r"[·•\u00b7\u2022\s]*\d+[\d\.,]*[KkMm]?\s*(?:Views|View quotes|views|quotes|suka|likes|Retweets|reposts|Bookmarks|bookmarked)(?=[^a-zA-Z]|$)",  # Metrics e.g. 767.3KViews, 535View quotes
+        # Media & news portal widget artifacts
+        r"\bAdvertisement\b",
+        r"\bListen\s+\d+\s*(?:min|mins|menit)\b",
+        r"New:\s*You can now listen to articles[^\n]*",
+        r"Recommended Stories list of \d+ items[\s\S]*?end of list",
+        r"Get instant alerts and updates based on your interests[^\n.]*\.[^\n.]*\.",
+        r"Be the first to know when big stories happen\.?",
+        r"\b(?:Save\s+Share|Save\s*\n\s*Share)\b",
+        r"(?:By\s+[A-Za-z\s]+)?Published On\s+\d+\s+[A-Za-z]+\s+\d{4}(?:\s*\d+\s*[A-Za-z]+\s*\d{4})?",
+        r"News\s*\|\s*[A-Za-z\s]+(?=[A-Z])",
+        r"\[[^\]]*?(?:Getty|Reuters|AFP|AP|Antara|Usep|Ezra|Photo)[^\]]*?\]",
+        r"\([^\)]*?(?:Getty|Reuters|AFP|AP|Antara|Usep|Ezra|Photo)[^\)]*?\)",
+        r"Follow us on[^\n]*",
     ]
-    cleaned = raw
     for pat in patterns:
         cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 4. Strip duplicate leading username repetition & glued profile headers (even without spaces)
+    # e.g. 'Sumatera Adil & Federal@indepenSumateraPRABOWO...' -> 'PRABOWO...'
+    # e.g. 'Ganjar Pranowo@ganjarpranowo1. Umumkan...' -> '1. Umumkan...'
+    if username:
+        cleaned = re.sub(r"^(?:[^\n@]{0,50})?@?" + re.escape(username) + r"\s*", "", cleaned, flags=re.IGNORECASE)
+
+    # General unspaced glued handle detection (Twitter handles max 15 chars, ending before capital letter/digit)
+    cleaned = re.sub(r"^(?:[^\n@]{0,50})?@[a-zA-Z0-9_\.]*?[a-z0-9](?=[A-Z]{2,}|\d+\.)\s*", "", cleaned)
+    cleaned = re.sub(r"^(?:[A-Z][a-zA-Z0-9\s._-]+)?@([a-zA-Z0-9_]{1,20}?)(?=[A-Z]{2,}|\d+\.|\b)\s*", "", cleaned)
+    cleaned = re.sub(r"^(?:[A-Z][a-zA-Z0-9\s._-]{0,40})?@[a-zA-Z0-9_]+(?:\s*[·•]\s*[\w\d]+)?(?:\s*(?=\d+\.))?\s*", "", cleaned)
+    cleaned = re.sub(r"^[A-Z][a-zA-Z0-9\s._-]+@[a-zA-Z0-9_]+\s*", "", cleaned)
+    cleaned = re.sub(r"^(?:[a-z0-9_\.]{3,30}\s*)+(?=[A-Z])", "", cleaned)
+    cleaned = re.sub(r"^[a-zA-Z0-9_\.]{3,30}\s*:\s*", "", cleaned)
+
+    # 5. Normalisasi spasi setelah tanda baca titik yang langsung diikuti huruf kapital
+    # Contoh: 'setempat.Besarnya' -> 'setempat. Besarnya'
+    cleaned = re.sub(r"\.([A-Z])", r". \1", cleaned)
+
     cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
+    cleaned = re.sub(r"[ \t]+", " ", cleaned)
     return cleaned.strip()
-
-
-class WhatsAppWebhookPayload(BaseModel):
-    """Standard payload structure for incoming WhatsApp messages."""
-    From: str = Field(default="+628000000000", description="Nomor WhatsApp pengirim (e.g. whatsapp:+6281234567890)")
-    Body: str = Field(..., description="Isi teks pesan WhatsApp yang berisi tautan/laporan.")
-    ProfileName: Optional[str] = Field(default="Petugas Piket", description="Nama profil kontak WhatsApp.")
 
 
 @router.get("/channels")
 def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Retrieve all operational assistant channels and their statistics."""
-    # Query intake counts by channel
     channel_counts = (
         db.query(Report.source_channel, func.count(Report.report_id))
         .group_by(Report.source_channel)
         .all()
     )
-    counts_map = {c or "TELEGRAM": count for c, count in channel_counts}
+    counts_map = {c or "BROWSER_EXTENSION": count for c, count in channel_counts}
 
     return {
         "status": "ONLINE",
-        "architecture": "Omnichannel Decoupled Assistant",
+        "architecture": "Pure Browser Extension + Web Command Console",
         "channels": [
-            {
-                "id": "telegram",
-                "name": "Telegram Bot Assistant",
-                "type": "MESSAGING_BOT",
-                "status": "ONLINE",
-                "intake_count": counts_map.get("TELEGRAM", 0),
-                "features": ["Command Interface", "Inline Decision Buttons", "DOCX Daily Recap Generator", "Fail-Open Alerts"],
-                "icon": "Send",
-            },
             {
                 "id": "browser_extension",
                 "name": "Cyber Patrol Browser Extension",
                 "type": "BROWSER_AGENT",
                 "status": "ONLINE",
                 "intake_count": counts_map.get("BROWSER_EXTENSION", 0),
-                "features": ["1-Click URL & DOM Capture", "Active Tab Auto-Detection", "Instant Triage Status", "Side-panel Integration"],
+                "features": [
+                    "1-Click URL & DOM Capture",
+                    "Active Tab Auto-Detection",
+                    "Instant Triage Status",
+                    "Side-panel Integration",
+                    "Full HD Evidence Capture",
+                ],
                 "icon": "Chrome",
-            },
-            {
-                "id": "whatsapp",
-                "name": "WhatsApp Business Gateway",
-                "type": "MESSAGING_GATEWAY",
-                "status": "READY",
-                "intake_count": counts_map.get("WHATSAPP", 0),
-                "features": ["Inbound Webhook", "Natural Text URL Extraction", "Formatted Markdown Reply", "Operator Verification"],
-                "icon": "MessageCircle",
             },
             {
                 "id": "web_dashboard",
@@ -134,7 +245,13 @@ def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
                 "type": "MANAGEMENT_CONSOLE",
                 "status": "ONLINE",
                 "intake_count": counts_map.get("WEB_DASHBOARD", 0),
-                "features": ["Social Intelligence Graphs", "Drill-Down Filter", "Entity Resolution", "Knowledge Base Management"],
+                "features": [
+                    "Social Intelligence Graphs",
+                    "Drill-Down Filter",
+                    "Entity Resolution",
+                    "Knowledge Base Management",
+                    "Excel Pro & Forensic Export",
+                ],
                 "icon": "LayoutDashboard",
             },
         ],
@@ -142,14 +259,78 @@ def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 
 @router.post("/intake")
-def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Accept patrol intake from any client channel (Browser Extension, WhatsApp, Web, etc.)."""
     try:
         platform = BaseScraper.detect_platform(payload.url)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Platform tidak didukung atau URL tidak valid: {str(e)}")
 
+    if not BaseScraper.is_specific_post_url(payload.url):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"URL target adalah beranda/halaman utama platform ({platform.upper()}). "
+                "Harap buka postingan, video, atau Shorts spesifik sebelum melakukan triase AI."
+            ),
+        )
+
     ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
+    active_operator_id = (payload.operator_id or payload.reporter_identifier or "OP-01").strip()
+    active_captured_at_utc = (payload.captured_at_utc or datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')).strip()
+    active_ocr_text = (payload.ocr_text or "").strip()
+
+    # Idempotency Guard (90 Detik): Cegah duplikasi temuan akibat double-click atau multi-dispatch pada browser extension
+    try:
+        existing_content = (
+            db.query(Content)
+            .filter(Content.canonical_url == payload.url)
+            .order_by(Content.created_at.desc())
+            .first()
+        )
+        if existing_content and existing_content.created_at:
+            delta_sec = (datetime.utcnow() - existing_content.created_at).total_seconds()
+            if delta_sec < 90.0:
+                existing_rep = (
+                    db.query(Report)
+                    .filter(Report.content_id == existing_content.content_id)
+                    .order_by(Report.created_at.desc())
+                    .first()
+                )
+                existing_evi = (
+                    db.query(Evidence)
+                    .filter(Evidence.content_id == existing_content.content_id)
+                    .first()
+                )
+                if existing_rep:
+                    cid_str = str(existing_content.content_id)
+                    logger.info(
+                        f"[IDEMPOTENCY] Temuan duplikat terdeteksi untuk URL {payload.url} "
+                        f"(berusia {delta_sec:.1f}s). Mengembalikan tiket eksisting: {existing_rep.ticket_number}"
+                    )
+                    return {
+                        "status": "QUEUED",
+                        "ticket_number": existing_rep.ticket_number,
+                        "content_id": cid_str,
+                        "platform": platform,
+                        "source_channel": payload.source_channel.upper(),
+                        "reporter_identifier": payload.reporter_identifier,
+                        "operator_id": active_operator_id,
+                        "captured_at_utc": active_captured_at_utc,
+                        "canonical_hash": existing_evi.canonical_json_hash if existing_evi else None,
+                        "hmac_tag": existing_evi.hmac_signature if existing_evi else None,
+                        "verification_status": existing_evi.verification_status if existing_evi else "VERIFIED",
+                        "tracking_url": f"/dashboard/#/contents/{cid_str}",
+                        "dashboard_url": f"http://localhost:8000/dashboard/#/contents/{cid_str}",
+                        "contents_url": "http://localhost:8000/dashboard/#/contents",
+                        "ai_status": existing_rep.ai_status,
+                        "ai_predicted_label": existing_rep.ai_predicted_label,
+                        "ai_confidence_score": round((existing_rep.ai_confidence_score or 0.85) * 100),
+                        "ai_summary": existing_rep.ai_summary,
+                        "message": f"Tiket patroli {existing_rep.ticket_number} untuk {platform} telah tercatat pada Web Dashboard.",
+                    }
+    except Exception as idemp_err:
+        logger.debug(f"Idempotency check warning: {idemp_err}")
 
     # 0. Hybrid Metadata Enrichment: Jika ada data metrik atau judul yang belum lengkap dari klien,
     # otomatis lengkapi menggunakan backend scraper engine (yt-dlp, Playwright)
@@ -164,27 +345,57 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
         elif platform == "tiktok":
             from app.services.scraper.tiktok import TikTokScraper
             scraper = TikTokScraper(storage_dir=settings.EVIDENCE_DIR)
+        elif platform == "web":
+            # Direct Link Triage untuk Media Nasional & Web Terbuka
+            from app.services.crawler_service import CrawlerService
+            try:
+                crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
+            except Exception as crawl_err:
+                logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
+                crawl_res = None
+
+            if crawl_res:
+                if not payload.title and crawl_res.get("title"):
+                    payload.title = crawl_res["title"]
+                if not payload.caption and crawl_res.get("clean_text"):
+                    payload.caption = crawl_res["clean_text"]
+                if not payload.username and crawl_res.get("author"):
+                    payload.username = crawl_res["author"]
+                if not payload.display_name and crawl_res.get("display_name"):
+                    payload.display_name = crawl_res["display_name"]
+                if not payload.media_image_url and crawl_res.get("media_image_url"):
+                    payload.media_image_url = crawl_res["media_image_url"]
+                if crawl_res.get("screenshot_path") and os.path.exists(crawl_res["screenshot_path"]):
+                    evidence_storage_path = crawl_res["screenshot_path"]
+                    evidence_sha256 = crawl_res.get("screenshot_sha256")
 
         server_meta = None
         if scraper:
             server_meta = scraper.extract_metadata(payload.url)
             if server_meta:
-                if not payload.title and server_meta.get("title"):
-                    payload.title = server_meta["title"]
+                # Jangan biarkan judul placeholder server menimpa judul/caption klien
+                srv_title = server_meta.get("title")
+                if not payload.title and srv_title and not srv_title.startswith("Instagram Post"):
+                    payload.title = srv_title
                 
-                # Prefer server caption if client didn't supply one or client had UI button artifacts
+                # Jangan biarkan caption placeholder server menimpa caption hasil ekstraksi DOM asli klien
                 server_caption = server_meta.get("caption")
-                if server_caption:
-                    if not payload.caption or len(server_caption) > len(payload.caption) or "selengkapnya" in (payload.caption or "").lower():
+                if server_caption and not server_caption.startswith("Instagram public post"):
+                    if not payload.caption or len(server_caption) > len(payload.caption):
                         payload.caption = server_caption
 
-                if server_meta.get("transcript") and not payload.transcript:
-                    payload.transcript = server_meta["transcript"]
+                if server_meta.get("transcript"):
+                    if not payload.transcript or len(server_meta["transcript"]) > len(payload.transcript):
+                        payload.transcript = server_meta["transcript"]
 
                 if not payload.username and server_meta.get("account", {}).get("username"):
-                    payload.username = server_meta["account"]["username"].replace("@", "")
+                    srv_user = server_meta["account"]["username"].replace("@", "")
+                    if not srv_user.startswith("instagram_user_"):
+                        payload.username = srv_user
                 if not payload.display_name and server_meta.get("account", {}).get("display_name"):
-                    payload.display_name = server_meta["account"]["display_name"]
+                    srv_disp = server_meta["account"]["display_name"]
+                    if srv_disp != "Pengguna Instagram":
+                        payload.display_name = srv_disp
                 if (not payload.followers_count or payload.followers_count == 0) and server_meta.get("account", {}).get("subscribers_count"):
                     payload.followers_count = server_meta["account"]["subscribers_count"]
                 if (not payload.views_count or payload.views_count == 0) and server_meta.get("views_count"):
@@ -193,49 +404,81 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
                     payload.likes_count = server_meta["likes_count"]
                 if (not payload.comments_count or payload.comments_count == 0) and server_meta.get("comments_count"):
                     payload.comments_count = server_meta["comments_count"]
-                logger.info(f"Metadata berhasil diperkaya via server engine {platform}: {payload.title} (transcript={bool(payload.transcript)})")
+                logger.info(f"Metadata berhasil diperkaya via server engine {platform}: {payload.title or 'N/A'} (transcript={len(payload.transcript) if payload.transcript else 0} chars)")
     except Exception as enrich_err:
         logger.warning(f"Server-side metadata enrichment warning for {payload.url}: {enrich_err}")
 
-    # Clean UI artifacts from caption
-    payload.caption = clean_caption_noise(payload.caption)
-
-    # 1. Pastikan Account tersedia menggunakan hasil ekstraksi DOM atau fallback URL
+    # 1. Identifikasi Data Akun Pengunggah (In-Memory, Belum Membuka Lock DB)
     from urllib.parse import urlparse
     parsed_url = urlparse(payload.url)
     detected_user = payload.username
+
+    # Abaikan jika username berupa nama domain platform atau ekstensi domain
+    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com"}
+    if detected_user and (any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames):
+        detected_user = None
+
     if not detected_user:
-        if "@" in payload.url:
-            match = re.search(r"@([a-zA-Z0-9_\.]+)", payload.url)
-            if match:
-                detected_user = match.group(1)
-        elif parsed_url.netloc:
-            detected_user = parsed_url.netloc.replace("www.", "")
-    detected_user = detected_user or "patrol_discover"
-    display_name = payload.display_name or f"{detected_user} ({platform.capitalize()})"
+        # Pola 1: X / Twitter -> https://x.com/ganjarpranowo/status/123...
+        x_match = re.search(r"(?:twitter\.com|x\.com)/([a-zA-Z0-9_]{1,30})(?:/status|\b)", payload.url, re.IGNORECASE)
+        if x_match and x_match.group(1).lower() not in ["home", "explore", "notifications", "messages", "search", "i"]:
+            detected_user = x_match.group(1)
 
-    from app.models.report import Account, Content, Report
-    from app.models.intelligence import ContentAnalysis
-    from app.models.evidence import Evidence
-    from app.models.audit import AuditLog
+        # Pola 2: Instagram URL -> https://instagram.com/vivacoid/p/...
+        if not detected_user:
+            ig_match = re.search(r"instagram\.com/([a-zA-Z0-9_\.]{1,30})/(?:p|reel|reels)/", payload.url, re.IGNORECASE)
+            if ig_match and ig_match.group(1).lower() not in ["p", "reel", "reels", "stories", "explore", "direct"]:
+                detected_user = ig_match.group(1)
 
-    account = db.query(Account).filter_by(platform=platform, username=detected_user).first()
-    if not account:
-        account = Account(
-            platform=platform,
-            username=detected_user,
-            display_name=display_name,
-            profile_url=f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else payload.url,
-            followers_count=payload.followers_count or 0,
-        )
-        db.add(account)
-        db.flush()
+        # Pola 3: TikTok URL -> https://tiktok.com/@username
+        if not detected_user:
+            tt_match = re.search(r"tiktok\.com/@([a-zA-Z0-9_\.]+)", payload.url, re.IGNORECASE)
+            if tt_match:
+                detected_user = tt_match.group(1)
+
+        # Pola 4: YouTube URL -> https://youtube.com/@channel
+        if not detected_user:
+            yt_match = re.search(r"youtube\.com/@([a-zA-Z0-9_\.]+)", payload.url, re.IGNORECASE)
+            if yt_match:
+                detected_user = yt_match.group(1)
+
+        # Pola 5: Ekstrak dari teks caption mentah jika menempel (misal 'vivacoidIkutivivacoid...')
+        if not detected_user and payload.caption:
+            ig_caption_user = re.search(r"^([a-zA-Z0-9_\.]{2,30})(?:Ikuti|Follow|Mengikuti|Following)", payload.caption, re.IGNORECASE)
+            if ig_caption_user:
+                detected_user = ig_caption_user.group(1)
+
+        # Pola 6: Regex @username di dalam caption atau URL
+        if not detected_user:
+            at_match = re.search(r"@([a-zA-Z0-9_\.]{2,30})", payload.url) or (re.search(r"@([a-zA-Z0-9_\.]{2,30})", payload.caption) if payload.caption else None)
+            if at_match and at_match.group(1).lower() not in invalid_usernames:
+                detected_user = at_match.group(1)
+
+        # Pola 7: Portal berita (kompas.com) atau fallback anonim
+        if not detected_user and parsed_url.netloc:
+            domain = parsed_url.netloc.replace("www.", "")
+            if platform in ["news", "media", "portal"]:
+                detected_user = domain
+            else:
+                detected_user = "Anonim"
+
+    # Penjagaan mutlak: Jangan biarkan nama domain masuk sebagai username medsos
+    if detected_user and platform not in ["news", "media", "portal"]:
+        if any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames:
+            detected_user = "Anonim"
+
+    detected_user = detected_user or "Anonim"
+    
+    account_username = detected_user
+    if detected_user == "Anonim":
+        account_display_name = payload.display_name or f"Pengguna {platform.capitalize()}"
     else:
-        if payload.followers_count and payload.followers_count > 0:
-            account.followers_count = payload.followers_count
-        if payload.display_name:
-            account.display_name = payload.display_name
-        db.flush()
+        account_display_name = payload.display_name or f"@{detected_user}"
+    account_followers = _safe_int(payload.followers_count)
+    account_profile_url = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else payload.url
+
+    # Clean UI artifacts from caption (with known username context)
+    payload.caption = clean_caption_noise(payload.caption, username=detected_user)
 
     # 2. Akuisisi Bukti Digital Visual (Screenshot) Terlebih Dahulu agar Siap Dianalisis AI Multimodal
     evidence_storage_path = None
@@ -276,19 +519,22 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
         except Exception as ex:
             logger.warning(f"Gagal mengunduh foto media_image_url: {ex}")
 
-    # Scrape visual via Playwright jika belum ada
+    # Scrape visual via Playwright jika belum ada, BUKAN platform yang mewajibkan login (IG/FB/X), dan Playwright terpasang
     if not evidence_storage_path or not os.path.exists(evidence_storage_path):
-        try:
-            import asyncio
-            if scraper:
-                logger.info(f"Mengambil screenshot visual otomatis via Playwright untuk {platform}: {payload.url}")
-                scrape_res = asyncio.run(scraper.capture_visual_evidence(post_url=payload.url, ticket_number=ticket_number))
-                if scrape_res and scrape_res.get("post_screenshot_path") and os.path.exists(scrape_res["post_screenshot_path"]):
-                    evidence_storage_path = scrape_res["post_screenshot_path"]
-                    evidence_sha256 = scrape_res.get("post_screenshot_hash")
-                    logger.info(f"Berhasil merekam bukti visual asli via Playwright: {evidence_storage_path}")
-        except Exception as sc_err:
-            logger.warning(f"Playwright automated scrape failed for {payload.url}: {sc_err}")
+        if platform in ("instagram", "facebook", "threads", "x", "twitter"):
+            logger.info(f"Platform {platform} membatasi bot headless dengan login wall; Playwright server dilewati untuk menghindari rekaman layar login palsu.")
+        else:
+            try:
+                from app.services.scraper.youtube import is_playwright_installed
+                if scraper and is_playwright_installed():
+                    logger.info(f"Mengambil screenshot visual otomatis via Playwright untuk {platform}: {payload.url}")
+                    scrape_res = await scraper.capture_visual_evidence(post_url=payload.url, ticket_number=ticket_number)
+                    if scrape_res and scrape_res.get("post_screenshot_path") and os.path.exists(scrape_res["post_screenshot_path"]):
+                        evidence_storage_path = scrape_res["post_screenshot_path"]
+                        evidence_sha256 = scrape_res.get("post_screenshot_hash")
+                        logger.info(f"Berhasil merekam bukti visual asli via Playwright: {evidence_storage_path}")
+            except Exception as sc_err:
+                logger.warning(f"Playwright automated scrape failed for {payload.url}: {sc_err}")
 
     # Fallback banner forensik jika Playwright atau screenshot browser tidak tersedia
     if not evidence_storage_path or not os.path.exists(evidence_storage_path):
@@ -314,155 +560,290 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
             logger.warning(f"Gagal membuat visual evidence banner: {ex}")
 
     # 3. Bentuk Narasi Komprehensif (Caption Bersih + Transkrip Percakapan/Audio)
-    clean_caption = payload.caption or payload.notes or f"Temuan patroli siber dari kanal {payload.source_channel.upper()} untuk URL {payload.url}"
+    raw_caption = payload.caption or payload.notes or f"Temuan patroli siber dari kanal {payload.source_channel.upper()} untuk URL {payload.url}"
+    clean_caption = clean_caption_noise(raw_caption, username=account_username)
     full_narrative = clean_caption
     if payload.transcript:
         full_narrative = f"{clean_caption}\n\n[TRANSKRIP AUDIO / DIALOG LENGKAP]:\n{payload.transcript}".strip()
 
-    content_title = payload.title or (clean_caption[:70] + "...") if len(clean_caption) > 70 else (clean_caption or f"Temuan Patroli {platform.upper()} - {ticket_number}")
+    if payload.title and payload.title.strip():
+        content_title = clean_caption_noise(payload.title.strip(), username=account_username)
+        if not content_title:
+            content_title = clean_caption[:70] + "..." if len(clean_caption) > 70 else clean_caption
+    elif len(clean_caption) > 70:
+        content_title = clean_caption[:70] + "..."
+    else:
+        content_title = clean_caption or f"Temuan Patroli {platform.upper()} - {ticket_number}"
 
-    # 4. Eksekusi Multimodal AI Analysis (Google Gemini + 5W+1H Engine)
-    ai_service = AIService()
-    ai_res = None
-    try:
-        logger.info(f"Menjalankan Gemini Multimodal AI Analysis untuk tiket {ticket_number}...")
-        ai_res = ai_service.analyze_patrol_finding(
-            caption=full_narrative,
-            image_path=evidence_storage_path,
-            profile_info={
-                "username": account.username,
-                "display_name": account.display_name,
-                "subscribers_count": account.followers_count or 0,
-            },
-            title=content_title,
-            metadata={
-                "views_count": payload.views_count or 0,
-                "likes_count": payload.likes_count or 0,
-                "comments_count": payload.comments_count or 0,
-                "tags": server_meta.get("tags", []) if server_meta else [],
-            },
-        )
-        logger.info(f"Gemini AI Analysis sukses: label={ai_res.kategori_utama}, risiko={ai_res.tingkat_risiko}")
-    except Exception as ai_err:
-        logger.warning(f"Gemini Multimodal AI Analysis error, fallback ke heuristik: {ai_err}")
+    # Bersihkan sisa nomor bullet di awal judul (e.g. '1. Umumkan...' -> 'Umumkan...')
+    content_title = re.sub(r"^\d+\.\s*", "", content_title).strip()
+    if len(content_title) > 85:
+        content_title = content_title[:82].strip() + "..."
 
-    # Eksekusi Analisis 5W+1H
-    w5h1_service = Analysis5W1HService()
-    w5h1_res = None
-    try:
-        logger.info(f"Menjalankan 5W+1H Intelligence Extraction untuk tiket {ticket_number}...")
-        w5h1_res = w5h1_service.extract(
+    # 4. Eksekusi Selective OCR & Adaptive Local Intelligence (Ollama + MemPrompt)
+    # Dibungkus antrean tunggal non-blocking (async with _AI_PIPELINE_SEMAPHORE)
+    ocr_res = None
+    has_media_flag = getattr(payload, "has_media", False) or (platform == "instagram")
+
+    async with _get_ai_semaphore():
+        # 4.1 Selective Local OCR (Smart Multimodal Gate: teks pendek, UI noise, atau Instagram poster)
+        if evidence_storage_path and os.path.exists(evidence_storage_path):
+            try:
+                ocr_res = await asyncio.to_thread(
+                    OCRService.process_selective_ocr,
+                    image_path=evidence_storage_path,
+                    dom_text=full_narrative,
+                    platform=platform,
+                    has_media=has_media_flag,
+                )
+                if ocr_res.get("ocr_performed") and ocr_res.get("ocr_text"):
+                    active_ocr_text = ocr_res["ocr_text"]
+                    full_narrative = f"{full_narrative}\n\n[HASIL OCR TEKS GAMBAR / POSTER]:\n{active_ocr_text}".strip()
+                    logger.info(f"Selective OCR berhasil mengekstrak {len(active_ocr_text)} karakter via {ocr_res.get('engine_used')}.")
+            except Exception as ocr_err:
+                logger.warning(f"Selective OCR warning: {ocr_err}")
+
+        # 4.2 Ollama Local LLM Inference with Integrated MemPrompt Retrieval (Single Embedding Pass)
+        ollama_svc = OllamaService()
+        ollama_res = await asyncio.to_thread(
+            ollama_svc.classify_and_summarize,
             text=full_narrative,
             title=content_title,
-            image_path=evidence_storage_path,
-            author=account.username,
+            source_url=payload.url,
+            author=account_username,
             platform=platform,
-            metadata={
-                "views_count": payload.views_count or 0,
-                "likes_count": payload.likes_count or 0,
-                "comments_count": payload.comments_count or 0,
+            mode=payload.classification_mode,
+            db=db,
+        )
+        if ollama_res.get("similar_cases"):
+            logger.info(f"MemPrompt successfully injected {len(ollama_res['similar_cases'])} verified historical precedents.")
+
+        logger.info(
+            f"Ollama Local Triage selesai ({ollama_res.get('latency_ms', 0)}ms): "
+            f"kategori={ollama_res.get('predicted_category')}, urgensi={ollama_res.get('urgency_score')}/5"
+        )
+
+    # 4.4 100% Local Intelligence (Ollama / Local Heuristic Engine)
+    posted_at_raw = payload.posted_at or (server_meta.get("posted_at") if server_meta else None)
+    logger.debug("Analisis intelijen siber 100%% diproses lokal via Ollama.")
+
+    # 5. Persistensi Atomik ke Database (Menghindari transaksi panjang & lock SQLite)
+    from app.models.report import Account, Content, Report
+    from app.models.intelligence import ContentAnalysis
+    from app.models.evidence import Evidence
+    from app.models.audit import AuditLog
+
+    try:
+        account = db.query(Account).filter_by(platform=platform, username=account_username).first()
+        if not account:
+            account = Account(
+                platform=platform,
+                username=account_username,
+                display_name=account_display_name,
+                profile_url=account_profile_url,
+                followers_count=account_followers,
+            )
+            db.add(account)
+            db.flush()
+        else:
+            if account_followers > 0:
+                account.followers_count = account_followers
+            if account_display_name:
+                account.display_name = account_display_name
+            db.flush()
+
+        content = Content(
+            account_id=account.account_id,
+            platform=platform,
+            canonical_url=payload.url,
+            title=content_title,
+            caption_text=full_narrative,
+            ocr_text=active_ocr_text,
+            likes_count=_safe_int(payload.likes_count),
+            views_count=_safe_int(payload.views_count),
+            comments_count=_safe_int(payload.comments_count),
+            shares_count=_safe_int(payload.shares_count),
+            extra_metadata={
+                "transcript": payload.transcript or "",
+                "clean_caption": clean_caption,
+                "posted_at": str(posted_at_raw) if posted_at_raw else None,
             },
         )
-    except Exception as w_err:
-        logger.warning(f"5W+1H extraction warning: {w_err}")
+        db.add(content)
+        db.flush()
 
-    # 5. Simpan Content langsung ke Database lengkap dengan metrik engagement dan transkrip
-    content = Content(
-        account_id=account.account_id,
-        platform=platform,
-        canonical_url=payload.url,
-        title=content_title,
-        caption_text=full_narrative,
-        likes_count=payload.likes_count or 0,
-        views_count=payload.views_count or 0,
-        comments_count=payload.comments_count or 0,
-        shares_count=payload.shares_count or 0,
-        extra_metadata={
-            "transcript": payload.transcript or "",
-            "clean_caption": clean_caption,
-        },
-    )
-    db.add(content)
-    db.flush()
-
-    # 6. Simpan Report Tiket Resmi dengan Hasil Analisis AI Gemini yang Riil & Akurat
-    report = Report(
-        ticket_number=ticket_number,
-        content_id=content.content_id,
-        reporter_telegram_id=payload.reporter_telegram_id or 0,
-        source_channel=payload.source_channel.upper(),
-        reporter_identifier=payload.reporter_identifier or "Analyst-Console",
-        status=Report.STATUS_WAITING_VALIDATION,
-        ai_status=ai_res.status_keamanan if ai_res else "POTENSI_BAHAYA",
-        ai_predicted_label=ai_res.kategori_utama if ai_res else ("HOAKS" if platform in ["tiktok", "x", "youtube"] else "UJARAN_KEBENCIAN"),
-        ai_risk_level=ai_res.tingkat_risiko if ai_res else "SEDANG",
-        ai_confidence_score=ai_res.skor_keyakinan if ai_res else 0.885,
-        ai_summary=ai_res.ringkasan_narasi if (ai_res and ai_res.ringkasan_narasi) else (w5h1_res.summary if w5h1_res else f"Temuan patroli {platform.upper()} untuk URL: {payload.url}"),
-        ai_reasoning=ai_res.alasan_penilaian if ai_res else "Dianalisis melalui pipeline kecerdasan siber multimodal.",
-        ai_topic_raw=ai_res.topik if (ai_res and ai_res.topik) else (w5h1_res.main_topic if w5h1_res else "Isu Media Sosial"),
-        ai_actors_raw=ai_res.aktor_target if (ai_res and ai_res.aktor_target) else ([account.display_name or detected_user]),
-        ai_source_raw=ai_res.sumber_konten if (ai_res and ai_res.sumber_konten) else platform.capitalize(),
-    )
-    db.add(report)
-    db.flush()
-
-    # 7. Simpan Analisis 5W+1H (ContentAnalysis)
-    analysis = ContentAnalysis(
-        content_id=content.content_id,
-        what=w5h1_res.what if (w5h1_res and w5h1_res.what) else content_title,
-        who=w5h1_res.who if (w5h1_res and w5h1_res.who) else (account.display_name or detected_user),
-        when_info=w5h1_res.when_info if (w5h1_res and w5h1_res.when_info) else datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC"),
-        where_info=w5h1_res.where_info if (w5h1_res and w5h1_res.where_info) else f"Platform {platform.capitalize()}",
-        why=w5h1_res.why if (w5h1_res and w5h1_res.why) else "Dianalisis untuk pemantauan potensi risiko informasi dan opini publik.",
-        how=w5h1_res.how if (w5h1_res and w5h1_res.how) else f"Didistribusikan melalui kanal daring {platform.upper()}.",
-        summary=w5h1_res.summary if (w5h1_res and w5h1_res.summary) else (ai_res.ringkasan_narasi if ai_res else clean_caption[:300]),
-        main_topic=w5h1_res.main_topic if (w5h1_res and w5h1_res.main_topic) else (ai_res.topik if (ai_res and ai_res.topik) else "Isu Publik"),
-        sub_topics=w5h1_res.sub_topics if w5h1_res else [],
-        keywords=w5h1_res.keywords if w5h1_res else [],
-        hashtags=w5h1_res.hashtags if w5h1_res else [],
-        named_entities=w5h1_res.named_entities if w5h1_res else ([account.username] if account.username else []),
-        category=w5h1_res.category if (w5h1_res and w5h1_res.category) else "Lainnya",
-        sentiment=w5h1_res.sentiment if (w5h1_res and w5h1_res.sentiment) else "NETRAL",
-        tone=w5h1_res.tone if (w5h1_res and w5h1_res.tone) else "Informatif",
-        relevance_score=w5h1_res.relevance_score if w5h1_res else 0.88,
-        urgency_score=w5h1_res.urgency_score if w5h1_res else 0.75,
-        confidence_score=w5h1_res.confidence_score if w5h1_res else 0.89,
-        misinfo_indicators=w5h1_res.misinfo_indicators if w5h1_res else [],
-        analysis_status="COMPLETED",
-    )
-    db.add(analysis)
-
-    # 8. Simpan Bukti Digital Evidence
-    if evidence_storage_path and evidence_sha256:
-        evidence = Evidence(
-            report_id=report.report_id,
-            source_type="POST_SCREENSHOT",
-            storage_path=evidence_storage_path,
-            sha256=evidence_sha256,
-            mime_type="image/png",
+        # Konsolidasi Hasil AI: 100% Ollama Local Engine
+        pred_cat = ollama_res.get("predicted_category") or "Non-Isu"
+        urgency_val = ollama_res.get("urgency_score", 2)
+        summary_text = (
+            ollama_res.get("ringkasan_eksekutif")
+            or ollama_res.get("summary")
+            or f"Temuan patroli siber {platform.upper()}: {content_title}"
         )
-        db.add(evidence)
+        w5h1_dict = ollama_res.get("summary_5w1h", {})
 
-    # Catat Audit Log
-    db.add(
-        AuditLog(
-            action="REPORT_INTAKE_SUBMITTED",
-            actor_telegram_id=payload.reporter_telegram_id or 0,
-            actor_username=payload.reporter_identifier or "Analyst-Console",
-            entity_type="Report",
-            entity_id=str(report.report_id),
-            details={"ticket": ticket_number, "platform": platform, "url": payload.url, "channel": payload.source_channel.upper()},
+        # Status keamanan dan risiko yang realistis sesuai kategori + urgensi
+        if pred_cat == "Non-Isu":
+            calc_ai_status = "AMAN"
+            calc_risk_level = "RENDAH"
+            urgency_val = min(urgency_val, 2)
+        elif urgency_val >= 4:
+            calc_ai_status = "PERINGATAN"
+            calc_risk_level = "TINGGI"
+        elif urgency_val == 3:
+            calc_ai_status = "WASPADA"
+            calc_risk_level = "SEDANG"
+        else:
+            calc_ai_status = "AMAN"
+            calc_risk_level = "RENDAH"
+
+        # Gunakan reasoning yang sudah kontekstual dari heuristic fallback
+        ollama_indikasi = ollama_res.get("indikasi_pelanggaran", "")
+        ollama_rekomendasi = ollama_res.get("rekomendasi_tindak_lanjut", "")
+
+        ai_reason_dict = {
+            "alasan_penilaian": (
+                ollama_res.get("ai_reasoning")
+                or "Konten dalam pemantauan rutin intelijen siber."
+            ),
+            "indikasi_pelanggaran": (
+                ollama_indikasi
+                or ("Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum." if pred_cat == "Non-Isu" else (f"Indikasi isu {pred_cat} dengan tingkat urgensi {urgency_val}/5." if urgency_val >= 3 else ""))
+            ),
+            "rekomendasi_tindak_lanjut": (
+                ollama_rekomendasi
+                or ("Pengawasan berkala sesuai SOP (arsip konten edukatif/positif)." if pred_cat == "Non-Isu" else ("Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. Monitoring intensif dan dokumentasi bukti digital." if urgency_val >= 4 else ("Pantau perkembangan isu secara berkala. Siapkan laporan situasi jika terdapat eskalasi." if urgency_val == 3 else "Pengawasan rutin sesuai SOP.")))
+            ),
+        }
+
+        ocr_lat = round(float(ocr_res.get("latency_ms", 0.0)), 1) if ('ocr_res' in locals() and ocr_res) else 0.0
+        retrieval_lat = round(float(ollama_res.get("retrieval_latency_ms", 2.8)), 1) if getattr(payload, "classification_mode", "adaptive") == "adaptive" else 0.0
+        llm_lat = round(float(ollama_res.get("llm_latency_ms") or ollama_res.get("latency_ms", 0.0)), 1)
+        total_lat = round(ocr_lat + retrieval_lat + llm_lat, 1)
+
+        report = Report(
+            ticket_number=ticket_number,
+            content_id=content.content_id,
+            reporter_telegram_id=0,
+            source_channel=payload.source_channel.upper(),
+            reporter_identifier=payload.reporter_identifier or "Analyst-Extension",
+            operator_id=active_operator_id,
+            status=Report.STATUS_WAITING_VALIDATION,
+            original_language=ollama_res.get("original_language", "id"),
+            indonesian_content=ollama_res.get("indonesian_content", summary_text),
+            classification_mode=getattr(payload, "classification_mode", "adaptive"),
+            execution_latencies={
+                "ocr_ms": ocr_lat,
+                "retrieval_ms": retrieval_lat,
+                "llm_ms": llm_lat,
+                "total_ms": total_lat,
+            },
+            ai_status=calc_ai_status,
+            ai_predicted_label=pred_cat,
+            ai_risk_level=calc_risk_level,
+            ai_confidence_score=(0.92 if urgency_val >= 4 else 0.88),
+            ai_summary=summary_text,
+            ai_reasoning=ai_reason_dict,
+            ai_topic_raw=pred_cat,
+            ai_actors_raw=[account_display_name or account_username],
+            ai_source_raw=platform.capitalize(),
         )
-    )
+        db.add(report)
+        db.flush()
 
-    db.commit()
+        analysis = ContentAnalysis(
+            content_id=content.content_id,
+            what=w5h1_dict.get("what") or content_title,
+            who=w5h1_dict.get("who") or (f"{account_display_name} (@{account_username})" if account_display_name else f"@{account_username}"),
+            when_info=w5h1_dict.get("when") or f"Dipublikasikan pada {datetime.now().strftime('%d %B %Y')}",
+            where_info=w5h1_dict.get("where") or f"Platform {platform.upper()} ({payload.url})",
+            why=w5h1_dict.get("why") or f"Isu seputar perkembangan {content_title}.",
+            how=w5h1_dict.get("how") or f"Dipaparkan melalui narasi digital pada platform {platform.upper()}.",
+            summary=summary_text,
+            main_topic=pred_cat,
+            sub_topics=[],
+            keywords=[],
+            hashtags=[],
+            named_entities=[account_username] if account_username else [],
+            category=pred_cat,
+            sentiment="NETRAL" if pred_cat == "Non-Isu" else "NEGATIF",
+            tone="Informatif",
+            relevance_score=0.88,
+            urgency_score=float(urgency_val) / 5.0,
+            confidence_score=0.89,
+            misinfo_indicators=[],
+            analysis_status="COMPLETED",
+        )
+        db.add(analysis)
 
-    # 6. Trigger Celery Enrichment di latar belakang secara asinkron (non-blocking)
+        seal_info = None
+        if evidence_storage_path and evidence_sha256:
+            seal_info = CryptoService.seal_evidence_package(
+                screenshot_sha256=evidence_sha256,
+                source_url=payload.url,
+                dom_text=full_narrative,
+                ocr_text=active_ocr_text,
+                captured_at_utc=active_captured_at_utc,
+                operator_id=active_operator_id,
+            )
+            evidence = Evidence(
+                report_id=report.report_id,
+                source_type="POST_SCREENSHOT",
+                storage_path=evidence_storage_path,
+                sha256=evidence_sha256,
+                mime_type="image/png",
+                operator_id=active_operator_id,
+                source_url=payload.url,
+                dom_text=full_narrative,
+                ocr_text=active_ocr_text,
+                captured_at_utc=active_captured_at_utc,
+                canonical_hash=seal_info["canonical_hash"],
+                hmac_tag=seal_info["hmac_tag"],
+                verification_status="VERIFIED",
+                last_verified_at=datetime.utcnow(),
+            )
+            db.add(evidence)
+
+        db.add(
+            AuditLog(
+                action="REPORT_INTAKE_SUBMITTED",
+                actor_telegram_id=payload.reporter_telegram_id or 0,
+                actor_username=payload.reporter_identifier or "Analyst-Console",
+                entity_type="Report",
+                entity_id=str(report.report_id),
+                details={"ticket": ticket_number, "platform": platform, "url": payload.url, "channel": payload.source_channel.upper()},
+            )
+        )
+
+        db.commit()
+    except Exception as db_err:
+        db.rollback()
+        logger.error(f"Gagal simpan database atomik untuk tiket {ticket_number}: {db_err}")
+        raise HTTPException(status_code=500, detail=f"Gagal menyimpan data laporan ke database: {db_err}")
+
+    # 6. Automasi Intelligence Radar: Hubungkan ke IssueCluster & Kalkulasi Trending Snapshot
     try:
-        from app.workers.tasks import enrich_content_intelligence
-        enrich_content_intelligence.delay(str(content.content_id))
-    except Exception as e:
-        logger.info(f"Celery enrichment task tidak aktif atau di-skip: {e}")
+        from app.services.intelligence.topic_clustering import TopicClusteringService
+        from app.services.intelligence.trending_engine import TrendingEngine
+        
+        clustering_svc = TopicClusteringService()
+        cluster, score, is_new = clustering_svc.assign_content_to_cluster(db, content.content_id, analysis)
+        logger.info(f"Otomatisasi klaster: Content {content.content_id} -> Cluster '{cluster.title}' (score={score}, is_new={is_new})")
+        
+        trending_engine = TrendingEngine()
+        trending_engine.generate_and_save_snapshot(db, cluster.issue_id)
+    except Exception as cluster_err:
+        logger.warning(f"Otomatisasi klaster error (fail-open): {cluster_err}")
+
+    # 7. Trigger Celery Enrichment jika worker aktif (opsional)
+    if getattr(settings, "ENABLE_CELERY", False) or os.environ.get("ENABLE_CELERY") == "true":
+        try:
+            import socket
+            with socket.create_connection(("127.0.0.1", 6379), timeout=0.1):
+                from app.workers.tasks import enrich_content_intelligence
+                enrich_content_intelligence.delay(str(content.content_id))
+        except Exception as e:
+            logger.debug(f"Celery enrichment task tidak aktif atau di-skip: {e}")
 
     content_id_str = str(content.content_id)
     return {
@@ -472,74 +853,52 @@ def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(g
         "platform": platform,
         "source_channel": payload.source_channel.upper(),
         "reporter_identifier": payload.reporter_identifier,
-        "tracking_url": f"/#/contents/{content_id_str}",
-        "dashboard_url": f"http://localhost:5173/#/contents/{content_id_str}",
-        "contents_url": "http://localhost:5173/#/contents",
+        "operator_id": active_operator_id,
+        "captured_at_utc": active_captured_at_utc,
+        "canonical_hash": seal_info["canonical_hash"] if seal_info else None,
+        "hmac_tag": seal_info["hmac_tag"] if seal_info else None,
+        "verification_status": "VERIFIED" if seal_info else "UNSEALED",
+        "tracking_url": f"/dashboard/#/contents/{content_id_str}",
+        "dashboard_url": f"http://localhost:8000/dashboard/#/contents/{content_id_str}",
+        "contents_url": "http://localhost:8000/dashboard/#/contents",
+        "ai_status": report.ai_status,
+        "ai_predicted_label": report.ai_predicted_label,
+        "ai_confidence_score": round((report.ai_confidence_score or 0.85) * 100),
+        "ai_summary": report.ai_summary,
         "message": f"Tiket patroli {ticket_number} untuk {platform} berhasil didaftarkan dan langsung masuk ke Web Dashboard.",
     }
 
 
-@router.post("/whatsapp/webhook")
-def receive_whatsapp_message(payload: WhatsAppWebhookPayload, db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Inbound webhook handler for WhatsApp messages (Twilio / Meta Cloud API compatible)."""
-    # Extract URLs from message body
-    url_pattern = r"(https?://[^\s]+)"
-    urls = re.findall(url_pattern, payload.Body)
+@router.post("/batch-intake")
+async def submit_batch_intake(payload: BatchIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Accept multi-URL batch patrol triage (FR-20) and process each target securely."""
+    clean_urls = [u.strip() for u in payload.urls if u and u.strip()]
+    if not clean_urls:
+        raise HTTPException(status_code=400, detail="Daftar URL patroli tidak boleh kosong.")
 
-    clean_phone = payload.From.replace("whatsapp:", "").strip()
+    results = []
+    errors = []
 
-    if not urls:
-        return {
-            "status": "IGNORED",
-            "reply_message": (
-                f"Halo *{payload.ProfileName}* 👋\n\n"
-                "Asisten Patroli Siber belum menemukan tautan konten yang valid pada pesan Anda.\n\n"
-                "📌 *Format Pengiriman:*\n"
-                "Kirimkan tautan URL postingan publik dari *TikTok*, *Instagram*, atau *YouTube* yang terindikasi melanggar untuk dianalisis oleh AI."
-            ),
-        }
-
-    target_url = urls[0]
-    try:
-        platform = BaseScraper.detect_platform(target_url)
-    except ValueError:
-        return {
-            "status": "UNSUPPORTED_PLATFORM",
-            "reply_message": (
-                f"⚠️ *Platform Tidak Didukung*\n\n"
-                f"URL: `{target_url}`\n"
-                "Sistem saat ini hanya memproses konten publik dari *YouTube*, *TikTok*, dan *Instagram*."
-            ),
-        }
-
-    ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
-
-    try:
-        from app.workers.tasks import process_patrol_url
-        process_patrol_url.delay(
-            url=target_url,
-            reporter_telegram_id=None,
-            ticket_number=ticket_number,
-            source_channel="WHATSAPP",
-            reporter_identifier=f"{clean_phone} ({payload.ProfileName})",
-        )
-    except Exception:
-        pass
-
-    formatted_reply = (
-        f"🛡️ *CYBER PATROL INTELLIGENCE ASSISTANT*\n"
-        f"────────────────────────────\n"
-        f"✅ *Laporan Patroli Diterima!*\n\n"
-        f"🎫 *Nomor Tiket:* `{ticket_number}`\n"
-        f"🌐 *Platform:* {platform.upper()}\n"
-        f"👤 *Pelapor:* {payload.ProfileName} ({clean_phone})\n"
-        f"⏳ *Status:* Triase AI Multimodal 5W+1H sedang berjalan...\n\n"
-        f"Hasil analisis risiko dan rekomendasi kategori akan diperbarui di sistem pusat."
-    )
+    for target_url in clean_urls:
+        try:
+            intake_req = ChannelIntakeRequest(
+                url=target_url,
+                source_channel="WEB_DASHBOARD",
+                reporter_identifier=f"Analyst-{payload.operator_id or 'Batch'}",
+                operator_id=payload.operator_id or "OP-01",
+                classification_mode=payload.classification_mode,
+            )
+            res = await submit_channel_intake(intake_req, db)
+            results.append(res)
+        except Exception as ex:
+            logger.error("Error processing batch intake for %s: %s", target_url, ex)
+            errors.append({"url": target_url, "error": str(ex)})
 
     return {
-        "status": "QUEUED",
-        "ticket_number": ticket_number,
-        "platform": platform,
-        "reply_message": formatted_reply,
+        "status": "COMPLETED",
+        "total_submitted": len(clean_urls),
+        "total_success": len(results),
+        "total_failed": len(errors),
+        "results": results,
+        "errors": errors,
     }

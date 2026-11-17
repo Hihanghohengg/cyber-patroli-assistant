@@ -4,12 +4,15 @@ Lists, inspects, and analyzes detected trending issues, their timelines,
 keyword clouds, associated social contents, and accounts.
 """
 
+import logging
 from typing import List, Optional
 from uuid import UUID
 from collections import Counter
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.intelligence import IssueCluster, IssueContent, TopicSnapshot, ContentAnalysis
@@ -56,43 +59,63 @@ def list_trending_topics(
     # Sort by last_seen_at desc
     issues = query.order_by(desc(IssueCluster.last_seen_at)).limit(limit).all()
 
+    engine = TrendingEngine()
     items: List[TrendingTopicItem] = []
     for issue in issues:
-        last_snap = (
-            db.query(TopicSnapshot)
-            .filter(TopicSnapshot.issue_id == issue.issue_id)
-            .order_by(desc(TopicSnapshot.snapshot_time))
-            .first()
-        )
-        content_cnt = (
-            db.query(func.count(IssueContent.id))
-            .filter(IssueContent.issue_id == issue.issue_id)
-            .scalar() or 0
-        )
+        try:
+            m = engine.calculate_issue_metrics(db, issue.issue_id, window_hours=24)
+            dominant_sent = "NETRAL"
+            if m.get("sentiment_distribution"):
+                dominant_sent = max(m["sentiment_distribution"], key=m["sentiment_distribution"].get)
 
-        dominant_sent = "NETRAL"
-        if last_snap and last_snap.sentiment_distribution:
-            dominant_sent = max(last_snap.sentiment_distribution, key=last_snap.sentiment_distribution.get)
-
-        items.append(
-            TrendingTopicItem(
-                issue_id=issue.issue_id,
-                title=issue.title,
-                canonical_name=issue.canonical_name,
-                category=issue.category or "Lainnya",
-                status=issue.status,
-                trending_score=last_snap.trending_score if last_snap else 50.0,
-                content_count=last_snap.content_count if last_snap else content_cnt,
-                platform_count=last_snap.platform_count if last_snap else 1,
-                growth_rate=last_snap.growth_rate if last_snap else 0.0,
-                velocity=last_snap.velocity if last_snap else 0.0,
-                first_seen_at=issue.first_seen_at,
-                last_seen_at=issue.last_seen_at,
-                top_keywords=issue.keywords[:6] if issue.keywords else [],
-                top_hashtags=issue.hashtags[:6] if issue.hashtags else [],
-                sentiment_dominant=dominant_sent,
+            items.append(
+                TrendingTopicItem(
+                    issue_id=issue.issue_id,
+                    title=issue.title,
+                    canonical_name=issue.canonical_name,
+                    category=issue.category or "Lainnya",
+                    status=issue.status,
+                    trending_score=m["trending_score"],
+                    content_count=m["total_count"],
+                    platform_count=m["platform_count"],
+                    growth_rate=m["growth_rate"],
+                    velocity=m["velocity"],
+                    first_seen_at=issue.first_seen_at,
+                    last_seen_at=issue.last_seen_at,
+                    top_keywords=issue.keywords[:6] if issue.keywords else [],
+                    top_hashtags=issue.hashtags[:6] if issue.hashtags else [],
+                    sentiment_dominant=dominant_sent,
+                    escalation_label=m["escalation_label"],
+                    avg_urgency=m["avg_urgency"],
+                    recent_count_24h=m["recent_count_24h"],
+                    total_interactions=m["total_interactions"],
+                )
             )
-        )
+        except Exception as ex:
+            logger.warning("Gagal menghitung HotScore isu %s: %s", issue.issue_id, ex)
+            items.append(
+                TrendingTopicItem(
+                    issue_id=issue.issue_id,
+                    title=issue.title,
+                    canonical_name=issue.canonical_name,
+                    category=issue.category or "Lainnya",
+                    status=issue.status,
+                    trending_score=50.0,
+                    content_count=1,
+                    platform_count=1,
+                    growth_rate=0.0,
+                    velocity=0.0,
+                    first_seen_at=issue.first_seen_at,
+                    last_seen_at=issue.last_seen_at,
+                    top_keywords=issue.keywords[:6] if issue.keywords else [],
+                    top_hashtags=issue.hashtags[:6] if issue.hashtags else [],
+                    sentiment_dominant="NETRAL",
+                    escalation_label="PANTAU",
+                    avg_urgency=2.5,
+                    recent_count_24h=0,
+                    total_interactions=0,
+                )
+            )
 
     # Sort by trending score descending
     items.sort(key=lambda x: x.trending_score, reverse=True)
@@ -258,13 +281,16 @@ def get_contents_for_topic(
         )
         author = db.query(Account).filter(Account.account_id == c.account_id).first() if c.account_id else None
 
+        caption_str = getattr(c, "caption_text", "") or ""
+        caption_snip = (caption_str[:150] + "...") if len(caption_str) > 150 else caption_str
+
         items.append(
             ContentListItem(
                 content_id=c.content_id,
                 platform=c.platform,
-                url=c.url,
-                title=c.title,
-                caption_snippet=(c.caption[:150] + "...") if c.caption and len(c.caption) > 150 else c.caption,
+                url=c.canonical_url or "",
+                title=c.title or "Tanpa Judul",
+                caption_snippet=caption_snip,
                 author_username=author.username if author else None,
                 status="VALIDATED" if getattr(c, "status", None) == "VALIDATED" else "ACTIVE",
                 category=analysis.category if analysis else "Lainnya",

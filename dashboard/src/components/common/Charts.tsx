@@ -14,10 +14,10 @@ export const TrendTimelineChart: React.FC<{
   height?: number;
   metric?: 'trending_score' | 'content_count' | 'total';
   color?: string;
-}> = ({ data, height = 180, metric = 'trending_score', color = '#00f0ff' }) => {
+}> = ({ data, height = 180, metric = 'trending_score', color = '#3b82f6' }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-44 text-slate-500 text-xs font-mono">
+      <div className="flex items-center justify-center h-40 text-slate-400 dark:text-slate-500 text-xs font-mono">
         Belum ada data historis snapshot
       </div>
     );
@@ -48,7 +48,7 @@ export const TrendTimelineChart: React.FC<{
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
         <defs>
           <linearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
             <stop offset="100%" stopColor={color} stopOpacity="0.0" />
           </linearGradient>
         </defs>
@@ -64,10 +64,10 @@ export const TrendTimelineChart: React.FC<{
                 y1={y}
                 x2={width - paddingX}
                 y2={y}
-                stroke="#1e293b"
+                className="stroke-slate-200 dark:stroke-slate-800"
                 strokeDasharray="4 4"
               />
-              <text x={paddingX - 6} y={y + 3} textAnchor="end" fill="#64748b" fontSize="10">
+              <text x={paddingX - 6} y={y + 3} textAnchor="end" fontSize="10" className="fill-slate-400 dark:fill-slate-500 font-mono">
                 {valLabel}
               </text>
             </g>
@@ -84,7 +84,7 @@ export const TrendTimelineChart: React.FC<{
           const y = height - paddingY - ((val - minVal) / range) * plotHeight;
           return (
             <g key={idx} className="group cursor-pointer">
-              <circle cx={x} cy={y} r="4" fill="#070b14" stroke={color} strokeWidth="2" />
+              <circle cx={x} cy={y} r="3.5" className="fill-white dark:fill-[#090d15]" stroke={color} strokeWidth="2" />
               <title>{`Nilai: ${val}`}</title>
             </g>
           );
@@ -106,10 +106,10 @@ export const DualLineChart: React.FC<{
   data: DualLinePoint[];
   height?: number;
   onPointClick?: (point: DualLinePoint) => void;
-}> = ({ data, height = 210, onPointClick }) => {
+}> = ({ data, height = 200, onPointClick }) => {
   if (!data || data.length === 0) {
     return (
-      <div className="flex items-center justify-center h-48 text-slate-500 text-xs font-mono">
+      <div className="flex items-center justify-center h-44 text-slate-400 dark:text-slate-500 text-xs font-mono">
         Belum ada data deret waktu laporan
       </div>
     );
@@ -123,7 +123,7 @@ export const DualLineChart: React.FC<{
 
   const width = 650;
   const paddingX = 35;
-  const paddingY = 30;
+  const paddingY = 25;
   const plotWidth = width - paddingX * 2;
   const plotHeight = height - paddingY * 2;
 
@@ -143,14 +143,14 @@ export const DualLineChart: React.FC<{
   return (
     <div className="w-full space-y-2">
       {/* Legend */}
-      <div className="flex items-center justify-end gap-5 text-xs">
+      <div className="flex items-center justify-end gap-4 text-xs">
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-cyan-400 inline-block rounded" />
-          <span className="text-slate-300 font-medium">Laporan Masuk</span>
+          <span className="w-3 h-0.5 bg-blue-500 inline-block rounded" />
+          <span className="text-slate-600 dark:text-slate-300 font-medium">Laporan Masuk</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" />
-          <span className="text-slate-300 font-medium">Temuan Tervalidasi</span>
+          <span className="w-3 h-0.5 bg-emerald-500 inline-block rounded" />
+          <span className="text-slate-600 dark:text-slate-300 font-medium">Temuan Tervalidasi</span>
         </div>
       </div>
 
@@ -167,10 +167,10 @@ export const DualLineChart: React.FC<{
                   y1={y}
                   x2={width - paddingX}
                   y2={y}
-                  stroke="#1e293b"
+                  className="stroke-slate-200 dark:stroke-slate-800"
                   strokeDasharray="4 4"
                 />
-                <text x={paddingX - 8} y={y + 3} textAnchor="end" fill="#64748b" fontSize="10" className="font-mono">
+                <text x={paddingX - 8} y={y + 3} textAnchor="end" fontSize="10" className="fill-slate-400 dark:fill-slate-500 font-mono">
                   {valLabel}
                 </text>
               </g>
@@ -178,8 +178,8 @@ export const DualLineChart: React.FC<{
           })}
 
           {/* Lines */}
-          <path d={pathMasuk} fill="none" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d={pathVal} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2" />
+          <path d={pathMasuk} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={pathVal} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 3" />
 
           {/* Dots */}
           {ptsMasuk.map((p, idx) => {
@@ -188,13 +188,13 @@ export const DualLineChart: React.FC<{
             return (
               <g
                 key={`m-${idx}`}
-                className="group cursor-pointer"
+                className="cursor-pointer group"
                 onClick={() => onPointClick?.(raw)}
               >
-                <circle cx={p.x} cy={p.y} r="4" fill="#070b14" stroke="#06b6d4" strokeWidth="2" className="transition-all hover:r-6" />
-                <circle cx={ptsVal[idx].x} cy={ptsVal[idx].y} r="4" fill="#070b14" stroke="#10b981" strokeWidth="2" className="transition-all hover:r-6" />
+                <circle cx={p.x} cy={p.y} r="3.5" className="fill-white dark:fill-[#090d15]" stroke="#3b82f6" strokeWidth="2" />
+                <circle cx={ptsVal[idx].x} cy={ptsVal[idx].y} r="3.5" className="fill-white dark:fill-[#090d15]" stroke="#10b981" strokeWidth="2" />
                 {/* X Axis Label */}
-                <text x={p.x} y={height - 8} textAnchor="middle" fill="#64748b" fontSize="9" className="font-mono">
+                <text x={p.x} y={height - 6} textAnchor="middle" fontSize="9" className="fill-slate-400 dark:fill-slate-500 font-mono">
                   {dateStr}
                 </text>
                 <title>{`${dateStr} — Masuk: ${p.val}, Tervalidasi: ${ptsVal[idx].val}`}</title>
@@ -207,7 +207,7 @@ export const DualLineChart: React.FC<{
   );
 };
 
-// ── 3. Vertical Bar Chart (Visual 2 & Visual 8) ──
+// ── 3. Vertical Bar Chart ──
 export interface VerticalBarItem {
   label: string;
   count: number;
@@ -222,7 +222,7 @@ export const VerticalBarChart: React.FC<{
 }> = ({ items, height = 180, onBarClick }) => {
   if (!items || items.length === 0) {
     return (
-      <div className="flex items-center justify-center h-40 text-slate-500 text-xs font-mono">
+      <div className="flex items-center justify-center h-36 text-slate-400 dark:text-slate-500 text-xs font-mono">
         Tidak ada data grafik
       </div>
     );
@@ -230,12 +230,12 @@ export const VerticalBarChart: React.FC<{
 
   const maxVal = Math.max(...items.map((i) => i.count), 1);
   const width = 400;
-  const paddingX = 40;
-  const paddingY = 30;
+  const paddingX = 35;
+  const paddingY = 28;
   const plotWidth = width - paddingX * 2;
   const plotHeight = height - paddingY * 2;
 
-  const barWidth = Math.min(48, (plotWidth / items.length) * 0.55);
+  const barWidth = Math.min(44, (plotWidth / items.length) * 0.55);
 
   return (
     <div className="w-full overflow-hidden">
@@ -246,7 +246,7 @@ export const VerticalBarChart: React.FC<{
           y1={height - paddingY}
           x2={width - paddingX + 10}
           y2={height - paddingY}
-          stroke="#1e293b"
+          className="stroke-slate-200 dark:stroke-slate-800"
           strokeWidth="1.5"
         />
 
@@ -254,7 +254,7 @@ export const VerticalBarChart: React.FC<{
           const colX = paddingX + (idx + 0.5) * (plotWidth / items.length);
           const barH = (item.count / maxVal) * plotHeight;
           const barY = height - paddingY - barH;
-          const barColor = item.color || '#00f0ff';
+          const barColor = item.color || '#3b82f6';
 
           return (
             <g
@@ -270,17 +270,16 @@ export const VerticalBarChart: React.FC<{
                 rx="4"
                 fill={barColor}
                 opacity="0.85"
-                className="transition-all duration-300 group-hover:opacity-100 group-hover:brightness-125"
+                className="transition-all duration-200 group-hover:opacity-100"
               />
               {/* Value on top */}
               <text
                 x={colX}
-                y={barY - 6}
+                y={barY - 5}
                 textAnchor="middle"
-                fill="#e2e8f0"
                 fontSize="11"
                 fontWeight="bold"
-                className="font-mono"
+                className="fill-slate-700 dark:fill-slate-200 font-mono"
               >
                 {item.count}
               </text>
@@ -289,13 +288,13 @@ export const VerticalBarChart: React.FC<{
                 x={colX}
                 y={height - paddingY + 16}
                 textAnchor="middle"
-                fill="#94a3b8"
                 fontSize="10"
                 fontWeight="500"
+                className="fill-slate-500 dark:fill-slate-400"
               >
                 {item.label}
               </text>
-              <title>{`${item.label}: ${item.count} laporan (Klik untuk drill-down)`}</title>
+              <title>{`${item.label}: ${item.count} laporan`}</title>
             </g>
           );
         })}
@@ -304,7 +303,7 @@ export const VerticalBarChart: React.FC<{
   );
 };
 
-// ── 4. Donut Chart (SVG) (Visual 4) ──
+// ── 4. Donut Chart ──
 export interface DonutItem {
   label: string;
   count: number;
@@ -319,16 +318,16 @@ export const DonutChart: React.FC<{
   onItemClick?: (item: DonutItem) => void;
 }> = ({ items, centerLabel = 'Total', centerValue, onItemClick }) => {
   const total = items.reduce((acc, curr) => acc + curr.count, 0) || 1;
-  const radius = 60;
-  const strokeWidth = 18;
+  const radius = 55;
+  const strokeWidth = 16;
   const circumference = 2 * Math.PI * radius;
 
   let accumulatedPercent = 0;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-      <div className="relative w-36 h-36 flex items-center justify-center">
-        <svg viewBox="0 0 160 160" className="w-full h-full -rotate-90">
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
+      <div className="relative w-32 h-32 flex items-center justify-center">
+        <svg viewBox="0 0 150 150" className="w-full h-full -rotate-90">
           {items.map((item, idx) => {
             const percent = item.count / total;
             const strokeDasharray = `${percent * circumference} ${circumference}`;
@@ -338,8 +337,8 @@ export const DonutChart: React.FC<{
             return (
               <circle
                 key={idx}
-                cx="80"
-                cy="80"
+                cx="75"
+                cy="75"
                 r={radius}
                 fill="transparent"
                 stroke={item.color}
@@ -347,7 +346,7 @@ export const DonutChart: React.FC<{
                 strokeDasharray={strokeDasharray}
                 strokeDashoffset={strokeDashoffset}
                 strokeLinecap="round"
-                className="transition-all duration-500 hover:opacity-80 cursor-pointer"
+                className="transition-all duration-300 hover:opacity-80 cursor-pointer"
                 onClick={() => onItemClick?.(item)}
               >
                 <title>{`${item.label}: ${item.count} (${Math.round(percent * 100)}%)`}</title>
@@ -356,28 +355,28 @@ export const DonutChart: React.FC<{
           })}
         </svg>
         <div className="absolute flex flex-col items-center justify-center text-center pointer-events-none">
-          <span className="text-xl font-bold font-mono text-white">
+          <span className="text-lg font-bold font-mono text-slate-900 dark:text-white">
             {centerValue !== undefined ? centerValue : total}
           </span>
-          <span className="text-[10px] text-slate-400 uppercase tracking-wider">{centerLabel}</span>
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider">{centerLabel}</span>
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 min-w-[120px]">
+      <div className="flex flex-col gap-1.5 min-w-[120px]">
         {items.map((item, idx) => {
           const pct = Math.round((item.count / total) * 100);
           return (
             <div
               key={idx}
-              className="flex items-center justify-between text-xs gap-3 cursor-pointer hover:bg-slate-800/60 p-1 rounded transition-colors"
+              className="flex items-center justify-between text-xs gap-3 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 px-2 py-1 rounded transition-colors"
               onClick={() => onItemClick?.(item)}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-slate-300 font-medium">{item.label}</span>
+                <span className="text-slate-700 dark:text-slate-300 font-medium">{item.label}</span>
               </div>
-              <span className="text-slate-400 font-mono font-semibold">
-                {item.count} <span className="text-[10px] text-slate-500">({pct}%)</span>
+              <span className="text-slate-500 dark:text-slate-400 font-mono font-semibold">
+                {item.count} <span className="text-[10px] text-slate-400">({pct}%)</span>
               </span>
             </div>
           );
@@ -387,14 +386,14 @@ export const DonutChart: React.FC<{
   );
 };
 
-// ── 5. Horizontal Progress Bars (Visual 3, 5, 6, 7) ──
+// ── 5. Horizontal Progress Bars ──
 export const HorizontalBarList: React.FC<{
   items: Array<{ label: string; count: number; color?: string; key?: string; subtitle?: string }>;
   onBarClick?: (item: any) => void;
 }> = ({ items, onBarClick }) => {
   if (!items || items.length === 0) {
     return (
-      <div className="text-slate-500 text-xs font-mono py-4 text-center">
+      <div className="text-slate-400 dark:text-slate-500 text-xs font-mono py-4 text-center">
         Tidak ada data peringkat entitas
       </div>
     );
@@ -403,28 +402,28 @@ export const HorizontalBarList: React.FC<{
   const max = Math.max(...items.map((i) => i.count), 1);
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2.5">
       {items.map((item, idx) => {
         const pct = Math.round((item.count / max) * 100);
         return (
           <div
             key={idx}
-            className="space-y-1 group cursor-pointer hover:bg-slate-800/40 p-1.5 rounded transition-colors"
+            className="space-y-1 group cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-850/60 p-1 rounded-md transition-colors"
             onClick={() => onBarClick?.(item)}
           >
             <div className="flex justify-between text-xs">
-              <span className="text-slate-200 font-medium group-hover:text-cyan-300 transition-colors">
+              <span className="text-slate-700 dark:text-slate-200 font-medium group-hover:text-blue-600 dark:group-hover:text-blue-300 transition-colors">
                 {item.label}
-                {item.subtitle && <span className="text-slate-500 text-[10px] ml-1.5">({item.subtitle})</span>}
+                {item.subtitle && <span className="text-slate-400 text-[10px] ml-1.5">({item.subtitle})</span>}
               </span>
-              <span className="font-mono text-cyan-300 font-semibold">{item.count}</span>
+              <span className="font-mono text-blue-600 dark:text-blue-400 font-semibold">{item.count}</span>
             </div>
-            <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all duration-500"
+                className="h-full rounded-full transition-all duration-300"
                 style={{
                   width: `${pct}%`,
-                  backgroundColor: item.color || '#00f0ff',
+                  backgroundColor: item.color || '#3b82f6',
                 }}
               />
             </div>
@@ -436,39 +435,68 @@ export const HorizontalBarList: React.FC<{
 };
 
 // ── 6. Score Gauge ──
-export const ScoreGauge: React.FC<{ score: number; size?: number }> = ({ score, size = 90 }) => {
+export const ScoreGauge: React.FC<{ score: number; size?: number; label?: string }> = ({
+  score,
+  size = 56,
+  label = 'SKOR',
+}) => {
   const normScore = Math.max(0, Math.min(100, Math.round(score)));
-  const radius = size * 0.38;
+  const radius = 38;
   const circumference = 2 * Math.PI * radius;
-  const strokeOffset = circumference - (normScore / 100) * circumference;
+  const strokeOffset = circumference * (1 - normScore / 100);
 
   let color = '#10b981';
-  if (normScore >= 70) color = '#ef4444';
-  else if (normScore >= 45) color = '#f59e0b';
+  if (normScore >= 70) {
+    color = '#f43f5e';
+  } else if (normScore >= 45) {
+    color = '#f59e0b';
+  }
+
+  const isSmall = size <= 65;
 
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg className="w-full h-full -rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} stroke="#1e293b" strokeWidth="7" fill="transparent" />
+    <div
+      className="shrink-0 relative flex items-center justify-center rounded-full bg-slate-100 dark:bg-[#0c121d] border border-slate-200 dark:border-slate-800 shadow-sm"
+      style={{ width: size, height: size }}
+    >
+      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx="50"
+          cy="50"
+          r={radius}
+          className="stroke-slate-200 dark:stroke-slate-800"
+          strokeWidth="6"
+          fill="transparent"
+        />
+        <circle
+          cx="50"
+          cy="50"
           r={radius}
           stroke={color}
-          strokeWidth="7"
+          strokeWidth="6"
           strokeDasharray={circumference}
           strokeDashoffset={strokeOffset}
           strokeLinecap="round"
           fill="transparent"
-          className="transition-all duration-700 ease-out"
+          transform="rotate(-90 50 50)"
+          className="transition-all duration-500 ease-out"
         />
       </svg>
-      <div className="absolute flex flex-col items-center">
-        <span className="text-base font-extrabold font-mono text-white leading-tight">
+
+      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
+        <span
+          className={`font-black font-mono text-slate-800 dark:text-white leading-none ${
+            isSmall ? 'text-xs' : 'text-base'
+          }`}
+        >
           {normScore}
         </span>
-        <span className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-          Skor
+        <span
+          className={`font-bold font-mono tracking-wider uppercase text-slate-400 leading-none ${
+            isSmall ? 'text-[8px] mt-0.5' : 'text-[9px] mt-0.5'
+          }`}
+        >
+          {label}
         </span>
       </div>
     </div>

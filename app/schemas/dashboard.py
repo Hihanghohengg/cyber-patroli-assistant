@@ -85,6 +85,10 @@ class TrendingTopicItem(BaseModel):
     top_keywords: List[str] = []
     top_hashtags: List[str] = []
     sentiment_dominant: str = "NETRAL"
+    escalation_label: Optional[str] = "PANTAU"
+    avg_urgency: Optional[float] = 2.5
+    recent_count_24h: Optional[int] = 0
+    total_interactions: Optional[int] = 0
 
     class Config:
         from_attributes = True
@@ -173,6 +177,8 @@ class ContentDetailResponse(BaseModel):
     title: Optional[str] = None
     caption: Optional[str] = None
     transcript: Optional[str] = None
+    original_language: Optional[str] = "id"
+    indonesian_content: Optional[str] = None
     author: Dict[str, Any] = {}
     interaction: Dict[str, Any] = {}
     created_at: datetime

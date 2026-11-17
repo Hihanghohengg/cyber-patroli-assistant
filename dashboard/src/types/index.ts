@@ -39,6 +39,10 @@ export interface TrendingTopicItem {
   top_keywords: string[];
   top_hashtags: string[];
   sentiment_dominant: string;
+  escalation_label?: string;
+  avg_urgency?: number;
+  recent_count_24h?: number;
+  total_interactions?: number;
 }
 
 export interface OverviewStats {
@@ -139,6 +143,8 @@ export interface ContentDetail {
   title?: string;
   caption?: string;
   transcript?: string;
+  original_language?: string;
+  indonesian_content?: string;
   author: {
     username?: string;
     display_name?: string;
@@ -164,6 +170,19 @@ export interface ContentDetail {
     summary?: string;
     reasoning?: any;
     ticket_number?: string;
+    operator_id?: string;
+    classification_mode?: string;
+    original_language?: string;
+    indonesian_content?: string;
+    is_potential_duplicate?: boolean;
+    duplicate_of_ticket?: string;
+    duplicate_similarity?: number;
+    execution_latencies?: {
+      ocr_ms?: number;
+      retrieval_ms?: number;
+      llm_ms?: number;
+      total_ms?: number;
+    };
     human_decision?: string;
     final_label?: string;
     final_risk?: string;
@@ -177,6 +196,12 @@ export interface ContentDetail {
     sha256: string;
     storage_path: string;
     mime_type: string;
+    operator_id?: string;
+    canonical_hash?: string;
+    hmac_tag?: string;
+    verification_status?: string;
+    last_verified_at?: string;
+    ocr_text?: string;
     created_at?: string;
   }>;
   assigned_issue?: {

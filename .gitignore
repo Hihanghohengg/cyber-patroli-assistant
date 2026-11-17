@@ -42,8 +42,11 @@ storage/evidences/*
 !storage/evidences/.gitkeep
 storage/reports/*
 !storage/reports/.gitkeep
-*.db
-storage/*.db
+*.db*
+storage/*.db*
+*.sqlite*
+storage/*.sqlite*
+storage/evaluation_results.*
 
 # Node / Frontend Dashboard
 node_modules/

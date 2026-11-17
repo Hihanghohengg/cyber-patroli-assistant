@@ -69,7 +69,7 @@ def process_patrol_url(
     url: str,
     reporter_telegram_id: int | None = None,
     ticket_number: str = "",
-    source_channel: str = "TELEGRAM",
+    source_channel: str = "BROWSER_EXTENSION",
     reporter_identifier: str | None = None,
 ):
     """Full async patrol pipeline executed in a Celery worker.
@@ -151,10 +151,10 @@ def process_patrol_url(
             db.flush()
 
         # ── Step 4: Report ──
-        effective_identifier = reporter_identifier or (str(reporter_telegram_id) if reporter_telegram_id else source_channel)
+        effective_identifier = reporter_identifier or source_channel
         report = Report(
             ticket_number=ticket_number,
-            reporter_telegram_id=reporter_telegram_id,
+            reporter_telegram_id=None,
             source_channel=source_channel,
             reporter_identifier=effective_identifier,
             content_id=content.content_id,

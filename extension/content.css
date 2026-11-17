@@ -3,28 +3,29 @@
   bottom: 24px;
   right: 24px;
   z-index: 999999999;
-  background: rgba(7, 11, 20, 0.95);
-  color: #38bdf8;
-  border: 1px solid rgba(2, 132, 199, 0.5);
+  background: rgba(9, 13, 21, 0.95);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
   border-radius: 999px;
-  padding: 6px 13px;
+  padding: 6px 14px;
   display: flex;
   align-items: center;
   gap: 7px;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 10px rgba(6, 182, 212, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 12px rgba(37, 99, 235, 0.2);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   font-size: 11.5px;
   font-weight: 600;
-  backdrop-filter: blur(8px);
-  transition: all 0.2s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
 }
 
 #cyber-patrol-floating-badge:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
-  border-color: #06b6d4;
+  box-shadow: 0 6px 24px rgba(37, 99, 235, 0.4);
+  border-color: #3b82f6;
   color: #ffffff;
 }
 
@@ -34,7 +35,7 @@
 
 #cyber-patrol-floating-badge.cp-loading {
   opacity: 0.85;
-  border-color: #eab308;
+  border-color: #f59e0b;
   color: #fef08a;
 }
 
@@ -45,9 +46,18 @@
 }
 
 #cyber-patrol-floating-badge.cp-error {
-  border-color: #ef4444;
-  color: #fca5a5;
-  background: #7f1d1d;
+  border-color: #f43f5e;
+  color: #fecdd3;
+  background: #881337;
+}
+
+#cyber-patrol-floating-badge.cp-capturing,
+#cp-triage-modal.cp-capturing {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
 }
 
 /* Floating Triage Result Modal Card */
@@ -55,15 +65,16 @@
   position: fixed;
   bottom: 68px;
   right: 24px;
-  width: 290px;
-  background: rgba(11, 15, 25, 0.96);
-  border: 1px solid rgba(56, 189, 248, 0.35);
+  width: 300px;
+  background: rgba(12, 17, 27, 0.97);
+  border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 12px;
-  padding: 13px 14px;
+  padding: 14px 15px;
   color: #f1f5f9;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.15);
-  backdrop-filter: blur(12px);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 20px rgba(37, 99, 235, 0.15);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 999999999;
   animation: cp-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -94,7 +105,7 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 700;
-  color: #38bdf8;
+  color: #60a5fa;
 }
 
 .cp-modal-close {
@@ -136,17 +147,17 @@
 
 .cp-ticket-tag {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  background: rgba(14, 165, 233, 0.15);
-  border: 1px solid rgba(14, 165, 233, 0.35);
-  color: #38bdf8;
-  padding: 2px 6px;
+  background: rgba(37, 99, 235, 0.15);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  color: #60a5fa;
+  padding: 2px 7px;
   border-radius: 4px;
   font-size: 11px;
 }
 
 .cp-status-waiting {
-  background: rgba(234, 179, 8, 0.15);
-  border: 1px solid rgba(234, 179, 8, 0.35);
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
   color: #fde047;
   padding: 2px 6px;
   border-radius: 4px;
@@ -165,7 +176,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .cp-btn {
@@ -184,13 +195,13 @@
 }
 
 .cp-btn-primary {
-  background: #0284c7;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
 }
 
 .cp-btn-primary:hover {
-  background: #0369a1;
+  filter: brightness(1.1);
   color: #ffffff;
 }
 
@@ -204,4 +215,3 @@
   background: rgba(51, 65, 85, 0.8);
   color: #ffffff;
 }
-

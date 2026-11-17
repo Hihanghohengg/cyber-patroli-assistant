@@ -11,11 +11,12 @@ from app.models.intelligence import (
 )
 from app.models.entities import Entity, EntityAlias, ReportActor
 from app.models.knowledge import KnowledgeEntry
+from app.models.memory import ValidatedMemory
 
 __all__ = [
     "Account", "Content", "Report", "Evidence", "PatrolUser", "AuditLog",
     "IssueCluster", "IssueContent", "TopicSnapshot", "ContentAnalysis",
     "DashboardUser",
     "Entity", "EntityAlias", "ReportActor",
-    "KnowledgeEntry",
+    "KnowledgeEntry", "ValidatedMemory",
 ]

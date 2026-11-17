@@ -18,8 +18,25 @@ from app.services.crypto_service import CryptoService
 
 logger = logging.getLogger(__name__)
 
-# Minimum valid screenshot size (20 KB)
-MIN_SCREENSHOT_BYTES = 20 * 1024
+# Minimum valid screenshot size (10 KB)
+MIN_SCREENSHOT_BYTES = 10 * 1024
+
+
+def is_playwright_installed() -> bool:
+    """Check if Playwright and its Chromium browser binary are installed on the system."""
+    if async_playwright is None:
+        return False
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    ms_pw = os.path.join(local_app_data, "ms-playwright")
+    if not os.path.exists(ms_pw):
+        return False
+    try:
+        for root, dirs, files in os.walk(ms_pw):
+            if "chrome.exe" in files or "chrome-headless-shell.exe" in files:
+                return True
+        return False
+    except Exception:
+        return False
 
 
 class YouTubeScraper(BaseScraper):
@@ -31,11 +48,16 @@ class YouTubeScraper(BaseScraper):
 
     def extract_metadata(self, url: str) -> dict:
         """Extract structured video and channel metadata via yt-dlp."""
+        if not self.is_specific_post_url(url):
+            logger.info("URL bukan video spesifik YouTube, melewati ekstraksi yt-dlp.")
+            return {}
+
         ydl_opts = {
             "quiet": True,
             "skip_download": True,
             "extract_flat": False,
             "no_warnings": True,
+            "socket_timeout": 10,
         }
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
@@ -276,6 +298,10 @@ class YouTubeScraper(BaseScraper):
         """Capture standardized Full HD visual evidence for video and channel."""
         actual_video_url = video_url or post_url
         actual_channel_url = channel_url or profile_url
+
+        if not is_playwright_installed():
+            logger.info("Playwright browser tidak tersedia di sistem. Melewati pengambilan visual Playwright.")
+            return {}
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(

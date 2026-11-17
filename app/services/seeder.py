@@ -355,8 +355,8 @@ def seed_proposal_data_if_needed(db: Session):
 
         report = Report(
             ticket_number=item["ticket"],
-            reporter_telegram_id=100101,
-            reviewer_telegram_id=100102,
+            source_channel="BROWSER_EXTENSION",
+            reporter_identifier="Operator-Piket",
             content_id=content.content_id,
             intake_type="LINK",
             status=item["status"],

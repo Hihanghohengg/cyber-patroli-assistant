@@ -5,6 +5,7 @@
   "description": "Asisten Intelijen Patroli Siber untuk ekstraksi metadata, triase AI 5W+1H, dan pelaporan satu kali klik langsung dari peramban.",
   "permissions": [
     "activeTab",
+    "tabs",
     "scripting",
     "storage",
     "contextMenus",
@@ -30,11 +31,7 @@
   "content_scripts": [
     {
       "matches": [
-        "*://*.tiktok.com/*",
-        "*://*.youtube.com/*",
-        "*://*.instagram.com/*",
-        "*://*.twitter.com/*",
-        "*://*.x.com/*"
+        "<all_urls>"
       ],
       "js": ["content.js"],
       "css": ["content.css"]

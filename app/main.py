@@ -1,7 +1,7 @@
 """Cyber Patrol Assistant — Main Entry Point.
 
-Starts both the FastAPI HTTP server (for webhooks / API) and the
-Telegram bot (long-polling mode) concurrently using asyncio.
+Starts the FastAPI HTTP server for web dashboard, intelligence analytics,
+and pure Browser Extension integration.
 """
 
 import asyncio
@@ -12,10 +12,11 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
-
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
+from starlette.datastructures import MutableHeaders
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -36,13 +37,38 @@ logger = logging.getLogger("patrol")
 # ── Lifespan (startup / shutdown) ──
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize database tables on startup."""
+    """Initialize database tables and automatic background tasks."""
     logger.info("🛡️  Cyber Patrol Assistant starting…")
     os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
     os.makedirs(settings.REPORTS_DIR, exist_ok=True)
     init_db()
     logger.info("✅ Database tables initialised.")
+
+    # Background autonomous trending score synchronizer (runs without manual operator intervention)
+    async def auto_trending_worker():
+        from app.database import SessionLocal
+        from app.services.intelligence.trending_engine import TrendingEngine
+        while True:
+            try:
+                await asyncio.sleep(4)  # Initial grace delay
+                db = SessionLocal()
+                try:
+                    engine = TrendingEngine()
+                    snapshots = engine.recalculate_all_active_issues(db, window_hours=24)
+                    if snapshots:
+                        logger.info("Autonomous trending engine: updated %d active topic scores", len(snapshots))
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.debug("Autonomous trending engine idle tick: %s", e)
+            await asyncio.sleep(300)  # Synchronize every 5 minutes automatically
+
+    trending_task = None
+    if os.environ.get("TESTING") != "1":
+        trending_task = asyncio.create_task(auto_trending_worker())
     yield
+    if trending_task:
+        trending_task.cancel()
     logger.info("🛑 Shutting down…")
 
 
@@ -53,15 +79,53 @@ api = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+app = api  # Standard ASGI entrypoint alias
 
-# Enable CORS for web dashboard
+# Apply OWASP Top 10 Security Headers & Chrome Private Network Access (PNA)
+@api.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+
+    # Anti-leak Cache-Control for sensitive patrol intelligence endpoints
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, private"
+        response.headers["Pragma"] = "no-cache"
+
+    # Mengizinkan akses dari peramban pada situs publik (YouTube/TikTok) ke localhost (PNA)
+    if request.headers.get("access-control-request-private-network"):
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
+
+# Enable Hardened CORS for web dashboard and browser extensions (including content scripts on social media)
 api.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_origin_regex=r"^(chrome-extension://.*|moz-extension://.*|http://(localhost|127\.0\.0\.1)(:\d+)?|https://(www\.)?(youtube\.com|tiktok\.com|instagram\.com|twitter\.com|x\.com|facebook\.com))$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+@api.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    messages = []
+    for err in exc.errors():
+        field = " -> ".join(str(loc) for loc in err.get("loc", []))
+        messages.append(f"{field}: {err.get('msg', 'Format data tidak valid')}")
+    clean_msg = "; ".join(messages)
+    logger.warning(f"Request validation error on {request.url}: {clean_msg}")
+    return JSONResponse(status_code=422, content={"detail": clean_msg})
 
 # Mount Dashboard API
 api.include_router(dashboard_router)
@@ -77,10 +141,15 @@ if os.path.exists(dist_dir):
 
     @api.get("/dashboard/{full_path:path}")
     async def serve_dashboard(full_path: str):
-        file_path = os.path.join(dist_dir, full_path)
-        if full_path and os.path.isfile(file_path):
-            return FileResponse(file_path)
-        index_file = os.path.join(dist_dir, "index.html")
+        # Prevent Directory / Path Traversal (CWE-22)
+        safe_base = os.path.realpath(dist_dir)
+        target_path = os.path.realpath(os.path.join(safe_base, full_path.lstrip("/\\")))
+        if not target_path.startswith(safe_base):
+            raise HTTPException(status_code=403, detail="Akses berkas ditolak (Path Traversal Protection)")
+
+        if full_path and os.path.isfile(target_path):
+            return FileResponse(target_path)
+        index_file = os.path.join(safe_base, "index.html")
         if os.path.exists(index_file):
             return FileResponse(index_file)
         raise HTTPException(status_code=404, detail="Dashboard index not found")
@@ -88,6 +157,23 @@ if os.path.exists(dist_dir):
     @api.get("/dashboard")
     async def redirect_dashboard():
         return RedirectResponse(url="/dashboard/")
+
+    # Seamless URL aliases for browser extension and direct browser navigation
+    @api.get("/contents")
+    @api.get("/contents/{content_id}")
+    async def redirect_contents(content_id: str = ""):
+        sub = f"/{content_id}" if content_id else ""
+        return RedirectResponse(url=f"/dashboard/#/contents{sub}")
+
+    @api.get("/analytics")
+    async def redirect_analytics():
+        return RedirectResponse(url="/dashboard/#/analytics")
+
+    @api.get("/trending")
+    @api.get("/trending/{issue_id}")
+    async def redirect_trending(issue_id: str = ""):
+        sub = f"/{issue_id}" if issue_id else ""
+        return RedirectResponse(url=f"/dashboard/#/trending{sub}")
 
 
 @api.get("/")
@@ -134,10 +220,10 @@ async def submit_patrol(request: PatrolRequest):
 
         process_patrol_url.delay(
             url=request.url,
-            reporter_telegram_id=request.reporter_telegram_id,
+            reporter_telegram_id=None,
             ticket_number=ticket,
-            source_channel=request.source_channel,
-            reporter_identifier=request.reporter_identifier or (f"Telegram:{request.reporter_telegram_id}" if request.reporter_telegram_id else request.source_channel),
+            source_channel=request.source_channel or "BROWSER_EXTENSION",
+            reporter_identifier=request.reporter_identifier or "Analyst-Browser",
         )
     except Exception as e:
         logger.warning("Celery enqueue failed (%s), pipeline will not run in background.", e)
@@ -145,74 +231,24 @@ async def submit_patrol(request: PatrolRequest):
     return {
         "ticket_number": ticket,
         "status": "QUEUED",
-        "channel": request.source_channel,
-        "message": f"Patrol task for {platform} URL has been queued via {request.source_channel}.",
+        "channel": request.source_channel or "BROWSER_EXTENSION",
+        "message": f"Patrol task for {platform} URL has been queued via {request.source_channel or 'BROWSER_EXTENSION'}.",
     }
 
 
 # ────────────────────────────────────────────
-#  Main: run FastAPI + Telegram Bot concurrently
+#  Main: run FastAPI server
 # ────────────────────────────────────────────
 
-async def run_api():
+def run_api():
     """Run the FastAPI server."""
-    config = uvicorn.Config(
-        api,
+    uvicorn.run(
+        "app.main:app",
         host="0.0.0.0",
         port=8000,
         log_level="info",
     )
-    server = uvicorn.Server(config)
-    await server.serve()
-
-
-async def run_bot():
-    """Run the Telegram bot in long-polling mode."""
-    if not settings.TELEGRAM_BOT_TOKEN or settings.TELEGRAM_BOT_TOKEN.startswith("123456"):
-        logger.warning("⚠️  Telegram bot token not configured — bot will not start.")
-        return
-
-    try:
-        from app.bot.handlers import build_bot_application
-    except ImportError as e:
-        logger.warning("⚠️  python-telegram-bot is not installed (%s) — bot will not start.", e)
-        return
-
-    bot_app = None
-    try:
-        bot_app = build_bot_application()
-        logger.info("🤖 Telegram bot starting (long-polling)…")
-        await bot_app.initialize()
-        await bot_app.start()
-        await bot_app.updater.start_polling(drop_pending_updates=True)
-
-        # Keep the bot alive
-        while True:
-            await asyncio.sleep(3600)
-    except asyncio.CancelledError:
-        pass
-    except Exception as e:
-        logger.error("❌ Telegram bot encountered an error: %s", e)
-    finally:
-        if bot_app is not None:
-            try:
-                if bot_app.updater and bot_app.updater.running:
-                    await bot_app.updater.stop()
-                if bot_app.running:
-                    await bot_app.stop()
-                    await bot_app.shutdown()
-            except Exception:
-                pass
-
-
-async def main():
-    """Run API server and Telegram bot concurrently."""
-    await asyncio.gather(
-        run_api(),
-        run_bot(),
-        return_exceptions=True,
-    )
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    run_api()

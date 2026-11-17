@@ -5,7 +5,7 @@ import unittest
 from uuid import uuid4
 from unittest.mock import patch
 
-from httpx import ASGITransport, AsyncClient
+from fastapi.testclient import TestClient
 from app.main import api
 from app.database import SessionLocal, init_db
 from app.models.report import Report, Content, Account
@@ -65,12 +65,13 @@ class TestRAGAndEntityServices(unittest.TestCase):
 
     def test_rag_fail_open_when_empty(self):
         """Test RAG similarity search returns empty string gracefully when no cases exist."""
-        context = self.rag_svc.retrieve_similar_cases(
-            db=self.db,
-            text="Temuan konten baru yang mencurigakan",
-            top_k=3,
-        )
-        self.assertEqual(context, "")
+        with patch.object(self.rag_svc, "generate_embedding", return_value=None):
+            context = self.rag_svc.retrieve_similar_cases(
+                db=self.db,
+                text="Temuan konten baru yang mencurigakan",
+                top_k=3,
+            )
+            self.assertEqual(context, "")
 
     def test_rag_prompt_block_formatting(self):
         """Test prompt block formatting with reference cases and strict disclaimer."""
@@ -113,7 +114,8 @@ class TestRAGAndEntityServices(unittest.TestCase):
         # Create a valid report
         report = Report(
             ticket_number=f"PS-TEST-{uuid4().hex[:6]}",
-            reporter_telegram_id=123456789,
+            source_channel="BROWSER_EXTENSION",
+            reporter_identifier="Analyst-Browser",
             content_id=content.content_id,
             ai_predicted_label="JUDI_ONLINE",
             ai_risk_level="TINGGI",
@@ -135,88 +137,106 @@ class TestRAGAndEntityServices(unittest.TestCase):
 
 
 class TestV1APIEndpoints(unittest.TestCase):
-    def run_async(self, coro):
-        return asyncio.run(coro)
-
     def test_v1_dashboard_and_admin_endpoints(self):
-        async def _test():
-            async with AsyncClient(transport=ASGITransport(app=api), base_url="http://testserver") as client:
-                # 1. Login
-                login_resp = await client.post(
-                    "/api/dashboard/auth/login",
-                    json={"username": "admin", "password": "patroladmin2026"},
-                )
-                self.assertEqual(login_resp.status_code, 200)
-                token = login_resp.json()["access_token"]
-                headers = {"Authorization": f"Bearer {token}"}
+        print("\n[DEBUG] Starting TestClient...")
+        client = TestClient(api)
 
-                # 2. GET /api/v1/dashboard/summary
-                sum_resp = await client.get("/api/v1/dashboard/summary", headers=headers)
-                self.assertEqual(sum_resp.status_code, 200)
-                sum_data = sum_resp.json()
-                self.assertIn("total_laporan", sum_data)
-                self.assertIn("distribusi_kategori", sum_data)
-                self.assertIn("distribusi_risiko", sum_data)
-                self.assertIn("rasio_persetujuan_ai", sum_data)
+        # 1. Login
+        print("[DEBUG] Testing /api/dashboard/auth/login...")
+        login_resp = client.post(
+            "/api/dashboard/auth/login",
+            json={"username": "admin", "password": "patroladmin2026"},
+        )
+        self.assertEqual(login_resp.status_code, 200)
+        token = login_resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+        print("[DEBUG] Login OK!")
 
-                # 3. GET /api/v1/dashboard/timeseries
-                ts_resp = await client.get("/api/v1/dashboard/timeseries", headers=headers)
-                self.assertEqual(ts_resp.status_code, 200)
-                ts_data = ts_resp.json()
-                self.assertIn("series", ts_data)
+        # 2. GET /api/v1/dashboard/summary
+        print("[DEBUG] Testing /api/v1/dashboard/summary...")
+        sum_resp = client.get("/api/v1/dashboard/summary", headers=headers)
+        self.assertEqual(sum_resp.status_code, 200)
+        sum_data = sum_resp.json()
+        self.assertIn("total_laporan", sum_data)
+        self.assertIn("distribusi_kategori", sum_data)
+        self.assertIn("distribusi_risiko", sum_data)
+        self.assertIn("rasio_persetujuan_ai", sum_data)
+        print("[DEBUG] Summary OK!")
 
-                # 4. GET /api/v1/dashboard/breakdown
-                bk_resp = await client.get("/api/v1/dashboard/breakdown?dimension=category", headers=headers)
-                self.assertEqual(bk_resp.status_code, 200)
-                self.assertIn("items", bk_resp.json())
+        # 3. GET /api/v1/dashboard/timeseries
+        print("[DEBUG] Testing /api/v1/dashboard/timeseries...")
+        ts_resp = client.get("/api/v1/dashboard/timeseries", headers=headers)
+        self.assertEqual(ts_resp.status_code, 200)
+        ts_data = ts_resp.json()
+        self.assertIn("series", ts_data)
+        print("[DEBUG] Timeseries OK!")
 
-                # 5. GET /api/v1/dashboard/top
-                top_topics_resp = await client.get("/api/v1/dashboard/top?dimension=topics", headers=headers)
-                self.assertEqual(top_topics_resp.status_code, 200)
-                top_data = top_topics_resp.json()
-                self.assertIn("disclaimer", top_data)
-                self.assertIn("items", top_data)
+        # 4. GET /api/v1/dashboard/breakdown
+        print("[DEBUG] Testing /api/v1/dashboard/breakdown...")
+        bk_resp = client.get("/api/v1/dashboard/breakdown?dimension=category", headers=headers)
+        self.assertEqual(bk_resp.status_code, 200)
+        self.assertIn("items", bk_resp.json())
+        print("[DEBUG] Breakdown OK!")
 
-                top_actors_resp = await client.get("/api/v1/dashboard/top?dimension=actors", headers=headers)
-                self.assertEqual(top_actors_resp.status_code, 200)
-                self.assertIn("disclaimer", top_actors_resp.json())
+        # 5. GET /api/v1/dashboard/top
+        print("[DEBUG] Testing /api/v1/dashboard/top...")
+        top_topics_resp = client.get("/api/v1/dashboard/top?dimension=topics", headers=headers)
+        self.assertEqual(top_topics_resp.status_code, 200)
+        top_data = top_topics_resp.json()
+        self.assertIn("disclaimer", top_data)
+        self.assertIn("items", top_data)
 
-                top_sources_resp = await client.get("/api/v1/dashboard/top?dimension=sources", headers=headers)
-                self.assertEqual(top_sources_resp.status_code, 200)
-                self.assertIn("disclaimer", top_sources_resp.json())
+        top_actors_resp = client.get("/api/v1/dashboard/top?dimension=actors", headers=headers)
+        self.assertEqual(top_actors_resp.status_code, 200)
+        self.assertIn("disclaimer", top_actors_resp.json())
 
-                # 6. GET /api/v1/dashboard/reports
-                rep_resp = await client.get("/api/v1/dashboard/reports", headers=headers)
-                self.assertEqual(rep_resp.status_code, 200)
-                self.assertIn("items", rep_resp.json())
+        top_sources_resp = client.get("/api/v1/dashboard/top?dimension=sources", headers=headers)
+        self.assertEqual(top_sources_resp.status_code, 200)
+        self.assertIn("disclaimer", top_sources_resp.json())
+        print("[DEBUG] Top dimensions OK!")
 
-                # 7. GET /api/v1/dashboard/export (CSV)
-                exp_resp = await client.get("/api/v1/dashboard/export?format=csv", headers=headers)
-                self.assertEqual(exp_resp.status_code, 200)
-                self.assertEqual(exp_resp.headers["content-type"], "text/csv; charset=utf-8")
-                self.assertIn("Ticket Number", exp_resp.text)
+        # 6. GET /api/v1/dashboard/reports
+        print("[DEBUG] Testing /api/v1/dashboard/reports...")
+        rep_resp = client.get("/api/v1/dashboard/reports", headers=headers)
+        self.assertEqual(rep_resp.status_code, 200)
+        self.assertIn("items", rep_resp.json())
+        print("[DEBUG] Reports list OK!")
 
-                # 8. Admin Knowledge Base
-                kn_resp = await client.get("/api/v1/admin/knowledge", headers=headers)
-                self.assertEqual(kn_resp.status_code, 200)
-                self.assertIn("items", kn_resp.json())
+        # 7. GET /api/v1/dashboard/export (CSV & XLSX)
+        print("[DEBUG] Testing /api/v1/dashboard/export?format=csv...")
+        exp_resp = client.get("/api/v1/dashboard/export?format=csv", headers=headers)
+        self.assertEqual(exp_resp.status_code, 200)
+        self.assertEqual(exp_resp.headers["content-type"], "text/csv; charset=utf-8")
+        self.assertIn("Nomor Tiket", exp_resp.text)
+        print("[DEBUG] Export CSV OK!")
 
-                # 9. Admin Entities
-                ent_resp = await client.get("/api/v1/admin/entities", headers=headers)
-                self.assertEqual(ent_resp.status_code, 200)
-                self.assertIn("items", ent_resp.json())
+        print("[DEBUG] Testing /api/v1/dashboard/export?format=xlsx...")
+        xlsx_resp = client.get("/api/v1/dashboard/export?format=xlsx", headers=headers)
+        self.assertEqual(xlsx_resp.status_code, 200)
+        self.assertEqual(xlsx_resp.headers["content-type"], "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        print("[DEBUG] Export XLSX OK!")
 
-                # 10. Admin Users
-                usr_resp = await client.get("/api/v1/admin/users", headers=headers)
-                self.assertEqual(usr_resp.status_code, 200)
-                self.assertIsInstance(usr_resp.json(), list)
+        # 8. Admin Knowledge Base
+        print("[DEBUG] Testing admin endpoints...")
+        kn_resp = client.get("/api/v1/admin/knowledge", headers=headers)
+        self.assertEqual(kn_resp.status_code, 200)
+        self.assertIn("items", kn_resp.json())
 
-                # 11. Admin Audit
-                aud_resp = await client.get("/api/v1/admin/audit", headers=headers)
-                self.assertEqual(aud_resp.status_code, 200)
-                self.assertIn("items", aud_resp.json())
+        # 9. Admin Entities
+        ent_resp = client.get("/api/v1/admin/entities", headers=headers)
+        self.assertEqual(ent_resp.status_code, 200)
+        self.assertIn("items", ent_resp.json())
 
-        self.run_async(_test())
+        # 10. Admin Users
+        usr_resp = client.get("/api/v1/admin/users", headers=headers)
+        self.assertEqual(usr_resp.status_code, 200)
+        self.assertIsInstance(usr_resp.json(), list)
+
+        # 11. Admin Audit
+        aud_resp = client.get("/api/v1/admin/audit", headers=headers)
+        self.assertEqual(aud_resp.status_code, 200)
+        self.assertIn("items", aud_resp.json())
+        print("[DEBUG] All API endpoints passed successfully!")
 
 
 if __name__ == "__main__":

@@ -45,24 +45,24 @@ class TrendingEngine:
         current_window_start = now - timedelta(hours=window_hours)
         previous_window_start = now - timedelta(hours=window_hours * 2)
 
-        # 1. Contents in current window
-        current_links = (
+        # 1. Seluruh temuan yang terhubung dalam klaster isu
+        all_links = (
             db.query(IssueContent, Content)
             .join(Content, IssueContent.content_id == Content.content_id)
             .filter(IssueContent.issue_id == issue_id)
-            .filter(Content.created_at >= current_window_start)
             .all()
         )
+        total_count = len(all_links)
+
+        # 2. Temuan baru dalam rentang jendela waktu aktif (24 jam terakhir)
+        current_links = [
+            (link, content)
+            for link, content in all_links
+            if content.created_at and content.created_at >= current_window_start
+        ]
         current_count = len(current_links)
 
-        # 2. Total contents ever linked
-        total_count = (
-            db.query(func.count(IssueContent.id))
-            .filter(IssueContent.issue_id == issue_id)
-            .scalar() or 0
-        )
-
-        # 3. Contents in previous window (for growth rate)
+        # 3. Temuan pada jendela waktu sebelumnya (untuk menghitung laju pertumbuhan)
         prev_count = (
             db.query(func.count(IssueContent.id))
             .join(Content, IssueContent.content_id == Content.content_id)
@@ -72,97 +72,136 @@ class TrendingEngine:
             .scalar() or 0
         )
 
-        # Growth calculation
         if prev_count > 0:
             growth_rate = ((current_count - prev_count) / float(prev_count)) * 100.0
         else:
             growth_rate = 100.0 if current_count > 0 else 0.0
 
-        # Velocity (items per hour)
-        velocity = round(current_count / float(window_hours), 2)
+        # Kecepatan temuan per jam
+        velocity = round(current_count / float(max(1, window_hours)), 2)
 
-        # 4. Sources and Platforms distribution
+        # 4. Sebaran Platform & Akun Unik
         platform_dist: Dict[str, int] = {}
         unique_authors = set()
-        for link, content in current_links:
+        total_interactions = 0
+
+        for _, content in all_links:
             plat = (content.platform or "other").lower()
             platform_dist[plat] = platform_dist.get(plat, 0) + 1
             if content.account_id:
                 unique_authors.add(content.account_id)
+            
+            # Hitung total interaksi digital
+            total_interactions += (
+                (content.likes_count or 0)
+                + (content.views_count or 0)
+                + (content.shares_count or 0)
+                + (content.comments_count or 0)
+            )
 
         unique_sources_count = len(unique_authors)
         platform_count = len(platform_dist)
 
-        # 5. Sentiments distribution from ContentAnalysis
+        # 5. Distribusi Sentimen
         sentiments: Dict[str, int] = {"POSITIF": 0, "NEGATIF": 0, "NETRAL": 0, "CAMPURAN": 0}
-        relevance_scores: List[float] = []
+        content_ids = [c.content_id for _, c in all_links]
 
-        if current_links:
-            content_ids = [c.content_id for _, c in current_links]
-            analyses = (
-                db.query(ContentAnalysis)
-                .filter(ContentAnalysis.content_id.in_(content_ids))
-                .all()
-            )
-            for a in analyses:
+        # -------------------------------------------------------------------------
+        # FORMULA SKOR ISU HANGAT (HotScore 0-100) — 4 SINYAL OPERASIONAL NYATA
+        # -------------------------------------------------------------------------
+        from app.models.report import Report
+
+        reports_map = {}
+        analyses_map = {}
+        if content_ids:
+            rep_list = db.query(Report).filter(Report.content_id.in_(content_ids)).all()
+            reports_map = {r.content_id: r for r in rep_list}
+
+            ana_list = db.query(ContentAnalysis).filter(ContentAnalysis.content_id.in_(content_ids)).all()
+            analyses_map = {a.content_id: a for a in ana_list}
+            for a in ana_list:
                 s = (a.sentiment or "NETRAL").upper()
                 sentiments[s] = sentiments.get(s, 0) + 1
-                if a.relevance_score is not None:
-                    relevance_scores.append(a.relevance_score)
 
-        avg_relevance = sum(relevance_scores) / len(relevance_scores) if relevance_scores else 0.5
+        # Sinyal 1: Urgensi Tervalidasi (35%)
+        # Rata-rata urgency_score (1-5) dengan pembobotan 1.5x untuk konten HITL APPROVED/VALIDATED
+        weighted_urgency_sum = 0.0
+        weight_sum = 0.0
+        for cid in content_ids:
+            rep = reports_map.get(cid)
+            ana = analyses_map.get(cid)
 
-        # 6. Recency decay
-        issue = db.query(IssueCluster).filter(IssueCluster.issue_id == issue_id).first()
-        last_seen = issue.last_seen_at or issue.created_at or now
-        hours_since_last = max(0.0, (now - last_seen).total_seconds() / 3600.0)
-        # Half-life of 24 hours: decay = 2^(-hours/24)
-        recency_score = math.pow(0.5, hours_since_last / 24.0)
+            # Ekstraksi urgensi 1-5
+            u = 2.0
+            if ana and ana.urgency_score is not None:
+                raw_u = float(ana.urgency_score)
+                u = (raw_u * 5.0) if raw_u <= 1.0 else raw_u
+            elif rep and rep.ai_output and isinstance(rep.ai_output, dict) and rep.ai_output.get("urgency_score"):
+                u = float(rep.ai_output["urgency_score"])
+            elif rep and rep.ai_risk_level:
+                u = 4.0 if rep.ai_risk_level == "TINGGI" else (3.0 if rep.ai_risk_level == "SEDANG" else 2.0)
+            
+            u = max(1.0, min(5.0, u))
 
-        # 7. Normalize components for trending formula
-        # Volume score (0-100 logarithmic scale)
-        norm_volume = min(100.0, math.log1p(current_count) * 20.0)
+            # Bobot 1.5x untuk konten yang tervalidasi analis manusia
+            w = 1.0
+            if rep and (rep.review_decision in ["APPROVED", "VALIDATED"] or rep.status == Report.STATUS_VALIDATED):
+                w = 1.5
 
-        # Growth score (-50% to +200% mapped to 0-100)
-        norm_growth = min(100.0, max(0.0, (growth_rate + 50.0) / 2.5))
+            weighted_urgency_sum += (u * w)
+            weight_sum += w
 
-        # Velocity score (0 to 10 items/hr mapped to 0-100)
-        norm_velocity = min(100.0, velocity * 10.0)
+        avg_urgency = (weighted_urgency_sum / max(1.0, weight_sum)) if weight_sum > 0 else 2.5
+        score_urgency = min(100.0, max(0.0, (avg_urgency / 5.0) * 100.0))
 
-        # Diversity score (1 to 3 platforms + authors)
-        plat_factor = min(1.0, platform_count / 3.0)
-        author_factor = min(1.0, unique_sources_count / 5.0) if unique_sources_count else 0.2
-        norm_diversity = (plat_factor * 0.6 + author_factor * 0.4) * 100.0
+        # Sinyal 2: Sebaran Lintas Platform (25%)
+        # Jumlah platform unik dibagi 5 kanal target (X, Instagram, YouTube, Threads, Media)
+        score_platform = min(100.0, max(0.0, (platform_count / 5.0) * 100.0))
 
-        # Recency score (0-100)
-        norm_recency = recency_score * 100.0
+        # Sinyal 3: Laju Tangkapan Baru / Velocity (25%)
+        # Rasio temuan baru 24 jam terakhir terhadap total temuan dalam klaster
+        score_velocity = min(100.0, max(0.0, (float(current_count) / float(max(1, total_count))) * 100.0))
 
-        # Relevance score (0-100)
-        norm_relevance = avg_relevance * 100.0
+        # Sinyal 4: Otoritas Sumber & Interaksi (15%)
+        # Bonus +30 jika terdapat sumber media nasional + normalisasi logaritmik interaksi (maks 70)
+        has_media = any(p in ["media", "news", "kompas", "detik", "tribun", "tempo"] for p in platform_dist.keys())
+        media_bonus = 30.0 if has_media else 0.0
+        interaction_norm = min(70.0, math.log1p(total_interactions) * 7.0)
+        score_authority = min(100.0, max(0.0, media_bonus + interaction_norm))
 
-        # Compute weighted sum
-        final_score = (
-            self.weights.get("volume", 0.30) * norm_volume
-            + self.weights.get("growth", 0.30) * norm_growth
-            + self.weights.get("velocity", 0.15) * norm_velocity
-            + self.weights.get("source_diversity", 0.10) * norm_diversity
-            + self.weights.get("recency", 0.10) * norm_recency
-            + self.weights.get("relevance", 0.05) * norm_relevance
+        # Total HotScore Tertimbang (0-100)
+        hot_score = (
+            (0.35 * score_urgency)
+            + (0.25 * score_platform)
+            + (0.25 * score_velocity)
+            + (0.15 * score_authority)
         )
-        final_score = round(max(0.0, min(100.0, final_score)), 2)
+        final_score = round(max(0.0, min(100.0, hot_score)), 1)
+
+        # Label Status Eskalasi Berdasarkan Ambang Batas
+        if final_score >= 75.0:
+            escalation_label = "ESKALASI TINGGI"
+        elif final_score >= 50.0:
+            escalation_label = "MENGHANGAT"
+        else:
+            escalation_label = "PANTAU"
 
         return {
             "issue_id": issue_id,
             "total_count": total_count,
             "current_count": current_count,
+            "recent_count_24h": current_count,
             "unique_sources": unique_sources_count,
             "platform_count": platform_count,
             "growth_rate": round(growth_rate, 2),
             "velocity": velocity,
             "trending_score": final_score,
+            "escalation_label": escalation_label,
+            "avg_urgency": round(avg_urgency, 2),
+            "total_interactions": total_interactions,
             "platform_distribution": platform_dist,
             "sentiment_distribution": sentiments,
-            "recency_score": round(norm_recency, 2),
+            "recency_score": round(score_velocity, 2),
             "snapshot_time": now,
         }
 

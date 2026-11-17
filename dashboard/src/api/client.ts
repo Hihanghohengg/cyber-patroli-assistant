@@ -192,24 +192,35 @@ export const apiClient = {
       const res = await apiV1.get<any>('/dashboard/reports', { params });
       return res.data;
     },
-    exportBlob: async (format: 'csv' | 'json' = 'csv', params?: any) => {
+    exportBlob: async (format: 'pdf' | 'csv' | 'json' | 'xlsx' = 'pdf', params?: any) => {
       const res = await apiV1.get('/dashboard/export', {
         params: { ...params, format },
         responseType: 'blob',
       });
-      const blob = new Blob([res.data], {
-        type: format === 'csv' ? 'text/csv;charset=utf-8;' : 'application/json;charset=utf-8;',
-      });
+      let mimeType = 'application/pdf';
+      let filePrefix = 'laporan_patroli_siber';
+      if (format === 'csv') {
+        mimeType = 'text/csv;charset=utf-8;';
+        filePrefix = 'rekap_patroli_siber_metadata';
+      } else if (format === 'json') {
+        mimeType = 'application/json;charset=utf-8;';
+        filePrefix = 'rekap_patroli_siber';
+      } else if (format === 'xlsx') {
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        filePrefix = 'rekap_patroli_siber_pro';
+      }
+
+      const blob = new Blob([res.data], { type: mimeType });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `rekap_patroli_siber_${new Date().toISOString().slice(0, 10)}.${format}`);
+      link.setAttribute('download', `${filePrefix}_${new Date().toISOString().slice(0, 10)}.${format}`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
     },
-    exportUrl: (format: 'csv' | 'json') => {
+    exportUrl: (format: 'pdf' | 'csv' | 'json' | 'xlsx' = 'pdf') => {
       return `${API_BASE_URL}/api/v1/dashboard/export?format=${format}`;
     },
   },
@@ -286,6 +297,35 @@ export const apiClient = {
     }) => {
       const res = await apiV1.post<any>('/assistant/intake', payload);
       return res.data;
+    },
+  },
+  integrity: {
+    verify: async (ticketOrId: string) => {
+      const res = await apiV1.get<any>(`/integrity/verify/${ticketOrId}`);
+      return res.data;
+    },
+    tamperTest: async (payload: { ticket_or_id: string; tamper_mode: string; dry_run?: boolean }) => {
+      const res = await apiV1.post<any>('/integrity/tamper-test', payload);
+      return res.data;
+    },
+  },
+  reports: {
+    dailyExportBlob: async (date?: string, format: 'md' | 'pdf' = 'md') => {
+      const res = await apiV1.get('/reports/daily-export', {
+        params: { date, format },
+        responseType: 'blob',
+      });
+      const mimeType = format === 'pdf' ? 'application/pdf' : 'text/markdown;charset=utf-8;';
+      const ext = format === 'pdf' ? 'pdf' : 'md';
+      const blob = new Blob([res.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `Laporan_Harian_Patroli_${date || new Date().toISOString().slice(0, 10)}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
     },
   },
 };

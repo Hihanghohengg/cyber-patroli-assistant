@@ -285,8 +285,8 @@ def deactivate_knowledge_entry(
 
 @router.get("/entities")
 def list_canonical_entities(
-    entity_type: Optional[str] = Query(None, regex="^(TOPIC|ACTOR|SOURCE)$"),
-    status_filter: Optional[str] = Query(None, alias="status", regex="^(APPROVED|PENDING_REVIEW|MERGED)$"),
+    entity_type: Optional[str] = Query(None, pattern="^(TOPIC|ACTOR|SOURCE)$"),
+    status_filter: Optional[str] = Query(None, alias="status", pattern="^(APPROVED|PENDING_REVIEW|MERGED)$"),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     limit: int = Query(30, ge=1, le=100),

@@ -34,22 +34,27 @@ class Content(Base):
     __tablename__ = "contents"
 
     content_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.account_id"), nullable=True)
-    platform = Column(String(50), nullable=False)
-    canonical_url = Column(Text, unique=False, nullable=True)  # Nullable for manual photo uploads
+    account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.account_id"), nullable=True, index=True)
+    platform = Column(String(50), nullable=False, index=True)
+    canonical_url = Column(Text, unique=False, nullable=True, index=True)  # Nullable for manual photo uploads
     platform_content_id = Column(String(255), nullable=True)
     title = Column(Text, nullable=True)
     caption_text = Column(Text, nullable=True)
+    ocr_text = Column(Text, nullable=True, default="")
     likes_count = Column(BigInteger, default=0)
     views_count = Column(BigInteger, default=0)
     comments_count = Column(BigInteger, default=0)
     shares_count = Column(BigInteger, default=0)
     extra_metadata = Column("metadata", JSONB, nullable=True)
     posted_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     account = relationship("Account", back_populates="contents")
     reports = relationship("Report", back_populates="content")
+
+    @property
+    def caption(self) -> str:
+        return self.caption_text or ""
 
 
 class Report(Base):
@@ -76,23 +81,33 @@ class Report(Base):
     }
 
     report_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    ticket_number = Column(String(50), unique=True, nullable=False)  # e.g. PS-20261022-001
-    reporter_telegram_id = Column(BigInteger, nullable=True)
-    source_channel = Column(String(50), default="TELEGRAM")  # TELEGRAM, WHATSAPP, BROWSER_EXTENSION, WEB_DASHBOARD
+    ticket_number = Column(String(50), unique=True, index=True, nullable=False)  # e.g. PS-20261022-001
+    reporter_telegram_id = Column(BigInteger, nullable=True)  # Deprecated
+    source_channel = Column(String(50), default="BROWSER_EXTENSION", index=True)  # BROWSER_EXTENSION, WEB_DASHBOARD, API
     reporter_identifier = Column(String(255), nullable=True)  # Phone number, extension ID, or username
-    content_id = Column(UUID(as_uuid=True), ForeignKey("contents.content_id"), nullable=False)
+    operator_id = Column(String(100), default="OP-DEFAULT", index=True)  # Operator ID / NIP for Multi-User LAN
+    content_id = Column(UUID(as_uuid=True), ForeignKey("contents.content_id"), nullable=False, index=True)
     intake_type = Column(String(50), default="LINK")  # LINK or MANUAL_SCREENSHOT
-    status = Column(String(50), default="PENDING_ANALYSIS")
+    status = Column(String(50), default="PENDING_ANALYSIS", index=True)
 
     # --- AI Classification Fields ---
     ai_status = Column(String(50), nullable=True)  # AMAN, BERPOTENSI_BAHAYA
-    ai_predicted_label = Column(String(100), nullable=True)
+    ai_predicted_label = Column(String(100), nullable=True, index=True)
     # Labels: HOAKS, SARA, UJARAN_KEBENCIAN, PENIPUAN_FINANSIAL, DI_LUAR_KONTEKS, NETRAL
-    ai_risk_level = Column(String(50), nullable=True)  # RENDAH, SEDANG, TINGGI
+    ai_risk_level = Column(String(50), nullable=True, index=True)  # RENDAH, SEDANG, TINGGI
     ai_confidence_score = Column(Numeric(4, 3), nullable=True)
     ai_summary = Column(Text, nullable=True)
     ai_reasoning = Column(JSONB, nullable=True)
     ai_output = Column(JSONB, nullable=True)  # Full raw AI output dictionary
+
+    # --- TILIK Adaptive Learning & Latency Metrics ---
+    classification_mode = Column(String(50), default="adaptive", nullable=True)  # baseline vs adaptive
+    original_language = Column(String(10), default="id", nullable=True)  # e.g. "id", "en", "jv"
+    indonesian_content = Column(Text, nullable=True)  # Clean narrative in formal Indonesian
+    is_potential_duplicate = Column(Boolean, default=False, nullable=True)
+    duplicate_of_ticket = Column(String(50), nullable=True)
+    duplicate_similarity = Column(Numeric(4, 3), nullable=True)
+    execution_latencies = Column(JSONB, default=dict)  # {"ocr_ms": 0, "retrieval_ms": 0, "llm_ms": 0, "total_ms": 0}
 
     # --- Extended AI Fields (PRD v3.0) ---
     ai_topic_raw = Column(String(255), nullable=True)
@@ -113,7 +128,7 @@ class Report(Base):
     analyst_notes = Column(Text, nullable=True)  # Mandatory note for Ubah / Bukan Pelanggaran
     validated_at = Column(DateTime, nullable=True)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
     content = relationship("Content", back_populates="reports")
     evidences = relationship("Evidence", back_populates="report")
     topic = relationship("Entity", foreign_keys=[topic_id])

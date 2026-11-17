@@ -7,7 +7,7 @@ tokenization, keyword/hashtag extraction, and canonical slug generation.
 import re
 import unicodedata
 from collections import Counter
-from typing import List, Set
+from typing import List, Set, Tuple, Optional
 
 # Comprehensive Indonesian stopwords list
 INDONESIAN_STOPWORDS: Set[str] = {
@@ -22,10 +22,10 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "belakang", "belakangan", "belum", "belumlah", "benar", "benarkah", "benarlah",
     "berada", "berakhir", "berakhirlah", "berakhirnya", "berapa", "berapakah", "berapalah",
     "berapapun", "berarti", "berawal", "berbagai", "berdatangan", "beri", "berikan",
-    "berikut", "berikutnya", "berjumlah", "berkala", "berkali-kali", "berkata", "berkehendak",
+    "berikut", "berikutnya", "berjumlah", "berkala", "berkali", "kali", "berkata", "berkehendak",
     "berkeinginan", "berkenaan", "berlainan", "berlalu", "berlangsung", "berlebihan",
-    "bermacam", "bermacam-macam", "bermaksud", "bermula", "bersama", "bersama-sama",
-    "bersiap", "bersiap-siap", "bertanya", "bertanya-tanya", "berturut", "berturut-turut",
+    "bermacam", "macam", "bermaksud", "bermula", "bersama", "sama",
+    "bersiap", "siap", "bertanya", "tanya", "berturut", "turut",
     "bertutur", "berujar", "berupa", "besar", "betul", "betulkah", "biasa", "biasanya",
     "bila", "bilakah", "bisa", "bisakah", "boleh", "bolehkah", "bolehlah", "buat",
     "bukan", "bukankah", "bukanlah", "bukannya", "cuma", "cukup", "cukupkah", "cukuplah",
@@ -49,6 +49,21 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "yaitu", "yakni", "yang", "sudah", "telah", "sedang", "masih", "belum", "saja",
     "pun", "lagi", "pula", "deh", "kan", "kok", "sih", "ya", "yah", "nih", "tuh",
     "loh", "lah", "banget", "sangat", "paling", "terlalu", "cenderung", "terkait",
+    # Conversational speech pronouns and filler tokens
+    "saya", "sayanya", "aku", "akunya", "kamu", "kamunya", "dia", "dianya",
+    "kita", "kitanya", "kami", "kaminya", "mereka", "merekanya", "beliau", "anda",
+    "kemudian", "lalu", "selanjutnya", "sebelumnya", "setelahnya", "sesudahnya",
+    "katanya", "katakan", "bilang", "berkata", "ucap", "ucapnya", "ujar", "ujarnya",
+    "menurut", "tuturnya", "jawabnya", "tanyanya", "mengatakan",
+    "gini", "gitu", "begini", "begitu", "seperti", "kayak", "macam",
+    "tahu", "tau", "tahunya", "taunya",
+    "oke", "tidak", "bukan", "ya", "yah", "nah", "tuh", "nih", "kan", "sih", "dong", "deh", "kok",
+    "mohon", "maaf", "halo", "selamat", "pagi", "siang", "sore", "malam",
+    "orang", "pihak", "pihaknya", "mas", "mbak", "pak", "bu",
+    "titik", "dulu", "bayar", "dapur",
+    "kabar", "khusus", "berita", "breaking", "news", "akip", "tvone", "tvonenews", "kompas", "official", "video", "channel", "remaster",
+    # English conversational / lyrics filler words
+    "you", "your", "yours", "gonna", "never", "give", "let", "down", "around", "desert", "make", "cry", "say", "goodbye", "tell", "lie", "hurt",
 }
 
 # Try loading Sastrawi stemmer if installed
@@ -160,6 +175,99 @@ class IndonesianTextProcessor:
         cleaned = re.sub(r"[^\w\s-]", "", text.lower())
         slug = re.sub(r"[\s_]+", "-", cleaned).strip("-")
         return slug[:100] or "topik-tidak-diketahui"
+
+    @classmethod
+    def extract_smart_trend_topic(
+        cls,
+        title: str,
+        text: str = "",
+        hashtags: Optional[List[str]] = None,
+    ) -> Tuple[str, str]:
+        """Extract high-signal trending topic title and slug like Twitter (X) and Threads trends.
+
+        Prioritizes:
+        1. Human-tagged hashtags (e.g. #MBG, #IjazahGibran)
+        2. Prominent uppercase acronyms & core issues (e.g. Korupsi MBG, Ijazah Gibran PTUN)
+        3. Cleaned lead clause from the content title
+        """
+        t = (title or "").strip()
+        if not t:
+            return ("Isu Perbincangan Publik", "isu-perbincangan-publik")
+
+        # Strip media show / channel noise
+        t_clean = re.sub(
+            r"\s*(\||\-|\–|\—|•)\s*(kabar khusus|akip|tvone.*|kompas.*|cnn.*|detik.*|official\s+video.*|4k\s+remaster.*|remaster.*|youtube).*$",
+            "", t, flags=re.IGNORECASE
+        ).strip()
+        t_clean = re.sub(r"\s*\((official.*|4k.*)\)", "", t_clean, flags=re.IGNORECASE).strip()
+        t_clean = re.sub(r"\s*\[(official.*|4k.*)\]", "", t_clean, flags=re.IGNORECASE).strip()
+
+        # 1. Detect uppercase acronyms in clean title (e.g. MBG, PTUN, IKN, KPK, DPR)
+        acronyms = re.findall(r"\b[A-Z]{2,6}\b", t_clean)
+        acronyms = [a for a in acronyms if a not in ("HD", "TV", "VIDEO", "CLIP", "LIVE", "NEWS", "AKIP", "USA", "UK")]
+
+        # Check for core issue verbs/nouns in title
+        issue_keywords = [
+            "Korupsi", "Kasus", "Skandal", "Gugatan", "Sidang", "Ijazah", "Polemik",
+            "Kebijakan", "Program", "Bencana", "Karhutla", "Darurat", "Krisis", "Banjir"
+        ]
+        detected_issue = ""
+        for p in issue_keywords:
+            if re.search(r"\b" + p + r"\b", t_clean, flags=re.IGNORECASE):
+                detected_issue = p
+                break
+
+        # Check for prominent figure / entity names in title
+        figures = ["Gibran", "Jokowi", "Prabowo", "Sudaryono", "Mahfud", "Ganjar", "Anies"]
+        detected_figure = ""
+        for f in figures:
+            if re.search(r"\b" + f + r"\b", t_clean, flags=re.IGNORECASE):
+                detected_figure = f
+                break
+
+        topic_title = ""
+        if acronyms:
+            main_acr = acronyms[0]
+            # Priority 1: Issue + Figure + Acronym (e.g. Ijazah Gibran (PTUN))
+            if detected_issue and detected_figure and detected_figure.lower() in ("gibran", "jokowi", "prabowo"):
+                topic_title = f"{detected_issue} {detected_figure} ({main_acr})"
+            elif detected_issue:
+                topic_title = f"{detected_issue} {main_acr}"
+            elif detected_figure:
+                topic_title = f"{detected_figure} ({main_acr})"
+            else:
+                # Check expanded acronym from text (e.g. Program Makan Bergizi Gratis (MBG))
+                expanded = None
+                if text:
+                    m = re.search(r"([A-Z][a-zA-Z\s]{3,35})\s*\(" + main_acr + r"\)", text)
+                    if m:
+                        expanded = m.group(1).strip()
+                topic_title = f"{expanded} ({main_acr})" if expanded else f"Isu {main_acr}"
+        elif detected_issue and detected_figure:
+            topic_title = f"{detected_issue} {detected_figure}"
+        elif hashtags:
+            # Check prominent hashtags
+            for tag in hashtags:
+                clean_tag = tag.lstrip("#").strip()
+                if len(clean_tag) >= 3 and not clean_tag.lower().startswith(("fyp", "viral", "trending")):
+                    camel_split = re.sub(r"([a-z])([A-Z])", r"\1 \2", clean_tag)
+                    if len(camel_split.split()) <= 4:
+                        topic_title = camel_split
+                        break
+        
+        if not topic_title:
+            if " - " in t_clean:
+                # e.g. Artist - Song Title (Rick Astley - Never Gonna Give You Up)
+                parts = t_clean.split(" - ")
+                topic_title = parts[1].strip()
+            else:
+                lead_clause = re.split(r"[:|–—,]\s*", t_clean)[0].strip()
+                words = lead_clause.split()
+                topic_title = lead_clause if len(words) <= 5 else " ".join(words[:4])
+
+        topic_title = topic_title.strip()
+        slug = cls.to_canonical_slug(topic_title)
+        return (topic_title, slug)
 
     def compute_jaccard_similarity(self, text_a: str, text_b: str) -> float:
         """Compute Jaccard token overlap similarity (fast fallback metric)."""

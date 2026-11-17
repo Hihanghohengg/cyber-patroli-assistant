@@ -12,7 +12,12 @@ from typing import Dict, List, Optional, Any
 import uuid
 
 import numpy as np
-import google.generativeai as genai
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -22,7 +27,7 @@ from app.models.audit import AuditLog
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_MODEL = "models/text-embedding-004"
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 DEFAULT_SIMILARITY_THRESHOLD = 0.75  # Calibrated default per Proposal ADR-04
 DEFAULT_TOP_K = 5
 
@@ -327,6 +332,9 @@ class RAGService:
         db.refresh(entry)
         logger.info("Successfully ingested Knowledge Base entry %s for report %s", entry.entry_id, rep_id)
         return entry
+
+    # Alias for compatibility
+    ingest_validated_decision = create_knowledge_entry
 
     def deactivate_entry(
         self,

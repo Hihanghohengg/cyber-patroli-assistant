@@ -94,9 +94,8 @@ class TopicClusteringService:
                 .first()
             )
 
-        # 2. Extract content text representation
-        title = content.title or ""
-        body = content.caption or ""
+        title = getattr(content, "title", "") or ""
+        body = getattr(content, "caption_text", None) or getattr(content, "caption", "") or ""
         keywords = analysis.keywords if analysis and analysis.keywords else self.processor.extract_keywords(f"{title} {body}")
         hashtags = analysis.hashtags if analysis and analysis.hashtags else self.processor.extract_hashtags(body)
         main_topic = analysis.main_topic if analysis and analysis.main_topic else ""
@@ -180,8 +179,16 @@ class TopicClusteringService:
             return best_cluster, best_score, False
         else:
             # No sufficient match: Create a new IssueCluster
-            cluster_title = main_topic or (title[:120] if title else body[:120]) or "Isu Patroli Baru"
-            slug = self.processor.to_canonical_slug(cluster_title)
+            # Ensure topic title and slug follow high-signal Twitter/Threads trending conventions
+            filler_words = {"saya", "dapur", "kemudian", "oke", "tidak", "bukan", "kamu", "kita", "mereka", "anda", "dia"}
+            words_lower = set((main_topic or "").lower().split())
+            if not main_topic or len(main_topic.split()) > 5 or (words_lower & filler_words):
+                trend_title, trend_slug = self.processor.extract_smart_trend_topic(title=title, text=body, hashtags=hashtags)
+                cluster_title = trend_title
+                slug = trend_slug
+            else:
+                cluster_title = main_topic
+                slug = self.processor.to_canonical_slug(cluster_title)
 
             # Ensure canonical slug uniqueness
             unique_slug = slug

@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Send,
   Chrome,
-  MessageCircle,
   LayoutDashboard,
   CheckCircle2,
-  Clock,
   ExternalLink,
   ShieldCheck,
   Zap,
-  ArrowRight,
   Copy,
   Check,
+  AlertCircle,
+  FileSpreadsheet,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -33,7 +31,7 @@ export const OmnichannelAssistantPage: React.FC = () => {
   // Form State
   const [testUrl, setTestUrl] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('BROWSER_EXTENSION');
-  const [operatorId, setOperatorId] = useState('Analyst-01');
+  const [operatorId, setOperatorId] = useState('Analyst-Browser');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<any>(null);
@@ -77,7 +75,7 @@ export const OmnichannelAssistantPage: React.FC = () => {
       const res = await axios.post('/api/v1/assistant/intake', {
         url: testUrl.trim(),
         source_channel: selectedChannel,
-        reporter_identifier: operatorId.trim() || 'Analyst-Console',
+        reporter_identifier: operatorId.trim() || 'Analyst-Browser',
         notes: notes.trim() || undefined,
       });
       setSubmitResult(res.data);
@@ -91,311 +89,185 @@ export const OmnichannelAssistantPage: React.FC = () => {
     }
   };
 
+  const extensionIntakeCount = channels.find((c) => c.id === 'browser_extension')?.intake_count || 0;
+  const webConsoleIntakeCount = channels.find((c) => c.id === 'web_dashboard')?.intake_count || 0;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              Arsitektur Modular Terpadu
-            </span>
-            <span className="text-xs text-slate-400 font-mono">Omnichannel Assistant Gateway v3.0</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white mt-1">Asisten Patroli Siber Multi-Kanal</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Integrasi multi-antarmuka terhubung ke satu Core Intelligence Engine (FastAPI + AI Gemini 5W+1H + RAG Preseden).
-          </p>
+          <h1 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <Chrome className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            Ekstensi Browser & Intake Patroli
+          </h1>
         </div>
       </div>
 
-      {/* Grid Kanal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Grid Status Arsitektur */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Chrome Extension - PRIMARY */}
-        <div className="p-4 rounded-xl bg-gradient-to-b from-blue-950/40 to-slate-900 border-2 border-cyan-400 shadow-xl shadow-cyan-950/30 relative overflow-hidden ring-1 ring-cyan-400/50">
-          <div className="absolute top-0 right-0 w-28 h-28 bg-cyan-400/10 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-400/40">
-              <Chrome className="w-5 h-5" />
+        <div className="cyber-card p-4 rounded-xl border border-blue-400/40 dark:border-blue-500/40">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-600/20 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-400/40">
+              <Chrome className="w-4 h-4" />
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500 text-slate-950 flex items-center gap-1 shadow-sm">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-ping" />
-              UTAMA (WORKSTATION)
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white flex items-center gap-1 shadow-sm">
+              KANAL UTAMA
             </span>
           </div>
-          <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
-            Browser Extension
-            <span className="text-[10px] text-cyan-400 font-mono">v3.0</span>
+          <h3 className="font-bold text-slate-900 dark:text-white text-xs">
+            Browser Extension MV3
           </h3>
-          <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-            Asisten utama bagi seluruh personel piket saat berselancar di Chrome/Edge (1-click triage & in-page floating button).
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Asisten utama bagi analis saat berselancar di media sosial dengan 1-click triage & in-page floating button.
           </p>
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>Status Personel:</span>
-              <span className="text-cyan-300 font-semibold">100% Menggunakan Browser</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Platform Target:</span>
-              <span className="text-slate-300 font-medium">TikTok, YT, IG, X</span>
+              <span>Total Laporan:</span>
+              <span className="text-blue-600 dark:text-blue-300 font-semibold font-mono">{extensionIntakeCount}</span>
             </div>
           </div>
         </div>
 
         {/* Web Command Console */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-purple-500/30 shadow-lg shadow-purple-950/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
-              <LayoutDashboard className="w-5 h-5" />
+        <div className="cyber-card p-4 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20">
+              <LayoutDashboard className="w-4 h-4" />
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              COMMAND CONSOLE
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-50 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400 border border-purple-200 dark:border-purple-500/20">
+              PUSAT KENDALI
             </span>
           </div>
-          <h3 className="font-semibold text-white text-sm">Web Dashboard</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Konsol web terpusat untuk eksplorasi visual, drill-down analitik, validasi analis, dan kurasi data.
+          <h3 className="font-semibold text-slate-900 dark:text-white text-xs">Web Dashboard Console</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Pusat monitoring, eksplorasi bukti visual, validasi HITL oleh analis, dan kurasi preseden AI.
           </p>
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>Tampilan:</span>
-              <span className="text-purple-300 font-mono">React + Vite</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Hak Akses:</span>
-              <span className="text-slate-300 font-medium">USER vs ADMIN</span>
+              <span>Input Langsung:</span>
+              <span className="text-purple-600 dark:text-purple-300 font-mono font-semibold">{webConsoleIntakeCount}</span>
             </div>
           </div>
         </div>
 
-        {/* WhatsApp Gateway */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-emerald-500/30 shadow-lg shadow-emerald-950/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl pointer-events-none" />
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <MessageCircle className="w-5 h-5" />
+        {/* Client-First Forensic Integrity */}
+        <div className="cyber-card p-4 rounded-xl">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              GATEWAY READY
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20">
+              SHA-256
             </span>
           </div>
-          <h3 className="font-semibold text-white text-sm">WhatsApp Gateway</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Inbound webhook untuk parsing link medsos dari chat WhatsApp dan balasan terformat otomatis.
+          <h3 className="font-semibold text-slate-900 dark:text-white text-xs">Integritas Bukti Digital</h3>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+            Tangkapan layar dan DOM dihitung hash SHA-256 langsung di browser klien via WebCrypto API sebelum dikirim.
           </p>
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
+          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
             <div className="flex justify-between">
-              <span>Endpoint:</span>
-              <span className="text-emerald-300 font-mono text-[10px]">/whatsapp/webhook</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Kompatibilitas:</span>
-              <span className="text-slate-300 font-medium">Twilio / Meta API</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Telegram Bot */}
-        <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 shadow-lg shadow-slate-950/20 relative overflow-hidden">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2.5 rounded-lg bg-slate-800 text-slate-400 border border-slate-700">
-              <Send className="w-5 h-5" />
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-              OPSIONAL (MOBILE)
-            </span>
-          </div>
-          <h3 className="font-semibold text-white text-sm">Telegram Bot</h3>
-          <p className="text-xs text-slate-400 mt-1">
-            Kanal mobile pelengkap untuk pelaporan lapangan, approval tombol inline, dan rekapitulasi DOCX.
-          </p>
-          <div className="mt-4 pt-3 border-t border-slate-800 text-[11px] text-slate-400 space-y-1">
-            <div className="flex justify-between">
-              <span>Status:</span>
-              <span className="text-slate-300 font-medium">Long-Polling Aktif</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Peran:</span>
-              <span className="text-slate-400">Mobile Backup</span>
+              <span>Standar Hash:</span>
+              <span className="text-emerald-600 dark:text-emerald-300 font-mono">FIPS 180-4</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Detail Bagian Bawah: Panduan Ekstensi & Form Simulasi Intake */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* Panduan Pemasangan Ekstensi Browser */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
+        <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-blue-400">
-              <Chrome className="w-5 h-5" />
-              <h2 className="text-base font-semibold text-white">Panduan Pasang Ekstensi Browser</h2>
+            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+              <Chrome className="w-4 h-4" />
+              <h2 className="text-sm font-semibold text-slate-800 dark:text-white">Panduan Pasang Ekstensi</h2>
             </div>
-            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20">
               Chrome & Edge
             </span>
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Ekstensi telah dikompilasi lengkap dalam repositori proyek. Anda dapat langsung menginstalnya di browser tanpa build tambahan:
-          </p>
-
-          <ol className="text-xs text-slate-300 space-y-2.5 list-decimal list-inside bg-[#070b14] p-4 rounded-lg border border-slate-800">
+          <ol className="text-xs text-slate-600 dark:text-slate-300 space-y-2 list-decimal list-inside bg-slate-50 dark:bg-slate-950 p-3.5 rounded-lg border border-slate-200 dark:border-slate-800">
             <li>
-              Buka menu ekstensi di peramban: <code className="text-cyan-400 bg-slate-900 px-1.5 py-0.5 rounded font-mono">chrome://extensions</code> atau <code className="text-cyan-400 bg-slate-900 px-1.5 py-0.5 rounded font-mono">edge://extensions</code>
+              Buka menu ekstensi browser: <code className="text-blue-600 dark:text-blue-400 bg-slate-200 dark:bg-slate-900 px-1 py-0.5 rounded font-mono">chrome://extensions</code>
             </li>
             <li>
-              Nyalakan toggle <strong>Developer mode</strong> (Mode Pengembang) di pojok kanan atas.
+              Nyalakan toggle <strong>Developer mode</strong> di kanan atas.
             </li>
             <li>
-              Klik tombol <strong>Load unpacked</strong> (Muat yang belum dibongkar).
+              Klik tombol <strong>Load unpacked (Muat yang belum dibongkar)</strong>.
             </li>
             <li>
-              Pilih folder ekstensi pada proyek ini:
+              Pilih folder ekstensi:
             </li>
           </ol>
 
-          <div className="flex items-center gap-2 bg-[#070b14] p-2.5 rounded-lg border border-slate-800 font-mono text-xs text-slate-300">
-            <span className="truncate flex-1 text-cyan-400">{extensionPath}</span>
+          <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-lg border border-slate-200 dark:border-slate-800 font-mono text-xs text-slate-600 dark:text-slate-300">
+            <span className="truncate flex-1 text-blue-600 dark:text-blue-400">{extensionPath}</span>
             <button
               onClick={handleCopyPath}
-              className="px-2.5 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs flex items-center gap-1 transition-colors shrink-0"
+              className="px-2.5 py-1 rounded bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs flex items-center gap-1 transition-colors shrink-0"
             >
-              {copiedPath ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copiedPath ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedPath ? 'Tersalin' : 'Salin Path'}</span>
             </button>
           </div>
-
-          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300 flex items-start gap-2">
-            <Zap className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
-            <span>
-              Setelah dipasang, analis cukup membuka halaman video TikTok/YouTube lalu mengklik ikon ekstensi di toolbar untuk melakukan triase 1-click.
-            </span>
-          </div>
         </div>
 
-        {/* Form Uji Coba Intake Multi-Kanal */}
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <div className="flex items-center gap-2 text-cyan-400">
-            <Zap className="w-5 h-5" />
-            <h2 className="text-base font-semibold text-white">Uji Intake Multi-Kanal (Live Simulation)</h2>
+        {/* Form Simulasi Input Intake */}
+        <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-3">
+          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
+            <Zap className="w-4 h-4" />
+            <h2 className="text-sm font-semibold text-slate-800 dark:text-white">Uji Intake Manual</h2>
           </div>
 
-          <p className="text-xs text-slate-300">
-            Simulasikan pengiriman laporan konten mencurigakan melalui salah satu kanal yang dipilih:
-          </p>
-
-          <form onSubmit={handleSubmitIntake} className="space-y-3.5">
+          <form onSubmit={handleSubmitIntake} className="space-y-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Kanal Intake Pengirim
-              </label>
-              <select
-                value={selectedChannel}
-                onChange={(e) => setSelectedChannel(e.target.value)}
-                className="w-full bg-[#070b14] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500"
-              >
-                <option value="BROWSER_EXTENSION">Chrome / Edge Browser Extension</option>
-                <option value="WHATSAPP">WhatsApp Assistant Gateway</option>
-                <option value="TELEGRAM">Telegram Bot Assistant</option>
-                <option value="WEB_DASHBOARD">Web Command Console (Direct Intake)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                URL Postingan Target (TikTok / YouTube / Instagram)
-              </label>
+              <label className="block text-[11px] text-slate-500 mb-1">URL Postingan Target</label>
               <input
                 type="url"
                 required
                 value={testUrl}
                 onChange={(e) => setTestUrl(e.target.value)}
-                placeholder="https://www.tiktok.com/@akun_target/video/123456789"
-                className="w-full bg-[#070b14] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                placeholder="https://www.tiktok.com/@... atau https://youtu.be/..."
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500 font-mono"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Identitas Pelapor
-                </label>
-                <input
-                  type="text"
-                  value={operatorId}
-                  onChange={(e) => setOperatorId(e.target.value)}
-                  placeholder="ID / No Telp Pelapor"
-                  className="w-full bg-[#070b14] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Catatan Analis (Opsional)
-                </label>
-                <input
-                  type="text"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Misal: Hoaks provokatif"
-                  className="w-full bg-[#070b14] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-                />
-              </div>
+            <div>
+              <label className="block text-[11px] text-slate-500 mb-1">Catatan Analis</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Keterangan singkat..."
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-blue-500"
+              />
             </div>
 
             <button
               type="submit"
               disabled={submitting}
-              className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/20 disabled:opacity-50"
+              className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
             >
-              {submitting ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Mendaftarkan ke Antrean Pipeline...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5" />
-                  <span>Kirim Laporan via Kanal Terpilih</span>
-                </>
-              )}
+              <Zap className={`w-3.5 h-3.5 ${submitting ? 'animate-spin' : ''}`} />
+              <span>{submitting ? 'Memproses...' : 'Kirim Triase'}</span>
             </button>
           </form>
 
-          {submitError && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-xs text-red-400">
-              ⚠️ {submitError}
+          {submitResult && (
+            <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-500/30 text-xs text-emerald-800 dark:text-emerald-300 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <span>Tiket {submitResult.ticket_number} berhasil dibuat.</span>
             </div>
           )}
 
-          {submitResult && (
-            <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Intake Berhasil Didaftarkan!
-                </span>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/20 text-cyan-300 font-mono">
-                  {submitResult.ticket_number}
-                </span>
-              </div>
-              <p className="text-slate-300 leading-relaxed">
-                {submitResult.message}
-              </p>
-              <div className="pt-2 border-t border-emerald-500/20 flex justify-end">
-                <a
-                  href="#/contents"
-                  className="text-cyan-400 hover:text-cyan-300 font-semibold flex items-center gap-1 text-[11px]"
-                >
-                  <span>Pantau di Content Explorer</span>
-                  <ArrowRight className="w-3 h-3" />
-                </a>
-              </div>
+          {submitError && (
+            <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-500/30 text-xs text-rose-800 dark:text-rose-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>{submitError}</span>
             </div>
           )}
         </div>

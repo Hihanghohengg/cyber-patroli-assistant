@@ -10,6 +10,7 @@ from app.models.audit import AuditLog
 from app.models.intelligence import ContentAnalysis, IssueCluster, IssueContent
 from app.auth.dependencies import get_current_user
 from app.schemas.dashboard import ValidationRequest, ReclassifyRequest
+from app.services.memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
 
@@ -34,29 +35,41 @@ def validate_content_finding(
     if decision not in ["VALIDATED", "MODIFIED", "REJECTED"]:
         raise HTTPException(status_code=400, detail="Status harus VALIDATED, MODIFIED, atau REJECTED")
 
-    # If category or risk is overridden, classify as MODIFIED
-    if payload.risk_level_override or payload.category_override:
+    # Logika Penentuan Keputusan HITL:
+    # 1. VALIDATED (Setuju / Acc): Menyetujui hasil AI. Catatan analis TIDAK WAJIB.
+    # 2. MODIFIED (Ubah): Mengoreksi kategori / tingkat risiko. Catatan/alasan analis WAJIB.
+    # 3. REJECTED (Tolak): Menolak temuan patroli / bukan pelanggaran. Catatan/alasan analis WAJIB.
+    if decision == "VALIDATED":
+        # Jangan paksa ke MODIFIED jika status eksplisit VALIDATED (Setuju)
+        pass
+    elif decision == "REJECTED":
+        pass
+    else:
         decision = "MODIFIED"
 
-    # Constraint: If MODIFIED or REJECTED, notes are mandatory
+    # Constraint: Jika MODIFIED atau REJECTED, catatan/alasan analis wajib diisi
     if decision in ["MODIFIED", "REJECTED"]:
         if not payload.notes or not payload.notes.strip():
+            aksi_label = "UBAH (MODIFIED)" if decision == "MODIFIED" else "TOLAK (REJECTED)"
             raise HTTPException(
                 status_code=400,
-                detail=f"Catatan analis (analyst_notes) wajib diisi untuk putusan {decision}",
+                detail=f"Catatan/alasan analis wajib diisi untuk keputusan {aksi_label}.",
             )
 
     report.status = decision
     report.review_decision = "APPROVED" if decision == "VALIDATED" else ("MODIFIED" if decision == "MODIFIED" else "FALSE_POSITIVE")
-    report.analyst_notes = payload.notes
-    report.correction_notes = payload.notes
+    report.analyst_notes = payload.notes.strip() if payload.notes else None
+    report.correction_notes = payload.notes.strip() if payload.notes else None
 
     if decision == "REJECTED":
         report.final_risk = None
         report.final_label = payload.category_override or "BUKAN_PELANGGARAN"
-    else:
+    elif decision == "MODIFIED":
         report.final_risk = payload.risk_level_override or report.ai_risk_level or "RENDAH"
         report.final_label = payload.category_override or report.ai_predicted_label or "NETRAL"
+    else:  # VALIDATED (Acc)
+        report.final_risk = report.ai_risk_level or "RENDAH"
+        report.final_label = report.ai_predicted_label or "NETRAL"
 
     report.validated_at = now
     if current_user.telegram_id:
@@ -87,20 +100,39 @@ def validate_content_finding(
         timestamp=now,
     )
     db.add(audit)
+
+    # Gated MemPrompt Memory Entry (Anti Memory-Poisoning)
+    if decision in ["VALIDATED", "MODIFIED"]:
+        try:
+            content = db.query(Content).filter(Content.content_id == content_id).first()
+            if content:
+                content_text = f"{content.title or ''} {content.caption_text or ''}".strip()
+                risk_map = {"TINGGI": 5, "SEDANG": 3, "RENDAH": 1}
+                urgency = risk_map.get(str(report.final_risk).upper(), 3)
+                MemoryService.add_validated_case(
+                    db=db,
+                    content_id=content_id,
+                    report_id=report.report_id,
+                    content_text=content_text,
+                    validated_category=report.final_label or "Sosial",
+                    analyst_rationale=payload.notes or "Divalidasi analis patroli siber.",
+                    validated_by=current_user.username or "analyst",
+                    urgency_score=urgency
+                )
+                logger.info(f"MemPrompt Memory Entry added for content {content_id} [{report.final_label}]")
+        except Exception as mem_err:
+            logger.warning(f"Failed to add case to ValidatedMemory: {mem_err}")
+
     db.commit()
 
-    # Ingest to RAG Knowledge Base (NFR-07 Versioning)
-    try:
-        from app.services.rag_service import RAGService
-        rag_svc = RAGService()
-        rag_svc.ingest_validated_decision(
-            db=db,
-            report=report,
-            analyst_notes=payload.notes or "",
-            decided_by=getattr(current_user, "telegram_id", None) or 0,
-        )
-    except Exception as rag_err:
-        logger.warning("RAG ingestion failed on dashboard validation: %s", rag_err)
+    # Rekam umpan balik analis ke HITL Active Learning Harness
+    logger.info(
+        "HITL active learning feedback terekam untuk tiket %s: putusan=%s, final_label=%s, final_risk=%s",
+        report.ticket_number,
+        decision,
+        report.final_label,
+        report.final_risk,
+    )
 
     return {
         "status": "success",

@@ -1,7 +1,9 @@
 """Authentication endpoints for Web Dashboard."""
 
+import time
+from collections import defaultdict
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -12,19 +14,53 @@ from app.schemas.dashboard import LoginRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Dashboard Auth"])
 
+# Rate Limiter & Brute-Force Defense: max 5 failed attempts per 5 minutes per IP
+_FAILED_LOGIN_ATTEMPTS = defaultdict(list)
+MAX_FAILED_ATTEMPTS = 5
+LOCKOUT_DURATION_SECONDS = 300  # 5 minutes
+
+
+def _enforce_rate_limit(client_ip: str):
+    now = time.time()
+    # Expire old records outside the lockout window
+    _FAILED_LOGIN_ATTEMPTS[client_ip] = [
+        t for t in _FAILED_LOGIN_ATTEMPTS[client_ip] if now - t < LOCKOUT_DURATION_SECONDS
+    ]
+    if len(_FAILED_LOGIN_ATTEMPTS[client_ip]) >= MAX_FAILED_ATTEMPTS:
+        lockout_remaining = int(LOCKOUT_DURATION_SECONDS - (now - _FAILED_LOGIN_ATTEMPTS[client_ip][0]))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Terlalu banyak percobaan login gagal. Akses ditolak sementara selama {max(1, lockout_remaining)} detik demi keamanan.",
+        )
+
+
+def _record_failed_attempt(client_ip: str):
+    _FAILED_LOGIN_ATTEMPTS[client_ip].append(time.time())
+
+
+def _clear_failed_attempts(client_ip: str):
+    _FAILED_LOGIN_ATTEMPTS.pop(client_ip, None)
+
 
 @router.post("/login", response_model=TokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
+def login(payload: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """Authenticate dashboard analyst/admin and issue JWT bearer token."""
+    client_ip = request.client.host if request.client else "127.0.0.1"
+    _enforce_rate_limit(client_ip)
+
     # Ensure default admin is created if table is empty
     seed_default_admin_if_needed(db)
 
     user = db.query(DashboardUser).filter(DashboardUser.username == payload.username).first()
     if not user or not verify_password(payload.password, user.hashed_password):
+        _record_failed_attempt(client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Nama pengguna atau kata sandi tidak sesuai",
         )
+
+    # Clear failed counters on successful authentication
+    _clear_failed_attempts(client_ip)
 
     if not user.is_active:
         raise HTTPException(

@@ -905,7 +905,7 @@ def ingest():
         report = Report(
             report_id=uuid.uuid4(),
             ticket_number=ticket_code,
-            reporter_telegram_id=999001,
+            reporter_telegram_id=None,
             content_id=content.content_id,
             source_channel="BROWSER_EXTENSION" if i % 2 == 0 else "WEB_DASHBOARD",
             reporter_identifier="Analyst-Console" if i % 2 == 0 else "Patrol-Piket-D22",

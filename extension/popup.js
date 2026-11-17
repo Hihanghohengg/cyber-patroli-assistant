@@ -1,5 +1,12 @@
-const DEFAULT_API_BASE = "http://localhost:8000";
+// @ts-nocheck
+/* cSpell:disable */
+// Popup Controller for TILIK — Cyber Patrol Assistant Extension
+// Universal 3-Layer Content Acquisition & NIST FIPS 198-1 Verification Display
 
+(() => {
+  "use strict";
+
+  let ACTIVE_SERVER_URL = "http://127.0.0.1:8000";
 let currentTab = null;
 let currentPlatform = "unknown";
 
@@ -9,12 +16,15 @@ function detectPlatform(url) {
   if (lower.includes("tiktok.com")) return "tiktok";
   if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "youtube";
   if (lower.includes("instagram.com")) return "instagram";
+  if (lower.includes("facebook.com")) return "facebook";
+  if (lower.includes("threads.net")) return "threads";
   if (lower.includes("twitter.com") || lower.includes("x.com")) return "x";
-  return "web";
+  return "news";
 }
 
 function updatePlatformBadge(platform) {
   const badge = document.getElementById("platform-badge");
+  if (!badge) return;
   badge.className = "platform-badge";
   if (platform === "tiktok") {
     badge.classList.add("platform-tiktok");
@@ -25,295 +35,399 @@ function updatePlatformBadge(platform) {
   } else if (platform === "instagram") {
     badge.classList.add("platform-instagram");
     badge.textContent = "Instagram";
+  } else if (platform === "facebook") {
+    badge.classList.add("platform-news");
+    badge.textContent = "Facebook";
   } else if (platform === "x") {
     badge.classList.add("platform-x");
-    badge.textContent = "X / Twitter";
+    badge.textContent = "X (Twitter)";
+  } else if (platform === "news") {
+    badge.classList.add("platform-news");
+    badge.textContent = "Portal Berita";
   } else {
     badge.classList.add("platform-unknown");
     badge.textContent = platform.toUpperCase();
   }
 }
 
-async function checkServerHealth(apiBase) {
-  const indicator = document.getElementById("conn-indicator");
+async function checkServerHealth(serverUrl) {
+  const indicator = document.getElementById("conn-badge");
   const text = document.getElementById("conn-text");
+  const target = (serverUrl || ACTIVE_SERVER_URL).replace(/\/+$/, "");
+
   try {
-    const res = await fetch(`${apiBase}/health`, { method: "GET" });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(`${target}/health`, { method: "GET", signal: controller.signal });
+    clearTimeout(timeoutId);
     if (res.ok) {
-      indicator.className = "conn-status";
-      text.textContent = "Terhubung";
+      ACTIVE_SERVER_URL = target;
+      if (indicator) indicator.className = "conn-status";
+      if (text) text.textContent = "Terhubung";
       return true;
     }
   } catch (err) {
     // offline
   }
-  indicator.className = "conn-status disconnected";
-  text.textContent = "API Offline";
+
+  if (indicator) indicator.className = "conn-status disconnected";
+  if (text) text.textContent = "Server Offline";
   return false;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const tabUrlElem = document.getElementById("tab-url");
+  const urlDisplayElement = document.getElementById("current-url");
   const btnSubmit = document.getElementById("btn-submit");
   const btnText = document.getElementById("btn-text");
   const resultCard = document.getElementById("result-card");
   const resultTicket = document.getElementById("result-ticket");
   const resultDesc = document.getElementById("result-desc");
-  const analystIdInput = document.getElementById("analyst-id");
+  const resultCryptoBadge = document.getElementById("result-crypto-badge");
+  const resultCryptoInfo = document.getElementById("result-crypto-info");
+  const operatorIdInput = document.getElementById("operator-id");
+  const serverUrlInput = document.getElementById("server-url");
   const notesInput = document.getElementById("notes");
+  const linkDashboard = document.getElementById("link-dashboard");
+  const linkFooter = document.getElementById("link-footer-dashboard");
 
-  // Load saved analyst ID if available
+  // 1. Load saved configuration from chrome.storage.local
   if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["analystId"], (result) => {
-      if (result.analystId) {
-        analystIdInput.value = result.analystId;
-      }
+    chrome.storage.local.get(["operator_id", "server_url"], (res) => {
+      if (res.operator_id) operatorIdInput.value = res.operator_id;
+      if (res.server_url) serverUrlInput.value = res.server_url;
+      ACTIVE_SERVER_URL = serverUrlInput.value.trim() || "http://127.0.0.1:8000";
+      checkServerHealth(ACTIVE_SERVER_URL);
     });
+  } else {
+    checkServerHealth(ACTIVE_SERVER_URL);
   }
 
-  // Check health
-  await checkServerHealth(DEFAULT_API_BASE);
+  // Auto-save configuration on input change
+  const saveConfig = () => {
+    const op = operatorIdInput.value.trim() || "op_d23_01";
+    const srv = serverUrlInput.value.trim() || "http://127.0.0.1:8000";
+    ACTIVE_SERVER_URL = srv;
+    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ operator_id: op, server_url: srv });
+    }
+    checkServerHealth(srv);
+  };
+  operatorIdInput.addEventListener("change", saveConfig);
+  serverUrlInput.addEventListener("change", saveConfig);
 
-  // Get active tab URL
+  // 2. Query active browser tab
   if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.query) {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.url) {
         currentTab = tab;
-        tabUrlElem.textContent = tab.url;
+        urlDisplayElement.textContent = tab.url;
         currentPlatform = detectPlatform(tab.url);
         updatePlatformBadge(currentPlatform);
       } else {
-        tabUrlElem.textContent = "Tidak dapat mendeteksi URL tab aktif.";
+        urlDisplayElement.textContent = "Tidak dapat mendeteksi URL tab aktif.";
       }
     } catch (err) {
-      tabUrlElem.textContent = "Gagal mengambil tab: " + err.message;
+      urlDisplayElement.textContent = "Gagal mengambil tab: " + err.message;
     }
   } else {
-    tabUrlElem.textContent = "http://localhost:5173/#/contents (Mode Standalone)";
-    currentPlatform = "web";
-    updatePlatformBadge("web");
+    urlDisplayElement.textContent = "http://127.0.0.1:8000/dashboard/#/contents (Mode Standalone)";
+    currentPlatform = "news";
+    updatePlatformBadge("news");
   }
 
-  // Handle Submit
+  // 3. Handle Submit Action
   btnSubmit.addEventListener("click", async () => {
-    const targetUrl = currentTab ? currentTab.url : tabUrlElem.textContent;
+    if (btnSubmit.disabled) return;
+    btnSubmit.disabled = true;
+    saveConfig();
+    const targetUrl = currentTab ? currentTab.url : urlDisplayElement.textContent;
     if (!targetUrl || targetUrl.startsWith("chrome://") || targetUrl.startsWith("edge://")) {
-      alert("Hanya tautan media sosial publik (TikTok, YouTube, Instagram) yang dapat diproses!");
+      alert("Buka postingan media sosial atau portal berita publik sebelum melakukan triase!");
       return;
     }
 
-    const analystId = analystIdInput.value.trim() || "Analyst-Extension";
+    const operatorId = operatorIdInput.value.trim() || "op_d23_01";
     const notes = notesInput.value.trim();
-
-    // Save analyst ID
-    if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-      chrome.storage.local.set({ analystId: analystId });
-    }
 
     btnSubmit.disabled = true;
     btnText.textContent = "Mengambil Tangkapan Layar...";
 
+    // Capture tab screenshot (sembunyikan badge floating di halaman terlebih dahulu)
     let screenshotBase64 = null;
     if (typeof chrome !== "undefined" && chrome.tabs && chrome.tabs.captureVisibleTab) {
       try {
+        if (chrome.scripting && currentTab?.id) {
+          await chrome.scripting.executeScript({
+            target: { tabId: currentTab.id },
+            func: () => {
+              const b = document.getElementById("cyber-patrol-floating-badge");
+              if (b) {
+                b.classList.add("cp-capturing");
+                b.style.display = "none";
+              }
+              const m = document.getElementById("cp-triage-modal");
+              if (m) {
+                m.classList.add("cp-capturing");
+                m.style.display = "none";
+              }
+            }
+          }).catch(() => {});
+          await new Promise(r => setTimeout(r, 120));
+        }
+
         screenshotBase64 = await new Promise((resolve) => {
-          chrome.tabs.captureVisibleTab(null, { format: "png" }, (dataUrl) => {
+          chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 85 }, (dataUrl) => {
             if (chrome.runtime.lastError || !dataUrl) {
+              console.warn("[TILIK Popup] captureVisibleTab warning:", chrome.runtime.lastError?.message);
               resolve(null);
             } else {
               resolve(dataUrl);
             }
           });
         });
+
+        // Kembalikan tombol di halaman
+        if (chrome.scripting && currentTab?.id) {
+          chrome.scripting.executeScript({
+            target: { tabId: currentTab.id },
+            func: () => {
+              const b = document.getElementById("cyber-patrol-floating-badge");
+              if (b) {
+                b.classList.remove("cp-capturing");
+                b.style.display = "";
+              }
+              const m = document.getElementById("cp-triage-modal");
+              if (m) {
+                m.classList.remove("cp-capturing");
+                m.style.display = "block";
+              }
+            }
+          }).catch(() => {});
+        }
       } catch (err) {
-        console.warn("Popup tab screenshot capture failed:", err);
+        console.warn("Screenshot capture note:", err);
       }
     }
 
-    // Extract in-depth structured metadata and direct media image url from active tab
+    btnText.textContent = "Ekstraksi Universal 3-Layer...";
+
+    // Execute Universal 3-Layer extraction inside active tab
     let inPageMeta = {};
     if (typeof chrome !== "undefined" && chrome.scripting && currentTab?.id) {
       try {
         const [results] = await chrome.scripting.executeScript({
           target: { tabId: currentTab.id },
           func: () => {
-            function parseNum(text) {
-              if (!text) return 0;
-              const clean = text.trim().toLowerCase().replace(/,/g, ".");
-              const m = clean.match(/([\d\.]+)/);
-              if (!m) return 0;
-              let v = parseFloat(m[1]);
-              if (clean.includes("m") || clean.includes("jt")) v *= 1000000;
-              else if (clean.includes("k") || clean.includes("rb")) v *= 1000;
-              return Math.round(v);
+            // Prioritas 0: User Highlight
+            const userSelection = window.getSelection() ? window.getSelection().toString().trim() : "";
+            if (userSelection && userSelection.length >= 10) {
+              return {
+                extraction_method: "user_highlight",
+                dom_text: userSelection,
+                title: userSelection.length > 80 ? (userSelection.slice(0, 80) + "...") : userSelection,
+              };
             }
 
             const url = window.location.href.toLowerCase();
-            const res = {
-              username: null,
-              display_name: null,
-              followers_count: 0,
-              title: null,
-              caption: null,
-              likes_count: 0,
-              views_count: 0,
-              comments_count: 0,
-              shares_count: 0,
-              media_image_url: null,
+            const host = window.location.hostname.toLowerCase();
+            const isSocial = url.includes("twitter.com") || url.includes("x.com") ||
+                             url.includes("instagram.com") || url.includes("facebook.com") ||
+                             url.includes("threads.net") || url.includes("tiktok.com");
+
+            if (isSocial) {
+              // Layer 2: Viewport Center Semantic Article Container
+              const cx = window.innerWidth / 2;
+              const cy = window.innerHeight / 2;
+              const centerEl = document.elementFromPoint(cx, cy);
+              const container = document.querySelector("div[role='dialog'] article") ||
+                                document.querySelector("div[role='dialog']") ||
+                                centerEl?.closest("article, [role='article'], [data-testid='tweet'], div[role='dialog'], main, .x1y1aw1k") ||
+                                document.querySelector("article, [role='article'], [data-testid='tweet'], main[role='main']");
+
+              if (container) {
+                let clean = "";
+
+                // Prioritaskan elemen teks postingan terisolasi
+                if (host.includes("instagram.com")) {
+                  const h1El = container.querySelector("h1, h1 span, h1._a9zc");
+                  if (h1El && h1El.textContent.trim().length >= 10) {
+                    clean = h1El.textContent.trim();
+                  }
+                  if (!clean) {
+                    const firstSpan = container.querySelector("div._a9zs span[dir='auto'], span._ap3a[dir='auto']");
+                    if (firstSpan && firstSpan.textContent.trim().length >= 10) {
+                      clean = firstSpan.textContent.trim();
+                    }
+                  }
+                } else if (host.includes("twitter.com") || host.includes("x.com")) {
+                  clean = container.querySelector('[data-testid="tweetText"]')?.textContent?.trim() || "";
+                } else if (host.includes("tiktok.com")) {
+                  clean = container.querySelector('[data-e2e="browse-video-desc"], [data-e2e="user-post-item-desc"]')?.textContent?.trim() || "";
+                } else if (host.includes("facebook.com")) {
+                  clean = container.querySelector('div[data-ad-preview="message"]')?.textContent?.trim() || "";
+                }
+
+                // Fallback: Clone node dan buang komentar
+                if (!clean || clean.length < 15) {
+                  const clone = container.cloneNode(true);
+                  clone.querySelectorAll(
+                    "script, style, svg, nav, button, iframe, noscript, dialog, ul li, " +
+                    "ul div[role='menuitem'], ul > div:nth-child(n+2), section, form, textarea"
+                  ).forEach(e => e.remove());
+                  clean = clone.innerText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+                }
+
+                // Pembersihan artefak sosial media
+                if (clean) {
+                  for (const m of ["Lihat terjemahan", "See translation", "View translation", "Lihat semua komentar"]) {
+                    if (clean.includes(m)) clean = clean.split(m)[0].trim();
+                  }
+                  clean = clean.replace(/Disukai oleh.*?lainnya/gi, " ");
+                  clean = clean.replace(/Liked by.*?others/gi, " ");
+
+                  // Bersihkan pemutar video (misal: 00:00 / 09:28)
+                  clean = clean.replace(/\d{1,2}:\d{2}\s*[\/|\\]\s*\d{1,2}:\d{2}/g, " ");
+
+                  // Bersihkan cap waktu tweet & metrik tayangan/kutipan
+                  clean = clean.replace(/\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\s*[·•\u00b7\u2022]\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}/g, " ");
+                  clean = clean.replace(/[·•\u00b7\u2022\s]*\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\b/g, " ");
+                  clean = clean.replace(/[·•\u00b7\u2022\s]*\d+[\d\.,]*[KkMm]?\s*(?:Views|View quotes|views|quotes|suka|likes|Retweets|reposts|Bookmarks|bookmarked)(?=[^a-zA-Z]|$)/gi, " ");
+
+                  // Bersihkan header akun yang menempel di awal (misal: "Sumatera Adil & Federal@indepenSumateraPRABOWO..." -> "PRABOWO...")
+                  clean = clean.replace(/^(?:[^\n@]{0,50})?@[a-zA-Z0-9_\.]*?[a-z0-9](?=[A-Z]{2,}|\d+\.)\s*/i, "").trim();
+                  clean = clean.replace(/^(?:[A-Z][a-zA-Z0-9\s._-]+)?@([a-zA-Z0-9_]{1,20}?)(?=[A-Z]{2,}|\d+\.|\b)\s*/i, "").trim();
+                  clean = clean.replace(/^(?:[A-Z][a-zA-Z0-9\s._-]{0,40})?@[a-zA-Z0-9_]+(?:\s*[·•]\s*[\w\d]+)?(?:\s*(?=\d+\.))?\s*/i, "").trim();
+                  clean = clean.replace(/^[A-Z][a-zA-Z0-9\s._-]+@[a-zA-Z0-9_]+\s*/i, "").trim();
+
+                  clean = clean.replace(/\b\d+\s*(?:hari|jam|m|menit|d|detik|w|minggu)\s*(?:yang\s+lalu)?\s*(?:Kirim)?$/gi, "").trim();
+                  clean = clean.replace(/\s+/g, " ").trim();
+                }
+
+                const permalink = container.querySelector("a[href*='/status/'], a[href*='/p/'], a[href*='/reel/'], a[href*='/posts/'], a[href*='/videos/']")?.href;
+                const timeStr = container.querySelector("time[datetime], time")?.getAttribute("datetime");
+
+                return {
+                  extraction_method: "semantic_article",
+                  dom_text: clean,
+                  title: clean.length > 80 ? (clean.slice(0, 80) + "...") : clean,
+                  source_url: permalink || window.location.href,
+                  posted_at: timeStr || undefined,
+                };
+              }
+            }
+
+            // Layer 1: OpenGraph & JSON-LD (News & YouTube)
+            const ogTitle = document.querySelector('meta[property="og:title"]')?.content ||
+                            document.querySelector('meta[name="twitter:title"]')?.content || document.title;
+            const ogDesc = document.querySelector('meta[property="og:description"]')?.content ||
+                           document.querySelector('meta[name="description"]')?.content || "";
+            const ogImg = document.querySelector('meta[property="og:image"]')?.content;
+            const ogUrl = document.querySelector('meta[property="og:url"]')?.content ||
+                          document.querySelector('link[rel="canonical"]')?.href || window.location.href;
+
+            const mainEl = document.querySelector("article, main, .read__content, .detail__body-text, #article-body, .it-detail");
+            let bodyText = "";
+            if (mainEl) {
+              const clone = mainEl.cloneNode(true);
+              clone.querySelectorAll("script, style, svg, nav, button, iframe, noscript").forEach(e => e.remove());
+              bodyText = clone.innerText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+            }
+
+            return {
+              extraction_method: "opengraph_jsonld",
+              title: ogTitle,
+              dom_text: bodyText || ogDesc || ogTitle,
+              source_url: ogUrl,
+              media_image_url: ogImg && !ogImg.includes("favicon") ? ogImg : undefined,
             };
-
-            // Image
-            const og = document.querySelector('meta[property="og:image"]')?.content ||
-                       document.querySelector('meta[name="twitter:image"]')?.content;
-            if (og && !og.includes('favicon')) res.media_image_url = og;
-
-            // YouTube
-            if (url.includes("youtube.com") || url.includes("youtu.be")) {
-              const ch = document.querySelector("#channel-name a") || document.querySelector("#owner #text a");
-              res.display_name = ch?.textContent?.trim();
-              const chHref = ch?.getAttribute("href") || "";
-              res.username = chHref.includes("@") ? chHref.split("@")[1].split("/")[0] : res.display_name;
-              const subEl = document.querySelector("#owner-sub-count") || document.querySelector("#subscriber-count");
-              if (subEl) res.followers_count = parseNum(subEl.textContent);
-              const tit = document.querySelector("#title h1 yt-formatted-string") || document.querySelector("h2.ytd-reel-player-header-renderer");
-              res.title = tit?.textContent?.trim() || document.title.replace(" - YouTube", "");
-              const descText = document.querySelector("#description-inline-expander yt-attributed-string") ||
-                               document.querySelector("#description-text") ||
-                               document.querySelector("ytd-text-inline-expander #plain-snippet-text") ||
-                               document.querySelector("#description yt-formatted-string") ||
-                               document.querySelector("meta[name='description']");
-              let rawDesc = descText?.textContent?.trim() || descText?.content || document.querySelector("#description-inline-expander")?.textContent?.trim();
-              if (rawDesc) {
-                res.caption = rawDesc
-                  .replace(/\.\.\.selengkapnya/gi, "")
-                  .replace(/Lebih sedikit/gi, "")
-                  .replace(/Ikuti menggunakan transkrip\./gi, "")
-                  .replace(/Tampilkan transkrip/gi, "")
-                  .replace(/Cara konten ini dibuat/gi, "")
-                  .replace(/Disulih suara otomatis/gi, "")
-                  .replace(/Trek audio untuk beberapa bahasa dibuat secara otomatis\./gi, "")
-                  .replace(/Pelajari lebih lanjut/gi, "")
-                  .replace(/\d+([,\.]\d+)?\s*(rb|jt|k|m)?\s*subscriber/gi, "")
-                  .replace(/VideoTentangInstagram\S*/gi, "")
-                  .replace(/\n\s*\n\s*\n/g, "\n\n")
-                  .trim();
-              }
-              const tNodes = document.querySelectorAll("ytd-transcript-segment-renderer .segment-text, #segments-container yt-formatted-string");
-              if (tNodes && tNodes.length > 0) {
-                const tLines = Array.from(tNodes).map(n => n.textContent.trim()).filter(Boolean);
-                if (tLines.length > 0) res.transcript = tLines.join(" ");
-              }
-              const view = document.querySelector("#info-container span");
-              if (view) res.views_count = parseNum(view.textContent);
-              const like = document.querySelector("like-button-view-model button");
-              if (like) res.likes_count = parseNum(like.getAttribute("aria-label") || like.textContent);
-              const comm = document.querySelector("#comments #count span");
-              if (comm) res.comments_count = parseNum(comm.textContent);
-            }
-            // Instagram
-            else if (url.includes("instagram.com")) {
-              const u = document.querySelector("header a[role='link']") || document.querySelector("article header a") || document.querySelector("h2");
-              res.username = u?.textContent?.trim()?.replace(/^@/, "");
-              if (!res.username) {
-                const sm = window.location.href.match(/instagram\.com\/(?:stories\/)?([a-zA-Z0-9_\.]+)/);
-                if (sm && !['p', 'reel', 'explore', 'stories'].includes(sm[1])) res.username = sm[1];
-              }
-              res.display_name = res.username ? `@${res.username}` : "Pengguna Instagram";
-              const cap = document.querySelector("h1[dir='auto']") || document.querySelector("article span._a9zs") || document.querySelector("meta[property='og:description']");
-              res.caption = cap?.textContent?.trim() || cap?.content;
-              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : `Instagram Post (${res.username || 'Media'})`;
-              const lk = document.querySelector("section button span") || document.querySelector("a[href*='/liked_by/'] span");
-              if (lk) res.likes_count = parseNum(lk.textContent);
-            }
-            // TikTok
-            else if (url.includes("tiktok.com")) {
-              const tu = document.querySelector("[data-e2e='user-title']");
-              res.username = tu?.textContent?.trim()?.replace(/^@/, "");
-              res.display_name = res.username ? `@${res.username}` : "TikTok Creator";
-              const tc = document.querySelector("[data-e2e='browse-video-desc']");
-              res.caption = tc?.textContent?.trim();
-              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : `TikTok Video @${res.username}`;
-              const tlk = document.querySelector("[data-e2e='like-count']");
-              if (tlk) res.likes_count = parseNum(tlk.textContent);
-              const tcm = document.querySelector("[data-e2e='comment-count']");
-              if (tcm) res.comments_count = parseNum(tcm.textContent);
-              const tsh = document.querySelector("[data-e2e='share-count']");
-              if (tsh) res.shares_count = parseNum(tsh.textContent);
-            }
-            // X / Twitter
-            else if (url.includes("twitter.com") || url.includes("x.com")) {
-              const xu = document.querySelector("[data-testid='User-Name']");
-              if (xu) {
-                const links = xu.querySelectorAll("a");
-                res.display_name = links[0]?.textContent?.trim();
-                res.username = links[1]?.textContent?.trim()?.replace(/^@/, "");
-              }
-              const xt = document.querySelector("[data-testid='tweetText']");
-              res.caption = xt?.textContent?.trim();
-              res.title = res.caption ? (res.caption.slice(0, 70) + "...") : "Postingan X (Twitter)";
-              const xlk = document.querySelector("[data-testid='like']");
-              if (xlk) res.likes_count = parseNum(xlk.textContent);
-              const xcm = document.querySelector("[data-testid='reply']");
-              if (xcm) res.comments_count = parseNum(xcm.textContent);
-            }
-
-            return res;
           }
         });
-        if (results && results.result) {
-          inPageMeta = results.result;
-        }
+        if (results && results.result) inPageMeta = results.result;
       } catch (err) {
-        console.warn("Scripting extraction error in popup:", err);
+        console.warn("Scripting extraction warning:", err);
       }
     }
 
-    btnText.textContent = "Mengirim ke Pipeline AI...";
+    btnText.textContent = "Penyegelan HMAC-SHA256...";
+
+    // Strict ISO-8601 UTC timestamp
+    const capturedAtUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const domText = inPageMeta.dom_text || notes || targetUrl;
+    const method = inPageMeta.extraction_method || "fallback_dom";
+
+    const payload = {
+      url: inPageMeta.source_url || targetUrl,
+      source_channel: "BROWSER_EXTENSION",
+      reporter_identifier: operatorId,
+      operator_id: operatorId,
+      captured_at_utc: capturedAtUtc,
+      ocr_text: "",
+      notes: `[AKUISISI: ${method.toUpperCase()}] ${notes ? notes + ' | ' : ''}${domText.slice(0, 150)}...`,
+      screenshot_base64: screenshotBase64 || undefined,
+      media_image_url: inPageMeta.media_image_url || undefined,
+      title: inPageMeta.title || undefined,
+      caption: domText || undefined,
+      posted_at: inPageMeta.posted_at || undefined,
+    };
 
     try {
-      const payload = {
-        url: targetUrl,
-        source_channel: "BROWSER_EXTENSION",
-        reporter_identifier: analystId,
-        notes: notes || inPageMeta.caption || undefined,
-        screenshot_base64: screenshotBase64 || undefined,
-        media_image_url: inPageMeta.media_image_url || undefined,
-        username: inPageMeta.username || undefined,
-        display_name: inPageMeta.display_name || undefined,
-        followers_count: inPageMeta.followers_count || 0,
-        title: inPageMeta.title || undefined,
-        caption: inPageMeta.caption || undefined,
-        transcript: inPageMeta.transcript || undefined,
-        likes_count: inPageMeta.likes_count || 0,
-        views_count: inPageMeta.views_count || 0,
-        comments_count: inPageMeta.comments_count || 0,
-        shares_count: inPageMeta.shares_count || 0,
-      };
-
-      const res = await fetch(`${DEFAULT_API_BASE}/api/v1/assistant/intake`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      // Send intake via background service worker
+      const responseData = await new Promise((resolve, reject) => {
+        if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ action: "submit_intake", payload }, (bgRes) => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else if (bgRes && bgRes.ok) resolve(bgRes.data);
+            else reject(new Error((bgRes && (bgRes.error || bgRes.data?.detail)) || "Gagal mengirim intake ke server."));
+          });
+        } else {
+          // Direct fetch fallback
+          fetch(`${ACTIVE_SERVER_URL}/api/v1/assistant/intake`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+            .then(res => res.json())
+            .then(resolve)
+            .catch(reject);
+        }
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.detail || "Gagal mengirim laporan intake");
-      }
-
       resultCard.style.display = "block";
-      resultTicket.textContent = data.ticket_number;
-      resultDesc.textContent = `Konten ${data.platform ? data.platform.toUpperCase() : ''} berhasil dicatat ke antrean validasi bukti digital.`;
-      if (data.content_id) {
-        const link = document.getElementById("link-dashboard");
-        if (link) link.href = `http://localhost:5173/#/contents/${data.content_id}`;
-      }
-      btnText.textContent = "✅ Berhasil Diproses";
+      resultTicket.textContent = responseData.ticket_number;
+
+      const isVerified = responseData.verification_status === "VERIFIED";
+      resultCryptoBadge.textContent = isVerified ? "🛡️ VERIFIED (NIST FIPS 198-1)" : "⚠️ UNVERIFIED";
+      resultCryptoBadge.style.color = isVerified ? "#34d399" : "#f87171";
+      resultCryptoBadge.style.borderColor = isVerified ? "#059669" : "#dc2626";
+
+      const hmacShort = responseData.hmac_tag ? `${responseData.hmac_tag.slice(0, 24)}...` : "Tersimpan";
+      resultCryptoInfo.innerHTML = `
+        <strong>Operator:</strong> ${operatorId}<br/>
+        <strong>Metode:</strong> ${method.toUpperCase()}<br/>
+        <strong>HMAC-SHA256:</strong> ${hmacShort}
+      `;
+
+      resultDesc.textContent = responseData.ai_summary
+        ? `[${responseData.ai_status || 'AMAN'} - ${responseData.ai_predicted_label || 'NETRAL'}] ${responseData.ai_summary}`
+        : "Bukti digital telah terikat integritasnya dan tercatat di antrean intelijen.";
+
+      const dashUrl = responseData.dashboard_url || `${ACTIVE_SERVER_URL}/dashboard/#/contents/${responseData.content_id}`;
+      linkDashboard.href = dashUrl;
+      linkFooter.href = `${ACTIVE_SERVER_URL}/dashboard/#/contents`;
+
+      btnText.textContent = "✅ Berhasil Disegel & Dikirim";
+      setTimeout(() => {
+        btnText.textContent = "⚡ Triase Konten (Universal 3-Layer)";
+        btnSubmit.disabled = false;
+      }, 4000);
     } catch (err) {
-      alert("Gagal memproses triase: " + err.message);
-      btnText.textContent = "⚡ Triase Konten";
+      let msg = err.message || String(err);
+      if (msg === "[object Object]") msg = `Pastikan server backend aktif di ${ACTIVE_SERVER_URL}`;
+      alert("Gagal memproses triase:\n" + msg);
+      btnText.textContent = "⚡ Triase Konten (Universal 3-Layer)";
       btnSubmit.disabled = false;
     }
   });
 });
+})();

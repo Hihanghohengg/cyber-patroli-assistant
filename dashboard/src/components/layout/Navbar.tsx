@@ -1,90 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Shield, Radio, LogOut, User as UserIcon, RefreshCw } from 'lucide-react';
-import { apiClient } from '../../api/client';
+import { Shield, LogOut } from 'lucide-react';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 export const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
-  const [isRecalculating, setIsRecalculating] = useState<boolean>(false);
-  const [recalcMsg, setRecalcMsg] = useState<string | null>(null);
-
-  const handleRecalculate = async () => {
-    setIsRecalculating(true);
-    setRecalcMsg(null);
-    try {
-      const res = await apiClient.trending.recalculate();
-      setRecalcMsg(res.message);
-      setTimeout(() => setRecalcMsg(null), 4000);
-    } catch (e) {
-      setRecalcMsg('Gagal menghitung skor');
-    } finally {
-      setIsRecalculating(false);
-    }
-  };
 
   return (
-    <header className="h-16 border-b border-slate-800 bg-[#070b14]/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-40">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center shadow-md shadow-cyan-500/20">
-            <Shield className="w-4 h-4 text-white" />
+    <header className="h-14 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-[#0c121e]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-200 specular-border">
+      {/* Brand & Radar Telemetry */}
+      <div className="flex items-center gap-3.5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-blue-600 dark:bg-blue-600 flex items-center justify-center text-white shadow-sm">
+            <Shield className="w-4 h-4" />
           </div>
-          <div>
-            <div className="text-sm font-bold tracking-tight text-white flex items-center gap-2">
-              CYBER PATROL <span className="text-cyan-400 font-mono text-[10px] px-1.5 py-0.5 rounded bg-cyan-950/70 border border-cyan-500/30">INTEL</span>
-            </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+              TILIK
+            </span>
+            <span className="hidden md:inline-block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+              Patroli Siber Terpadu v5.0
+            </span>
           </div>
         </div>
 
-        {/* Live Status indicator */}
-        <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-full bg-slate-900/80 border border-slate-800 text-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-slate-300 font-mono text-[10px] font-medium tracking-wide">AKTIF</span>
+        {/* Live Status Indicator */}
+        <div className="hidden sm:flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-[10px] font-mono">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+          </span>
+          <span className="text-slate-600 dark:text-slate-300 font-semibold tracking-wide">
+            SISTEM ONLINE
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Quick manual recalculation button */}
-        {user?.role === 'ADMIN' && (
-          <button
-            onClick={handleRecalculate}
-            disabled={isRecalculating}
-            title="Hitung ulang trending score"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-slate-850 text-cyan-400 border border-slate-800 hover:border-cyan-500/40 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRecalculating ? 'animate-spin' : ''}`} />
-            {isRecalculating ? 'Menghitung...' : 'Sinkronkan Skor'}
-          </button>
-        )}
-
-        {recalcMsg && (
-          <span className="text-xs text-emerald-400 font-mono animate-fade-in hidden lg:inline">
-            {recalcMsg}
-          </span>
-        )}
+      {/* Right Controls: Minimalist Theme Segment & Operator Profile */}
+      <div className="flex items-center gap-3">
+        {/* Sleek Segmented Theme Switcher */}
+        <ThemeToggle />
 
         {/* User Profile */}
-        <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-300 font-bold text-xs font-mono">
-              {user?.username ? user.username.slice(0, 2).toUpperCase() : 'PS'}
+        <div className="flex items-center gap-2.5 pl-2.5 border-l border-slate-200 dark:border-slate-800">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-xs font-mono">
+              {user?.username ? user.username.slice(0, 2).toUpperCase() : 'OP'}
             </div>
-            <div className="hidden sm:block text-left">
-              <div className="text-xs font-semibold text-slate-200">{user?.full_name || user?.username || 'Petugas'}</div>
-              <div className="text-[10px] font-mono">
-                {user?.role === 'ADMIN' ? (
-                  <span className="text-emerald-400 font-medium">Admin</span>
-                ) : (
-                  <span className="text-slate-400">Analis</span>
-                )}
+            <div className="hidden sm:block text-left leading-tight">
+              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                {user?.full_name || user?.username || 'Petugas'}
+              </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                {user?.role || 'OPERATOR'}
               </div>
             </div>
           </div>
 
           <button
             onClick={logout}
-            title="Keluar"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            title="Keluar dari sesi"
+            className="p-1.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:text-rose-400 dark:hover:bg-rose-500/10 border border-transparent transition-all"
           >
             <LogOut className="w-4 h-4" />
           </button>
