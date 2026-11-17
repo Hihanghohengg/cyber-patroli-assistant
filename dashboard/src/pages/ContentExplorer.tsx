@@ -92,7 +92,7 @@ export const ContentExplorerPage: React.FC = () => {
             type="submit"
             className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shrink-0 font-mono shadow-xs"
           >
-            <Filter className="w-3 h-3" /> Saring
+            <Filter className="w-3 h-3" /> Filter
           </button>
         </form>
 

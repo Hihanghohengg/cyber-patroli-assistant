@@ -81,7 +81,6 @@ export const TrendingTopicsPage: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
   const [searchInput, setSearchInput] = useState<string>('');
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedPillar, setSelectedPillar] = useState<'ALL' | 'AKTUAL' | 'KRITIKAL' | 'TEMATIK'>('ALL');
 
   // Listen to incoming search params from Overview page
@@ -97,26 +96,11 @@ export const TrendingTopicsPage: React.FC = () => {
     }
   }, [searchParams]);
 
-  const categories = [
-    { id: 'ALL', label: 'Semua' },
-    { id: 'Politik', label: 'Politik' },
-    { id: 'Keamanan', label: 'Keamanan' },
-    { id: 'Sosial', label: 'Sosial' },
-    { id: 'Ekonomi', label: 'Ekonomi' },
-    { id: 'Ideologi', label: 'Ideologi' },
-    { id: 'Pertahanan', label: 'Pertahanan' },
-    { id: 'Budaya', label: 'Budaya' },
-    { id: 'Non-Isu', label: 'Non-Isu' },
-  ];
-
   const fetchTrendingData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const params: any = { status: 'ACTIVE' };
-      if (selectedCategory !== 'ALL') params.category = selectedCategory;
-
-      const res = await apiClient.trending.list(params);
+      const res = await apiClient.trending.list({ status: 'ACTIVE' });
       setData(res);
     } catch (err: any) {
       setError(err?.message || 'Gagal memuat radar isu');
@@ -127,7 +111,7 @@ export const TrendingTopicsPage: React.FC = () => {
 
   useEffect(() => {
     fetchTrendingData();
-  }, [selectedCategory]);
+  }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +143,6 @@ export const TrendingTopicsPage: React.FC = () => {
   const resetAllFilters = () => {
     setActiveFilter(null);
     setSearchInput('');
-    setSelectedCategory('ALL');
     setSelectedPillar('ALL');
   };
 
@@ -239,26 +222,32 @@ export const TrendingTopicsPage: React.FC = () => {
         </form>
       </div>
 
-      {/* ── 2. TAB FILTER KATEGORI (UNDERLINE STYLE) ── */}
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 dark:border-white/[0.06] scrollbar-none">
-        {categories.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`px-3 py-2 text-xs font-medium whitespace-nowrap transition-colors border-b-2 -mb-[2px] ${
-              selectedCategory === cat.id
-                ? 'border-blue-500 text-blue-600 dark:text-blue-400 font-semibold'
-                : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* ── 3. INLINE KPI STRIP (4 PILAR ISU — TOTAL KESELURUHAN PERIODE) ── */}
+      {/* ── 2. INLINE KPI STRIP (4 PILAR ISU — TOTAL KESELURUHAN PERIODE) ── */}
       <div className="cyber-card rounded-xl border border-slate-200 dark:border-white/[0.06] overflow-hidden">
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-white/[0.06]">
+          {/* Total Terpantau (Paling Kiri) */}
+          <button
+            type="button"
+            onClick={() => setSelectedPillar('ALL')}
+            className={`p-3.5 text-left transition-colors ${
+              selectedPillar === 'ALL' ? 'bg-blue-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'
+            }`}
+          >
+            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
+              <span className="text-[10.5px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1.5 text-blue-500">
+                <Globe className="w-3.5 h-3.5" />
+                Total Isu
+              </span>
+              <span className="text-[10px] font-mono text-slate-400">Semua</span>
+            </div>
+            <div className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
+              {data ? data.total_topics : '–'}
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
+              Seluruh klaster aktif
+            </div>
+          </button>
+
           {/* Isu Aktual */}
           <button
             type="button"
@@ -325,29 +314,6 @@ export const TrendingTopicsPage: React.FC = () => {
             </div>
             <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
               Payung program kerja
-            </div>
-          </button>
-
-          {/* Total Terpantau */}
-          <button
-            type="button"
-            onClick={() => setSelectedPillar('ALL')}
-            className={`p-3.5 text-left transition-colors ${
-              selectedPillar === 'ALL' ? 'bg-blue-500/10' : 'hover:bg-slate-50 dark:hover:bg-white/[0.02]'
-            }`}
-          >
-            <div className="flex items-center justify-between text-slate-400 dark:text-slate-500">
-              <span className="text-[10.5px] font-mono font-semibold uppercase tracking-wider flex items-center gap-1.5 text-blue-400">
-                <Globe className="w-3.5 h-3.5" />
-                Total Isu
-              </span>
-              <span className="text-[10px] font-mono text-slate-400">Semua</span>
-            </div>
-            <div className="text-xl font-bold font-mono tabular-nums text-slate-900 dark:text-white mt-1">
-              {data ? data.total_topics : '–'}
-            </div>
-            <div className="text-[10px] text-slate-500 font-mono mt-0.5 truncate">
-              Seluruh klaster aktif
             </div>
           </button>
         </div>
@@ -567,7 +533,7 @@ export const TrendingTopicsPage: React.FC = () => {
               </div>
             )}
 
-            {(activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL') && (
+            {(activeFilter || selectedPillar !== 'ALL') && (
               <button
                 onClick={resetAllFilters}
                 className="text-xs text-blue-500 hover:underline flex items-center gap-1 font-mono"
@@ -597,22 +563,21 @@ export const TrendingTopicsPage: React.FC = () => {
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 font-mono">
-                {activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL'
+                {activeFilter || selectedPillar !== 'ALL'
                   ? 'Tidak Ada Isu yang Sesuai Filter'
                   : 'Radar Isu Siap — Belum Ada Klaster Narasi'}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-                {activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL'
+                {activeFilter || selectedPillar !== 'ALL'
                   ? 'Coba ubah kata kunci atau tekan tombol reset untuk menampilkan seluruh klaster radar.'
                   : 'Klaster narasi strategis, HotScore, dan awan kata kunci akan terbentuk secara otonom saat patroli ruang siber mulai mengakuisisi data temuan.'}
               </p>
             </div>
-            {(activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL') && (
+            {(activeFilter || selectedPillar !== 'ALL') && (
               <button
                 type="button"
                 onClick={() => {
                   setActiveFilter(null);
-                  setSelectedCategory('ALL');
                   setSelectedPillar('ALL');
                   setSearchInput('');
                 }}
