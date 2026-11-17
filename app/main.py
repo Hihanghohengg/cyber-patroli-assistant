@@ -157,6 +157,21 @@ if os.path.exists(dist_dir):
     async def redirect_dashboard():
         return RedirectResponse(url="/dashboard/")
 
+    @api.get("/logo-tilik.png")
+    async def serve_root_logo():
+        logo_path = os.path.join(dist_dir, "logo-tilik.png")
+        if os.path.exists(logo_path):
+            return FileResponse(logo_path)
+        raise HTTPException(status_code=404, detail="Logo not found")
+
+    @api.get("/favicon.png")
+    @api.get("/favicon.ico")
+    async def serve_root_favicon():
+        fav_path = os.path.join(dist_dir, "favicon.png")
+        if os.path.exists(fav_path):
+            return FileResponse(fav_path)
+        raise HTTPException(status_code=404, detail="Favicon not found")
+
     # Seamless URL aliases for browser extension and direct browser navigation
     @api.get("/contents")
     @api.get("/contents/{content_id}")
