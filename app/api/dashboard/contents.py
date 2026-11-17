@@ -208,10 +208,12 @@ def get_content_detail(
         status_klaim_val = None
         kutipan_bukti_val = None
         tipe_konteks_val = None
+        bluf_val = None
         if report.ai_reasoning and isinstance(report.ai_reasoning, dict):
             status_klaim_val = report.ai_reasoning.get("status_klaim")
             kutipan_bukti_val = report.ai_reasoning.get("kutipan_bukti")
             tipe_konteks_val = report.ai_reasoning.get("tipe_konteks")
+            bluf_val = report.ai_reasoning.get("bluf_dossier")
         if not status_klaim_val and content.extra_metadata and isinstance(content.extra_metadata, dict):
             status_klaim_val = content.extra_metadata.get("status_klaim")
             kutipan_bukti_val = content.extra_metadata.get("kutipan_bukti")
@@ -227,6 +229,7 @@ def get_content_detail(
             "status_klaim": status_klaim_val or "Fakta Terverifikasi",
             "kutipan_bukti": kutipan_bukti_val or "",
             "tipe_konteks": tipe_konteks_val or "Publikasi Digital",
+            "bluf_dossier": bluf_val,
             "ticket_number": report.ticket_number,
             "operator_id": report.operator_id or "OP-01",
             "classification_mode": report.classification_mode or "adaptive",

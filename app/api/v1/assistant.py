@@ -167,6 +167,7 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
         r"VideoTentangInstagram\S*",
         r"Tambahkan komentar\S*",
         r"\b\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun|sec|secs|min|mins|hr|hrs|h|m|d|w)\s*(?:yang\s+lalu|lalu|ago)?\b",
+        r"\b(?:kemarin|baru saja|just now|yesterday)\b",
         r"\d{1,2}:\d{2}\s*[\/|\\]\s*\d{1,2}:\d{2}",  # Video duration / scrubber e.g. 00:00 / 09:28
         r"\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\s*[·•\u00b7\u2022]\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}",  # Tweet timestamp e.g. 9:14 PM · Oct 20, 2026
         r"[·•\u00b7\u2022\s]*\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\b",
@@ -326,7 +327,7 @@ def _extract_post_identity(url: str) -> Tuple[str, Optional[str]]:
     if "tiktok.com" in netloc:
         if path in ["", "/", "/foryou", "/home"]:
             return ("tiktok", None)
-        m = re.search(r"/(?:video|photo)/(\d+)", clean_url)
+        m = re.search(r"/(?:video|photo)/([A-Za-z0-9_-]+)", clean_url)
         return ("tiktok", m.group(1)) if m else ("tiktok", None)
 
     if "instagram.com" in netloc:
@@ -511,17 +512,23 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             if payload.shares_count: matched_content.shares_count = _safe_int(payload.shares_count)
 
             if existing_evi:
+                evidence_captured_at = existing_evi.captured_at_utc or active_captured_at_utc
+                evidence_operator = existing_evi.operator_id or active_operator_id
                 seal = CryptoService.seal_evidence_package(
                     screenshot_sha256=existing_evi.sha256,
                     source_url=matched_content.canonical_url,
                     dom_text=clean_caption,
                     ocr_text=active_ocr_text or existing_evi.ocr_text or "",
-                    captured_at_utc=active_captured_at_utc,
-                    operator_id=active_operator_id,
+                    captured_at_utc=evidence_captured_at,
+                    operator_id=evidence_operator,
                 )
                 existing_evi.dom_text = clean_caption
+                existing_evi.source_url = matched_content.canonical_url
+                existing_evi.captured_at_utc = evidence_captured_at
+                existing_evi.operator_id = evidence_operator
                 existing_evi.canonical_hash = seal["canonical_hash"]
                 existing_evi.hmac_tag = seal["hmac_tag"]
+                existing_evi.verification_status = "VERIFIED"
                 existing_evi.last_verified_at = datetime.utcnow()
 
             analysis = db.query(ContentAnalysis).filter_by(content_id=matched_content.content_id).first()
@@ -890,11 +897,6 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     logger.debug("Analisis intelijen siber 100%% diproses lokal via Ollama.")
 
     # 5. Persistensi Atomik ke Database (Menghindari transaksi panjang & lock SQLite)
-    from app.models.report import Account, Content, Report
-    from app.models.intelligence import ContentAnalysis
-    from app.models.evidence import Evidence
-    from app.models.audit import AuditLog
-
     try:
         account = db.query(Account).filter_by(platform=platform, username=account_username).first()
         if not account:
@@ -967,6 +969,13 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         # Gunakan reasoning yang sudah kontekstual dari heuristic fallback
         ollama_indikasi = ollama_res.get("indikasi_pelanggaran", "")
         ollama_rekomendasi = ollama_res.get("rekomendasi_tindak_lanjut", "")
+        bluf_dossier = ollama_res.get("bluf_dossier") or {
+            "intisari_bluf": ollama_res.get("intisari_bluf") or summary_text,
+            "fakta_vs_klaim": ollama_res.get("fakta_vs_klaim") or f"Fakta Teramati: {summary_text}\nKlaim: {ollama_res.get('status_klaim', 'Fakta Terverifikasi')}",
+            "analisis_dampak": ollama_res.get("analisis_dampak") or f"Potensi eskalasi pada ranah {pred_cat} dengan urgensi {urgency_val}/5.",
+            "aktor_dan_modus": ollama_res.get("aktor_dan_modus") or f"Aktor: {account_username}. Kanal: {platform.upper()}.",
+            "rekomendasi_tindak_lanjut": ollama_rekomendasi or "Lakukan verifikasi berkala sesuai SOP.",
+        }
 
         ai_reason_dict = {
             "alasan_penilaian": (
@@ -977,12 +986,18 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             "kutipan_bukti": ollama_res.get("kutipan_bukti", ""),
             "tipe_konteks": ollama_res.get("tipe_konteks", "Publikasi Digital"),
             "fakta_ekstraksi": ollama_res.get("ekstraksi_awal_tengah_akhir", []),
+            "bluf_dossier": bluf_dossier,
+            "intisari_bluf": bluf_dossier.get("intisari_bluf", ""),
+            "fakta_vs_klaim": bluf_dossier.get("fakta_vs_klaim", ""),
+            "analisis_dampak": bluf_dossier.get("analisis_dampak", ""),
+            "aktor_dan_modus": bluf_dossier.get("aktor_dan_modus", ""),
             "indikasi_pelanggaran": (
                 ollama_indikasi
                 or ("Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum." if pred_cat == "Non-Isu" else (f"Indikasi isu {pred_cat} dengan tingkat urgensi {urgency_val}/5." if urgency_val >= 3 else ""))
             ),
             "rekomendasi_tindak_lanjut": (
                 ollama_rekomendasi
+                or bluf_dossier.get("rekomendasi_tindak_lanjut", "")
                 or ("Pengawasan berkala sesuai SOP (arsip konten edukatif/positif)." if pred_cat == "Non-Isu" else ("Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. Monitoring intensif dan dokumentasi bukti digital." if urgency_val >= 4 else ("Pantau perkembangan isu secara berkala. Siapkan laporan situasi jika terdapat eskalasi." if urgency_val == 3 else "Pengawasan rutin sesuai SOP.")))
             ),
         }
@@ -1051,7 +1066,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         if evidence_storage_path and evidence_sha256:
             seal_info = CryptoService.seal_evidence_package(
                 screenshot_sha256=evidence_sha256,
-                source_url=payload.url,
+                source_url=clean_url,
                 dom_text=full_narrative,
                 ocr_text=active_ocr_text,
                 captured_at_utc=active_captured_at_utc,
@@ -1064,7 +1079,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                 sha256=evidence_sha256,
                 mime_type="image/png",
                 operator_id=active_operator_id,
-                source_url=payload.url,
+                source_url=clean_url,
                 dom_text=full_narrative,
                 ocr_text=active_ocr_text,
                 captured_at_utc=active_captured_at_utc,
@@ -1099,10 +1114,12 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         
         clustering_svc = TopicClusteringService()
         cluster, score, is_new = clustering_svc.assign_content_to_cluster(db, content.content_id, analysis)
-        logger.info(f"Otomatisasi klaster: Content {content.content_id} -> Cluster '{cluster.title}' (score={score}, is_new={is_new})")
-        
-        trending_engine = TrendingEngine()
-        trending_engine.generate_and_save_snapshot(db, cluster.issue_id)
+        if cluster:
+            logger.info(f"Otomatisasi klaster: Content {content.content_id} -> Cluster '{cluster.title}' (score={score}, is_new={is_new})")
+            trending_engine = TrendingEngine()
+            trending_engine.generate_and_save_snapshot(db, cluster.issue_id)
+        else:
+            logger.info(f"Otomatisasi klaster dilewati untuk Content {content.content_id} (Non-Isu atau di luar klaster).")
     except Exception as cluster_err:
         logger.warning(f"Otomatisasi klaster error (fail-open): {cluster_err}")
 

@@ -59,19 +59,21 @@ export const Sidebar: React.FC = () => {
         {/* Toggle Collapse & Brand Header */}
         <div
           className={`flex items-center ${
-            isCollapsed ? 'justify-center' : 'justify-between'
+            isCollapsed ? 'flex-col gap-2 justify-center' : 'justify-between'
           } pb-2.5 border-b border-slate-200/80 dark:border-white/[0.06]`}
         >
-          {!isCollapsed && (
-            <div className="flex items-center gap-2 pl-1.5">
-              <div className="w-5 h-5 rounded bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400 font-mono font-bold text-[10px]">
-                T
-              </div>
+          <div className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : 'pl-1.5'}`}>
+            <img
+              src="./logo-tilik.png"
+              alt="TILIK"
+              className="w-5 h-5 object-contain"
+            />
+            {!isCollapsed && (
               <span className="text-[11px] font-mono font-bold tracking-wider text-slate-700 dark:text-slate-300 uppercase">
                 Menu
               </span>
-            </div>
-          )}
+            )}
+          </div>
           <button
             type="button"
             onClick={toggleSidebar}

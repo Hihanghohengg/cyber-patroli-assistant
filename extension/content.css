@@ -35,7 +35,11 @@
 }
 
 #cyber-patrol-floating-badge .cp-badge-icon {
-  font-size: 13px;
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  display: block;
+  flex-shrink: 0;
 }
 
 #cyber-patrol-floating-badge.cp-loading {

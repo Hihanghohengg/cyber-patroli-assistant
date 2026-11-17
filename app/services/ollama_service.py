@@ -352,14 +352,15 @@ class OllamaService:
             "stream": False,
             "keep_alive": "15m",
             "options": {
-                "temperature": 0.1,
+                "temperature": 0.0,
                 "top_p": 0.9,
+                "num_thread": 8,
                 "num_predict": 450,
                 "num_ctx": 2048,
             },
         }
 
-        timeout_obj = httpx.Timeout(max(90.0, float(self.timeout)), connect=10.0)
+        timeout_obj = httpx.Timeout(max(240.0, float(self.timeout)), connect=15.0)
         with httpx.Client(timeout=timeout_obj) as client:
             resp = client.post(f"{self.base_url}/api/chat", json=payload)
             if resp.status_code != 200:
@@ -384,23 +385,35 @@ class OllamaService:
         context_type = evidenced_summary.get("tipe_konteks", "Berita / Publikasi Digital")
 
         stage2_system = (
-            "Anda adalah Analis Senior Intelijen dan Konten Siber (TILIK).\n"
-            "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN STRATEGIS & SINTESIS 5W+1H.\n"
+            "Anda adalah Analis Senior Intelijen dan Ruang Siber (TILIK).\n"
+            "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN STRATEGIS IPOLEKSOSBUDHANKAM & SINTESIS BLUF DOSSIER INTELIJEN.\n"
             "Gunakan HANYA ringkasan dan fakta terverifikasi dari Tahap 1 berikut sebagai batasan mutlak (anti-halusinasi):\n"
             f"- Status Klaim: {claim_status}\n"
             f"- Kutipan Bukti: \"{evidence_quote}\"\n"
             f"- Tipe Konteks: {context_type}\n\n"
-            "ATURAN MUTLAK:\n"
-            "1. BAHASA BAKU: Seluruh isian wajib disajikan dalam BAHASA INDONESIA BAKU.\n"
-            "2. ANTI-CTA PROMOSI: JANGAN PERNAH menganggap ajakan klik link di bio, kunjungan website, atau unduh aplikasi sebagai 'upaya mitigasi' atau solusi penanganan.\n"
-            "3. PEMISAHAN ENTITAS: Pada summary_5w1h['who'], bedakan secara tegas Pengunggah Konten (@author) dengan Tokoh/Lembaga yang Diberitakan.\n"
-            "4. KELENGKAPAN WAKTU & TEMPAT: Jika tidak tercantum pada fakta, isi persis 'Tidak disebutkan dalam konten'.\n"
-            "5. TAKSONOMI: Pilih satu kategori dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
-            "6. URGENSI: Skor 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
-            "7. PENALARAN: ai_reasoning WAJIB disusun persis dalam 3 bagian berlabel:\n"
-            "Fakta vs Dugaan Tertulis: [Uraian objektif mengenai apa yang faktual dan apa yang dugaan/belum terbukti]\n\n"
-            "Penalaran Kausal (Karena-Maka): [Alur sebab-akibat dampak terhadap stabilitas nasional atau ketertiban publik]\n\n"
-            "Rekomendasi Verifikasi & Tindak Lanjut: [Langkah verifikasi silang dan tindakan operasional patroli siber]"
+            "PANDUAN RUBRIK KLASIFIKASI 8 KELAS (BATAS SALING EKSKLUSIF & TEGAS):\n"
+            "1. Ideologi: Penolakan konsensus dasar negara Pancasila, seruan mengganti sistem negara dengan khilafah/komunisme/marxisme, penolakan keabsahan UUD 1945, makar ideologis.\n"
+            "2. Politik: Pemilu/Pilkada, fitnah integritas server KPU/MK/Bawaslu, intrik perpecahan kabinet/partai politik, gratifikasi politik kekuasaan, hoaks pejabat publik.\n"
+            "3. Ekonomi: Krisis moneter perbankan, ajakan rush money bank BUMN, penipuan investasi trading ilegal/skema ponzi massal non-siber, spekulasi kelangkaan pangan pokok/sembako, inflasi komoditas.\n"
+            "4. Sosial: Kerusuhan komunal antarwarga, bentrokan pemuda/tawuran jalanan bersenjata tajam, hoaks penculikan anak, ujaran kebencian berbasis sentimen SARA horizontal.\n"
+            "5. Budaya: Klaim sepihak kepemilikan warisan budaya nusantara (reog, batik) oleh pihak luar, penodaan upacara/ritual adat sakral, perusakan situs cagar budaya candi bersejarah.\n"
+            "6. Pertahanan: Ancaman militer eksternal negara lain, pembocoran rahasia koordinat radar/alutsista tempur militer TNI, provokasi kapal perang asing melanggar batas laut/ZEE terluar.\n"
+            "7. Keamanan: Kejahatan siber (cybercrime teknis: ransomware, peretasan database/server institusi hukum/negara, kebocoran data, malware trojan APK perbankan, sniffing OTP), ancaman terorisme/peledakan bom di fasilitas publik/transportasi massa, peredaran narkotika, judi online/slot.\n"
+            "   *ATURAN WAJIB KEAMANAN:* Serangan siber/ransomware ke server kejaksaan/data center, malware APK pembobol rekening, dan ancaman bom stasiun publik WAJIB diklasifikasikan sebagai 'Keamanan' (BUKAN Pertahanan, BUKAN Ekonomi, BUKAN Sosial)!\n"
+            "8. Non-Isu: Resep makanan/kuliner, review gadget/kamera smartphone, tips hobi dan perawatan hewan piaraan, tutorial umum yang tidak memuat ancaman hukum atau ketertiban publik.\n\n"
+            "PROSEDUR CHAIN-OF-THOUGHT & FORMAT BLUF (BOTTOM LINE UP FRONT):\n"
+            "1. Wajib isi 'analisis_indikator' dan 'eliminasi_kategori' TERLEBIH DAHULU sebelum menetapkan 'predicted_category'.\n"
+            "2. Pada 'eliminasi_kategori', telaah mengapa kategori yang bersinggungan gugur dan mengapa kategori terpilih paling tepat.\n"
+            "3. 'predicted_category' WAJIB dipilih persis satu dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
+            "4. 'urgency_score': 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
+            "5. 'bluf_dossier' WAJIB memuat 5 pilar taktis intelijen:\n"
+            "   - 'intisari_bluf': Kesimpulan eksekutif 2-3 kalimat langsung pada pokok persoalan, aktor kunci, dan signifikansi ancaman.\n"
+            "   - 'fakta_vs_klaim': Pemisahan tegas Fakta Teramati pada bukti dengan Klaim / Narasi Sepihak.\n"
+            "   - 'analisis_dampak': Evaluasi potensi eskalasi stabilitas IPOLEKSOSBUDHANKAM dan justifikasi skor urgensi.\n"
+            "   - 'aktor_dan_modus': Identitas aktor/pengunggah, kanal penyebaran, dan modus operandi narasi.\n"
+            "   - 'rekomendasi_tindak_lanjut': Langkah operasional konkret tim patroli siber/satuan tugas.\n"
+            "6. 'summary_5w1h': who, what, when, where, why, how (disintesis selaras untuk kompatibilitas sistem).\n"
+            "7. 'ai_reasoning': Narasi 3 bagian berlabel (Fakta vs Dugaan Tertulis, Penalaran Kausal, Rekomendasi Verifikasi & Tindak Lanjut)."
         )
 
         user_content = (
@@ -416,6 +429,24 @@ class OllamaService:
         schema_stage2 = {
             "type": "object",
             "properties": {
+                "analisis_indikator": {"type": "string"},
+                "eliminasi_kategori": {"type": "string"},
+                "predicted_category": {
+                    "type": "string",
+                    "enum": ["Ideologi", "Politik", "Ekonomi", "Sosial", "Budaya", "Pertahanan", "Keamanan", "Non-Isu"]
+                },
+                "urgency_score": {"type": "integer"},
+                "bluf_dossier": {
+                    "type": "object",
+                    "properties": {
+                        "intisari_bluf": {"type": "string"},
+                        "fakta_vs_klaim": {"type": "string"},
+                        "analisis_dampak": {"type": "string"},
+                        "aktor_dan_modus": {"type": "string"},
+                        "rekomendasi_tindak_lanjut": {"type": "string"}
+                    },
+                    "required": ["intisari_bluf", "fakta_vs_klaim", "analisis_dampak", "aktor_dan_modus", "rekomendasi_tindak_lanjut"]
+                },
                 "summary_5w1h": {
                     "type": "object",
                     "properties": {
@@ -428,14 +459,17 @@ class OllamaService:
                     },
                     "required": ["who", "what", "when", "where", "why", "how"]
                 },
-                "predicted_category": {
-                    "type": "string",
-                    "enum": ["Ideologi", "Politik", "Ekonomi", "Sosial", "Budaya", "Pertahanan", "Keamanan", "Non-Isu"]
-                },
-                "urgency_score": {"type": "integer"},
                 "ai_reasoning": {"type": "string"}
             },
-            "required": ["summary_5w1h", "predicted_category", "urgency_score", "ai_reasoning"]
+            "required": [
+                "analisis_indikator",
+                "eliminasi_kategori",
+                "predicted_category",
+                "urgency_score",
+                "bluf_dossier",
+                "summary_5w1h",
+                "ai_reasoning"
+            ]
         }
 
         payload = {
@@ -448,14 +482,15 @@ class OllamaService:
             "stream": False,
             "keep_alive": "15m",
             "options": {
-                "temperature": 0.1,
+                "temperature": 0.0,
                 "top_p": 0.9,
-                "num_predict": 450,
+                "num_thread": 8,
+                "num_predict": 750,
                 "num_ctx": 2048,
             },
         }
 
-        timeout_obj = httpx.Timeout(max(90.0, float(self.timeout)), connect=10.0)
+        timeout_obj = httpx.Timeout(max(240.0, float(self.timeout)), connect=15.0)
         with httpx.Client(timeout=timeout_obj) as client:
             resp = client.post(f"{self.base_url}/api/chat", json=payload)
             if resp.status_code != 200:
@@ -579,6 +614,34 @@ class OllamaService:
                     f"Rekomendasi Verifikasi & Tindak Lanjut: Lakukan verifikasi silang bukti dengan instansi terkait dan simpan segel rantai bukti (Chain of Custody) NIST FIPS 198-1."
                 )
 
+            # BLUF (Bottom Line Up Front) Tactical Intelligence Dossier
+            bluf_raw = stage2_res.get("bluf_dossier") or {}
+            intisari_bluf = (bluf_raw.get("intisari_bluf") or exec_summary or what_val).strip()
+            fakta_vs_klaim = (
+                bluf_raw.get("fakta_vs_klaim")
+                or f"Fakta Teramati: {exec_summary}\nKlaim / Narasi Sepihak: Status klaim '{stage1_res.get('status_klaim', 'Fakta Terverifikasi')}' rujukan: \"{stage1_res.get('kutipan_bukti', '')}\""
+            ).strip()
+            analisis_dampak = (
+                bluf_raw.get("analisis_dampak")
+                or f"Potensi eskalasi isu pada ranah {matched_cat} dengan bobot urgensi {urgency}/5 yang membutuhkan pemantauan berkala."
+            ).strip()
+            aktor_dan_modus = (
+                bluf_raw.get("aktor_dan_modus")
+                or f"Aktor: {who_val}. Kanal: {platform_clean.upper()}. Pola / Modus: {how_val}"
+            ).strip()
+            rekomendasi_tl = (
+                bluf_raw.get("rekomendasi_tindak_lanjut")
+                or "Lakukan verifikasi berkala dan koordinasi dengan satuan tugas pemantauan siber terkait."
+            ).strip()
+
+            bluf_dossier = {
+                "intisari_bluf": intisari_bluf,
+                "fakta_vs_klaim": fakta_vs_klaim,
+                "analisis_dampak": analisis_dampak,
+                "aktor_dan_modus": aktor_dan_modus,
+                "rekomendasi_tindak_lanjut": rekomendasi_tl,
+            }
+
             llm_latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
             return {
                 "ringkasan_eksekutif": exec_summary,
@@ -590,6 +653,14 @@ class OllamaService:
                     "why": why_val,
                     "how": how_val,
                 },
+                "bluf_dossier": bluf_dossier,
+                "intisari_bluf": intisari_bluf,
+                "fakta_vs_klaim": fakta_vs_klaim,
+                "analisis_dampak": analisis_dampak,
+                "aktor_dan_modus": aktor_dan_modus,
+                "rekomendasi_tindak_lanjut": rekomendasi_tl,
+                "analisis_indikator": stage2_res.get("analisis_indikator", ""),
+                "eliminasi_kategori": stage2_res.get("eliminasi_kategori", ""),
                 "summary": exec_summary,
                 "predicted_category": matched_cat,
                 "urgency_score": urgency,
@@ -729,14 +800,15 @@ class OllamaService:
             "stream": False,
             "keep_alive": "15m",
             "options": {
-                "temperature": 0.1,  # Low temperature for deterministic classification
+                "temperature": 0.0,
                 "top_p": 0.9,
-                "num_predict": 500,  # Room for complete 3-4 sentence summary and multi-paragraph analysis
-                "num_ctx": 2048,     # Context window optimized for comprehensive triage
+                "num_thread": 8,
+                "num_predict": 400,
+                "num_ctx": 2048,
             },
         }
 
-        timeout_obj = httpx.Timeout(max(120.0, float(self.timeout)), connect=10.0)
+        timeout_obj = httpx.Timeout(max(240.0, float(self.timeout)), connect=15.0)
         with httpx.Client(timeout=timeout_obj) as client:
             resp = client.post(f"{self.base_url}/api/chat", json=payload)
             if resp.status_code != 200:
@@ -1203,10 +1275,24 @@ class OllamaService:
         else:
             indonesian_content = clean_text
 
+        bluf_dossier_fallback = {
+            "intisari_bluf": summary_clean,
+            "fakta_vs_klaim": f"Fakta Teramati: {summary_clean}\nKlaim / Narasi Sepihak: {fakta_dugaan}",
+            "analisis_dampak": penalaran_kausal,
+            "aktor_dan_modus": f"Aktor: {who_val}. Kanal: {platform.upper()}. Modus: {how_val}",
+            "rekomendasi_tindak_lanjut": rekomendasi_tindak,
+        }
+
         return {
             "original_language": detected_lang,
             "indonesian_content": indonesian_content,
             "ringkasan_eksekutif": summary_clean,
+            "bluf_dossier": bluf_dossier_fallback,
+            "intisari_bluf": summary_clean,
+            "fakta_vs_klaim": f"Fakta Teramati: {summary_clean}\nKlaim / Narasi Sepihak: {fakta_dugaan}",
+            "analisis_dampak": penalaran_kausal,
+            "aktor_dan_modus": f"Aktor: {who_val}. Kanal: {platform.upper()}. Modus: {how_val}",
+            "rekomendasi_tindak_lanjut": rekomendasi_tindak,
             "summary_5w1h": {
                 "who": who_val,
                 "what": display_what,

@@ -124,12 +124,13 @@ def validate_content_finding(
         except Exception as mem_err:
             logger.warning(f"Failed to add case to ValidatedMemory: {mem_err}")
     elif decision == "REJECTED":
-        # Safeguard: Hapus preseden dari ValidatedMemory jika konten ini ditolak sebagai bukan pelanggaran
+        # Safeguard: Hapus preseden dari ValidatedMemory dan keluarkan dari klaster Radar Isu (IssueContent)
         try:
             db.query(ValidatedMemory).filter(ValidatedMemory.report_id == report.report_id).delete()
-            logger.info(f"MemPrompt Memory Entry removed for rejected report {report.report_id}")
+            db.query(IssueContent).filter(IssueContent.content_id == content_id).delete()
+            logger.info(f"MemPrompt Memory Entry and IssueContent link removed for rejected content {content_id}")
         except Exception as mem_del_err:
-            logger.warning(f"Failed to remove rejected case from ValidatedMemory: {mem_del_err}")
+            logger.warning(f"Failed to remove rejected case from memory/radar: {mem_del_err}")
 
     db.commit()
 

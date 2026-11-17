@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ExternalLink,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   XCircle,
   AlertTriangle,
@@ -291,6 +292,8 @@ export const ContentDetailPage: React.FC = () => {
   }
 
   const { author, interaction, ai_patrol, analysis_5w1h, evidences, assigned_issue } = detail;
+  const bluf = (ai_patrol as any)?.bluf_dossier ||
+    (typeof ai_patrol?.reasoning === 'object' ? (ai_patrol?.reasoning as any)?.bluf_dossier : null);
   const primaryEvidence = evidences.find((e) => e.source_type === 'POST_SCREENSHOT') || evidences[0];
 
   const sha256Short = primaryEvidence?.sha256
@@ -674,8 +677,76 @@ export const ContentDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Matriks 5W+1H (Hierarchical Editorial Intelligence Layout) */}
-            {analysis_5w1h && (
+            {/* Dossier Intelijen Taktis (Format BLUF: Bottom Line Up Front) */}
+            {bluf ? (
+              <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
+                    <ShieldAlert className="w-3.5 h-3.5 text-blue-500" />
+                    Dossier Intelijen Taktis (Format BLUF)
+                  </span>
+                  <span className="text-[9.5px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold uppercase bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                    Standar Analisis BLUF
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* 1. INTISARI BLUF (Bottom Line Up Front) */}
+                  <div className="p-3.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/20 border-l-4 border-l-blue-600 border border-blue-200/80 dark:border-blue-900/40 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold uppercase font-mono tracking-wider">
+                        INTISARI // BLUF (Bottom Line Up Front)
+                      </span>
+                      <span className="text-[9px] font-mono text-slate-400">Kesimpulan Eksekutif</span>
+                    </div>
+                    <p className="text-xs text-slate-900 dark:text-slate-100 font-sans whitespace-normal break-words leading-relaxed font-semibold">
+                      {bluf.intisari_bluf || '-'}
+                    </p>
+                  </div>
+
+                  {/* 2. FAKTA VS KLAIM */}
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-indigo-500 font-bold uppercase font-mono block">
+                      FAKTA VS KLAIM // Verifikasi Bukti
+                    </span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-pre-line break-words leading-relaxed">
+                      {bluf.fakta_vs_klaim || '-'}
+                    </p>
+                  </div>
+
+                  {/* 3. ANALISIS DAMPAK & AKTOR MODUS (2 Col Grid) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[10px] text-amber-500 font-bold uppercase font-mono block">
+                        ANALISIS DAMPAK // Stabilitas IPOLEKSOSBUDHANKAM
+                      </span>
+                      <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {bluf.analisis_dampak || '-'}
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[10px] text-rose-500 font-bold uppercase font-mono block">
+                        AKTOR & MODUS // Kanal & Pola Penyebaran
+                      </span>
+                      <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {bluf.aktor_dan_modus || '-'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* 4. REKOMENDASI TINDAK LANJUT */}
+                  <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border-l-2 border-l-emerald-500 border border-emerald-200/70 dark:border-emerald-900/30 space-y-1">
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase font-mono block">
+                      REKOMENDASI OPERASIONAL // Tindak Lanjut Analis
+                    </span>
+                    <p className="text-xs text-slate-900 dark:text-slate-100 font-sans whitespace-normal break-words leading-relaxed font-medium">
+                      {bluf.rekomendasi_tindak_lanjut || '-'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : analysis_5w1h ? (
               <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider">
@@ -749,7 +820,7 @@ export const ContentDetailPage: React.FC = () => {
                   </div>
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Penalaran Kausal AI (Sub-Cards with generous spacing, parsed sections) */}
             {ai_patrol?.reasoning && (

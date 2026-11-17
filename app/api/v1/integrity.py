@@ -265,6 +265,9 @@ def simulate_tamper_test(
         "status": "SUCCESS",
         "ticket_tested": request.ticket_or_id or "SYNTHETIC_TEST_PACKAGE",
         "dry_run": request.dry_run,
+        "tamper_detected": result["is_tampered_detected"],
+        "simulated_status": result["detection_status"],
+        "detection_latency_ms": result["latency_ms"],
         "evaluation_summary": (
             "Integritas bukti digital terbukti SENSITIF terhadap perubahan data sekecil apapun. "
             f"Mutasi {result['tamper_type']} berhasil terdeteksi sebagai 'TAMPERED' dalam {result['latency_ms']} ms "

@@ -358,13 +358,30 @@ def run_benchmark():
         seed_validated_memory(db)
 
         ollama_svc = OllamaService()
+        storage_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "storage"))
+        os.makedirs(storage_dir, exist_ok=True)
+        checkpoint_path = os.path.join(storage_dir, "evaluation_checkpoint.json")
+
+        saved_data = {}
+        if os.path.exists(checkpoint_path):
+            try:
+                with open(checkpoint_path, "r", encoding="utf-8") as f:
+                    saved_data = json.load(f)
+            except Exception:
+                saved_data = {}
 
         # 2. RUN BASELINE EVALUATION (Zero-shot)
         print("[*] Menjalankan Evaluasi Mode BASELINE (Zero-Shot tanpa MemPrompt)...")
-        baseline_results = []
-        baseline_latencies = []
+        baseline_results = saved_data.get("baseline_results", [])
+        baseline_latencies = [r["latency_ms"] for r in baseline_results]
+        baseline_done_ids = {r["sample_id"] for r in baseline_results}
 
         for idx, sample in enumerate(BENCHMARK_DATASET, 1):
+            if sample["id"] in baseline_done_ids:
+                prev = next(r for r in baseline_results if r["sample_id"] == sample["id"])
+                print(f"  [{idx:02d}/24] {sample['id']} | True: {sample['ground_truth']:<11} | Pred: {prev['predicted']:<11} | Match: {'V' if prev['is_correct'] else 'X'} ({prev['latency_ms']:.1f}ms) [CACHE]")
+                continue
+
             t0 = time.perf_counter()
             full_text = f"{sample['title']} {sample['text']}"
             res = ollama_svc.classify_and_summarize(
@@ -390,15 +407,24 @@ def run_benchmark():
                 "is_correct": is_match,
                 "latency_ms": round(elapsed_ms, 2)
             })
+            saved_data["baseline_results"] = baseline_results
+            with open(checkpoint_path, "w", encoding="utf-8") as f:
+                json.dump(saved_data, f, indent=2)
             print(f"  [{idx:02d}/24] {sample['id']} | True: {sample['ground_truth']:<11} | Pred: {pred_cat:<11} | Match: {'V' if is_match else 'X'} ({elapsed_ms:.1f}ms)")
 
         # 3. RUN ADAPTIVE EVALUATION (Dynamic Few-Shot MemPrompt)
         print("\n[*] Menjalankan Evaluasi Mode ADAPTIVE (Dynamic Few-Shot MemPrompt via Dense Vectors)...")
-        adaptive_results = []
-        adaptive_latencies = []
-        retrieval_latencies = []
+        adaptive_results = saved_data.get("adaptive_results", [])
+        adaptive_latencies = [r["latency_ms"] for r in adaptive_results]
+        retrieval_latencies = [r.get("retrieval_ms", 0.0) for r in adaptive_results]
+        adaptive_done_ids = {r["sample_id"] for r in adaptive_results}
 
         for idx, sample in enumerate(BENCHMARK_DATASET, 1):
+            if sample["id"] in adaptive_done_ids:
+                prev = next(r for r in adaptive_results if r["sample_id"] == sample["id"])
+                print(f"  [{idx:02d}/24] {sample['id']} | True: {sample['ground_truth']:<11} | Pred: {prev['predicted']:<11} | Match: {'V' if prev['is_correct'] else 'X'} (Mem: {prev.get('few_shot_count', 0)}, {prev['latency_ms']:.1f}ms) [CACHE]")
+                continue
+
             t0 = time.perf_counter()
             full_text = f"{sample['title']} {sample['text']}"
 
@@ -408,7 +434,8 @@ def run_benchmark():
                 query_text=full_text,
                 db=db,
                 top_k=3,
-                threshold=0.35
+                threshold=0.35,
+                exclude_exact_text=True,
             )
             similar_cases = ret_data.get("cases", [])
             ret_ms = ret_data.get("retrieval_ms", 0.0)
@@ -440,6 +467,9 @@ def run_benchmark():
                 "retrieval_ms": round(ret_ms, 2),
                 "latency_ms": round(elapsed_ms, 2)
             })
+            saved_data["adaptive_results"] = adaptive_results
+            with open(checkpoint_path, "w", encoding="utf-8") as f:
+                json.dump(saved_data, f, indent=2)
             print(f"  [{idx:02d}/24] {sample['id']} | True: {sample['ground_truth']:<11} | Pred: {pred_cat:<11} | Match: {'V' if is_match else 'X'} (Mem: {len(similar_cases)}, {elapsed_ms:.1f}ms)")
 
         # 4. COMPUTE METRICS

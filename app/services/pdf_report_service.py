@@ -285,30 +285,90 @@ class PDFReportService:
         kategori_filter = filter_info.get("category", "Semua Kategori")
         platform_filter = filter_info.get("platform", "Semua Platform")
 
-        kop_data = [
-            [
-                Paragraph("<b>RESUME EKSEKUTIF TEMUAN PATROLI SIBER</b>", self.style_title),
-                Paragraph(f"<b>TANGGAL DITERBITKAN</b><br/>{print_date}", self.style_meta_val),
-            ],
-            [
-                Paragraph(
-                    "<b>Sistem Intelijen Siber & Pemantauan Opini Publik Terpadu</b><br/>"
-                    f"Cakupan Filter: {platform_filter} • Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
-                    self.style_subtitle,
-                ),
-                Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
-            ],
-        ]
-        kop_table = Table(kop_data, colWidths=[380, 143])
-        kop_table.setStyle(
-            TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ])
-        )
+        static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
+        logo_path = os.path.join(static_dir, "logo-tilik.png")
+        if os.path.exists(logo_path):
+            try:
+                logo_flowable = Image(logo_path, width=42, height=42, mask='auto')
+                kop_data = [
+                    [
+                        logo_flowable,
+                        Paragraph("<b>RESUME EKSEKUTIF TEMUAN PATROLI SIBER</b>", self.style_title),
+                        Paragraph(f"<b>TANGGAL DITERBITKAN</b><br/>{print_date}", self.style_meta_val),
+                    ],
+                    [
+                        "",
+                        Paragraph(
+                            "<b>Sistem Intelijen Siber & Pemantauan Opini Publik Terpadu</b><br/>"
+                            f"Cakupan Filter: {platform_filter} • Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                            self.style_subtitle,
+                        ),
+                        Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                    ],
+                ]
+                kop_table = Table(kop_data, colWidths=[48, 335, 140])
+                kop_table.setStyle(
+                    TableStyle([
+                        ("SPAN", (0, 0), (0, 1)),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("ALIGN", (0, 0), (0, 1), "CENTER"),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ])
+                )
+            except Exception as logo_ex:
+                logger.warning("Gagal menyematkan logo TILIK pada dossier PDF: %s", logo_ex)
+                kop_data = [
+                    [
+                        Paragraph("<b>RESUME EKSEKUTIF TEMUAN PATROLI SIBER</b>", self.style_title),
+                        Paragraph(f"<b>TANGGAL DITERBITKAN</b><br/>{print_date}", self.style_meta_val),
+                    ],
+                    [
+                        Paragraph(
+                            "<b>Sistem Intelijen Siber & Pemantauan Opini Publik Terpadu</b><br/>"
+                            f"Cakupan Filter: {platform_filter} • Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                            self.style_subtitle,
+                        ),
+                        Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                    ],
+                ]
+                kop_table = Table(kop_data, colWidths=[380, 143])
+                kop_table.setStyle(
+                    TableStyle([
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ])
+                )
+        else:
+            kop_data = [
+                [
+                    Paragraph("<b>RESUME EKSEKUTIF TEMUAN PATROLI SIBER</b>", self.style_title),
+                    Paragraph(f"<b>TANGGAL DITERBITKAN</b><br/>{print_date}", self.style_meta_val),
+                ],
+                [
+                    Paragraph(
+                        "<b>Sistem Intelijen Siber & Pemantauan Opini Publik Terpadu</b><br/>"
+                        f"Cakupan Filter: {platform_filter} • Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                        self.style_subtitle,
+                    ),
+                    Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                ],
+            ]
+            kop_table = Table(kop_data, colWidths=[380, 143])
+            kop_table.setStyle(
+                TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ])
+            )
         flowables.append(kop_table)
         flowables.append(Spacer(1, 8))
         flowables.append(HRFlowable(width="100%", thickness=1.5, color=COLOR_PRIMARY_DARK, spaceAfter=14))
@@ -746,30 +806,90 @@ class PDFReportService:
         print_date = datetime.now().strftime("%d %B %Y, %H:%M WIB")
 
         # ── 1. HEADER DOKUMEN RESMI ──
-        kop_data = [
-            [
-                Paragraph("<b>LAPORAN PEMANTAUAN & ANALISIS KONTEN SIBER</b>", self.style_title),
-                Paragraph(f"<b>WAKTU CETAK</b><br/>{print_date}", self.style_meta_val),
-            ],
-            [
-                Paragraph(
-                    "<b>Direktorat Operasi Siber • Analisis Intelijen & Segel Integritas Kriptografis</b><br/>"
-                    f"Cakupan: {periode_str} • Filter Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
-                    self.style_subtitle,
-                ),
-                Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
-            ],
-        ]
-        kop_table = Table(kop_data, colWidths=[380, 143])
-        kop_table.setStyle(
-            TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
-                ("TOPPADDING", (0, 0), (-1, -1), 0),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-            ])
-        )
+        static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "static"))
+        logo_path = os.path.join(static_dir, "logo-tilik.png")
+        if os.path.exists(logo_path):
+            try:
+                logo_flowable = Image(logo_path, width=42, height=42, mask='auto')
+                kop_data = [
+                    [
+                        logo_flowable,
+                        Paragraph("<b>LAPORAN PEMANTAUAN & ANALISIS KONTEN SIBER</b>", self.style_title),
+                        Paragraph(f"<b>WAKTU CETAK</b><br/>{print_date}", self.style_meta_val),
+                    ],
+                    [
+                        "",
+                        Paragraph(
+                            "<b>Direktorat Operasi Siber • Analisis Intelijen & Segel Integritas Kriptografis</b><br/>"
+                            f"Cakupan: {periode_str} • Filter Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                            self.style_subtitle,
+                        ),
+                        Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                    ],
+                ]
+                kop_table = Table(kop_data, colWidths=[48, 335, 140])
+                kop_table.setStyle(
+                    TableStyle([
+                        ("SPAN", (0, 0), (0, 1)),
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("ALIGN", (0, 0), (0, 1), "CENTER"),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ])
+                )
+            except Exception as logo_ex:
+                logger.warning("Gagal menyematkan logo TILIK pada analytical PDF: %s", logo_ex)
+                kop_data = [
+                    [
+                        Paragraph("<b>LAPORAN PEMANTAUAN & ANALISIS KONTEN SIBER</b>", self.style_title),
+                        Paragraph(f"<b>WAKTU CETAK</b><br/>{print_date}", self.style_meta_val),
+                    ],
+                    [
+                        Paragraph(
+                            "<b>Direktorat Operasi Siber • Analisis Intelijen & Segel Integritas Kriptografis</b><br/>"
+                            f"Cakupan: {periode_str} • Filter Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                            self.style_subtitle,
+                        ),
+                        Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                    ],
+                ]
+                kop_table = Table(kop_data, colWidths=[380, 143])
+                kop_table.setStyle(
+                    TableStyle([
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                    ])
+                )
+        else:
+            kop_data = [
+                [
+                    Paragraph("<b>LAPORAN PEMANTAUAN & ANALISIS KONTEN SIBER</b>", self.style_title),
+                    Paragraph(f"<b>WAKTU CETAK</b><br/>{print_date}", self.style_meta_val),
+                ],
+                [
+                    Paragraph(
+                        "<b>Direktorat Operasi Siber • Analisis Intelijen & Segel Integritas Kriptografis</b><br/>"
+                        f"Cakupan: {periode_str} • Filter Kategori: {kategori_filter} • Total Kasus: {len(reports)} Temuan Terverifikasi",
+                        self.style_subtitle,
+                    ),
+                    Paragraph("<b>STATUS RESMI</b><br/><font color='#059669'><b>DIVERIFIKASI RESMI</b></font>", self.style_meta_val),
+                ],
+            ]
+            kop_table = Table(kop_data, colWidths=[380, 143])
+            kop_table.setStyle(
+                TableStyle([
+                    ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ("TOPPADDING", (0, 0), (-1, -1), 0),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ])
+            )
         flowables.append(kop_table)
         flowables.append(Spacer(1, 6))
         flowables.append(HRFlowable(width="100%", thickness=1.5, color=COLOR_PRIMARY_DARK, spaceAfter=10))
@@ -1015,7 +1135,33 @@ class PDFReportService:
                     summary_text = summary_text[:347] + "..."
                 item_flowables.append(Paragraph(f"<b>Ringkasan Analisis:</b> {summary_text}", self.style_summary_box))
 
-                if ca:
+                bluf_data = None
+                if r.ai_reasoning and isinstance(r.ai_reasoning, dict):
+                    bluf_data = r.ai_reasoning.get("bluf_dossier")
+
+                if bluf_data and isinstance(bluf_data, dict):
+                    item_flowables.append(Spacer(1, 2))
+                    details_bluf = [
+                        [Paragraph("<b>Intisari BLUF:</b>", self.style_meta_label), Paragraph(bluf_data.get("intisari_bluf") or summary_text, self.style_table_cell)],
+                        [Paragraph("<b>Fakta vs Klaim:</b>", self.style_meta_label), Paragraph(bluf_data.get("fakta_vs_klaim") or "-", self.style_table_cell)],
+                        [Paragraph("<b>Analisis Dampak:</b>", self.style_meta_label), Paragraph(bluf_data.get("analisis_dampak") or "-", self.style_table_cell)],
+                        [Paragraph("<b>Aktor & Modus:</b>", self.style_meta_label), Paragraph(bluf_data.get("aktor_dan_modus") or "-", self.style_table_cell)],
+                        [Paragraph("<b>Rekomendasi:</b>", self.style_meta_label), Paragraph(bluf_data.get("rekomendasi_tindak_lanjut") or "-", self.style_table_cell)],
+                    ]
+                    t_bluf = Table(details_bluf, colWidths=[90, 433])
+                    t_bluf.setStyle(
+                        TableStyle([
+                            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                            ("TOPPADDING", (0, 0), (-1, -1), 2),
+                            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                            ("BACKGROUND", (0, 0), (-1, -1), COLOR_BG_LIGHT),
+                            ("GRID", (0, 0), (-1, -1), 0.3, COLOR_BORDER_LIGHT),
+                        ])
+                    )
+                    item_flowables.append(t_bluf)
+                elif ca:
                     item_flowables.append(Spacer(1, 2))
                     details_5w1h = [
                         [Paragraph("<b>What (Apa):</b>", self.style_meta_label), Paragraph(ca.what or "-", self.style_table_cell)],

@@ -10,9 +10,11 @@ export const Navbar: React.FC = () => {
     <header className="h-12 border-b border-slate-200 dark:border-white/[0.06] bg-white/95 dark:bg-[#090A0F]/95 backdrop-blur-md px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 transition-colors duration-150 specular-border">
       {/* Brand */}
       <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md bg-blue-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20">
-          <Shield className="w-3.5 h-3.5" />
-        </div>
+        <img
+          src="./logo-tilik.png"
+          alt="TILIK"
+          className="w-6 h-6 object-contain"
+        />
         <span className="text-xs font-bold tracking-tight text-slate-900 dark:text-white font-mono">
           TILIK
         </span>

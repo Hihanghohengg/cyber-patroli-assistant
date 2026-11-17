@@ -708,11 +708,15 @@
   // ─────────────────────────────────────────────────────────────
   // FLOATING UI BADGE & INTEGRITY RESULT MODAL (DRAGGABLE & RESILIENT)
   // ─────────────────────────────────────────────────────────────
+  const tilikLogoUrl = (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.getURL)
+    ? chrome.runtime.getURL("icons/icon32.png")
+    : "";
+
   const btn = document.createElement("div");
   btn.id = "cyber-patrol-floating-badge";
   btn.title = "Klik untuk Triase. Seret untuk memindahkan posisi.";
   btn.innerHTML = `
-    <div class="cp-badge-icon">🛡️</div>
+    <img class="cp-badge-icon" src="${tilikLogoUrl}" alt="TILIK" />
     <span class="cp-badge-text">Triase</span>
   `;
 

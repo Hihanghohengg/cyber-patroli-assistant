@@ -34,6 +34,170 @@ class MemoryService:
     _sbert_attempted = False
     _ollama_online = None
     _ollama_last_checked = 0
+    _anchor_cache: Dict[str, List[float]] = {}
+
+    # 24 Curated High-Fidelity Anchor Precedents (3 per category, spanning 8 IPOLEKSOSBUDHANKAM classes)
+    CURATED_ANCHOR_PRECEDENTS: List[Dict[str, Any]] = [
+        # 1. Ideologi
+        {
+            "content_text": "Seruan terbuka kelompok ekstremis bawah tanah untuk merombak konsensus kebangsaan dan mengganti Pancasila dengan ideologi khilafah secara revolusioner tanpa kompromi.",
+            "validated_category": "Ideologi",
+            "analyst_rationale": "Pelanggaran serius terhadap konsensus dasar negara Pancasila dan konstitusi.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Penyebaran pamflet propaganda marxisme-leninisme yang mendoktrin mahasiswa untuk menolak fondasi ketuhanan dan menghidupkan kembali ajaran komunis terlarang.",
+            "validated_category": "Ideologi",
+            "analyst_rationale": "Penyebaran paham komunisme/marxisme yang dilarang tegas oleh hukum positif di Indonesia.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Deklarasi pembangkangan sipil yang menyatakan piagam negara tidak sah dan menolak tunduk pada Undang-Undang Dasar 1945.",
+            "validated_category": "Ideologi",
+            "analyst_rationale": "Penolakan terhadap keabsahan UUD 1945 dan pembangkangan terhadap tatanan hukum konstitusi negara.",
+            "urgency_score": 5,
+        },
+
+        # 2. Politik
+        {
+            "content_text": "Video disinformasi rekayasa deepfake yang memfitnah sistem penghitungan suara KPU dimanipulasi pihak luar untuk memenangkan paslon tertentu dalam pemilu.",
+            "validated_category": "Politik",
+            "analyst_rationale": "Hoaks elektoral yang menyerang integritas dan legitimasi lembaga penyelenggara pemilu.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Tuduhan tanpa bukti yang menyatakan pimpinan Mahkamah Konstitusi menerima suap puluhan miliar untuk meloloskan calon gubernur tertentu.",
+            "validated_category": "Politik",
+            "analyst_rationale": "Fitnah terhadap integritas lembaga peradilan konstitusi dalam sengketa politik pilkada.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Beredar dokumen rekayasa daftar susunan menteri baru palsu untuk memecah belah soliditas koalisi partai politik pemerintah.",
+            "validated_category": "Politik",
+            "analyst_rationale": "Disinformasi politik manuver kekuasaan yang berpotensi mengadu domba antar aktor pemerintahan.",
+            "urgency_score": 3,
+        },
+
+        # 3. Ekonomi
+        {
+            "content_text": "Penipuan skema ponzi trading forex ilegal tanpa izin OJK yang menjanjikan keuntungan pasti 40 persen per bulan kepada ribuan nasabah.",
+            "validated_category": "Ekonomi",
+            "analyst_rationale": "Kejahatan finansial massal non-siber yang merugikan aset ekonomi masyarakat luas.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Pesan berantai bernada provokasi mengajak penarikan massal uang tunai (rush money) di bank BUMN terbesar karena diklaim sedang gagal bayar.",
+            "validated_category": "Ekonomi",
+            "analyst_rationale": "Isu ekonomi perbankan yang mengancam stabilitas likuiditas moneter dan kepanikan finansial publik.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Spekulan menyebarkan kepanikan kelangkaan stok beras dan minyak goreng nasional demi menaikkan harga komoditas pokok di pasar induk.",
+            "validated_category": "Ekonomi",
+            "analyst_rationale": "Manipulasi informasi komoditas pangan pokok yang berdampak langsung pada inflasi dan daya beli masyarakat.",
+            "urgency_score": 4,
+        },
+
+        # 4. Sosial
+        {
+            "content_text": "Ujaran kebencian berbasis sentimen suku, agama, dan kedaerahan yang memicu bentrokan fisik warga dan pembakaran fasilitas umum.",
+            "validated_category": "Sosial",
+            "analyst_rationale": "Polarisasi sosial horizontal dan provokasi konflik komunal antarwarga di ruang publik.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Kabar burung disertai foto rekayasa tentang sindikat mobil misterius penculik anak untuk organ tubuh yang memicu histeria orang tua siswa.",
+            "validated_category": "Sosial",
+            "analyst_rationale": "Disinformasi keresahan publik dan kepanikan sosial yang berpotensi memicu aksi main hakim sendiri.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Siaran langsung media sosial menantang kelompok pemuda lain untuk tawuran malam hari menggunakan senjata tajam celurit dan bom molotov.",
+            "validated_category": "Sosial",
+            "analyst_rationale": "Anarki antarkelompok remaja bersenjata tajam yang mengganggu ketertiban umum dan keselamatan warga.",
+            "urgency_score": 4,
+        },
+
+        # 5. Budaya
+        {
+            "content_text": "Video provokatif yang mengeklaim sepihak bahwa kesenian reog Ponorogo, tari piring, dan motif batik tradisional bukan milik nusantara.",
+            "validated_category": "Budaya",
+            "analyst_rationale": "Klaim kepemilikan dan pelecehan terhadap identitas warisan budaya takbenda Indonesia.",
+            "urgency_score": 3,
+        },
+        {
+            "content_text": "Konten kreator asing membuat parodi vulgar terhadap upacara keagamaan adat dan tarian sakral di pura tanpa menghormati kearifan lokal.",
+            "validated_category": "Budaya",
+            "analyst_rationale": "Penodaan dan pelecehan terhadap kesakralan ritual adat tradisi masyarakat nusantara.",
+            "urgency_score": 3,
+        },
+        {
+            "content_text": "Aksi vandalisme dan coretan pilox pada batu relief peninggalan situs cagar budaya candi bersejarah oleh pengunjung tak bertanggung jawab.",
+            "validated_category": "Budaya",
+            "analyst_rationale": "Perusakan fisik terhadap situs cagar budaya bernilai sejarah peradaban bangsa.",
+            "urgency_score": 3,
+        },
+
+        # 6. Pertahanan
+        {
+            "content_text": "Unggahan anonim di forum gelap membagikan dokumen koordinat dan spektrum frekuensi alat deteksi radar pangkalan militer pertahanan udara terluar Natuna.",
+            "validated_category": "Pertahanan",
+            "analyst_rationale": "Pembocoran rahasia intelijen militer pertahanan kedaulatan negara dari ancaman agresi eksternal.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Video disinformasi mengeklaim armada kapal perang negara asing telah mengepung pangkalan laut ZEE Indonesia tanpa ada respon militer.",
+            "validated_category": "Pertahanan",
+            "analyst_rationale": "Isu integritas wilayah batas teritorial laut dan kesiapan postur pertahanan militer nasional.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Tudingan tanpa dasar bahwa pembelian alutsista pesawat tempur generasi terbaru mengalami cacat struktur dan rawan jatuh saat operasi tempur udara.",
+            "validated_category": "Pertahanan",
+            "analyst_rationale": "Kampanye provokasi terhadap kapabilitas alutsista dan kesiapan armada tempur TNI.",
+            "urgency_score": 4,
+        },
+
+        # 7. Keamanan
+        {
+            "content_text": "Aktivitas peretasan siber di mana sindikat hacker ransomware mengunci server pusat data perkara kejaksaan dan menuntut uang tebusan.",
+            "validated_category": "Keamanan",
+            "analyst_rationale": "Kejahatan siber (cybercrime) ransomware berat yang menyerang infrastruktur digital lembaga penegak hukum.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Pesan ancaman terorisme terorganisir yang menyatakan telah menaruh bahan peledak bom di tiga stasiun transportasi massal ibu kota.",
+            "validated_category": "Keamanan",
+            "analyst_rationale": "Ancaman keamanan publik langsung dari tindak pidana terorisme terhadap nyawa warga di fasilitas umum.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Penyebaran berkas malware trojan undangan pernikahan palsu berekstensi APK yang menyadap SMS OTP dan menguras saldo rekening korban.",
+            "validated_category": "Keamanan",
+            "analyst_rationale": "Kejahatan siber teknis (malware/sniffing) penipuan digital yang menyerang keamanan data dan rekening warga.",
+            "urgency_score": 5,
+        },
+
+        # 8. Non-Isu
+        {
+            "content_text": "Resep dan panduan memasak rendang daging sapi tradisional yang empuk dengan rempah kelapa sangrai dan santan kental khas Padang.",
+            "validated_category": "Non-Isu",
+            "analyst_rationale": "Konten edukasi kuliner wajar tanpa ada unsur ancaman keamanan maupun pelanggaran hukum.",
+            "urgency_score": 1,
+        },
+        {
+            "content_text": "Ulasan performa sensor kamera smartphone flagship 200 megapixel dalam pencahayaan malam hari dan daya tahan baterai untuk penggunaan harian.",
+            "validated_category": "Non-Isu",
+            "analyst_rationale": "Review produk teknologi konsumen umum yang informatif dan edukatif tanpa potensi ancaman.",
+            "urgency_score": 1,
+        },
+        {
+            "content_text": "Panduan memilih makanan berprotein tinggi dan vitamin minyak ikan agar bulu kucing anggora peliharaan tidak mudah rontok.",
+            "validated_category": "Non-Isu",
+            "analyst_rationale": "Konten gaya hidup dan hobi hewan piaraan yang aman tanpa korelasi terhadap isu ruang siber.",
+            "urgency_score": 1,
+        },
+    ]
 
     @classmethod
     def _is_ollama_online(cls) -> bool:
@@ -169,51 +333,90 @@ class MemoryService:
     def retrieve_similar_cases(
         cls,
         query_text: str,
-        db: Session,
+        db: Optional[Session] = None,
         top_k: int = 3,
-        threshold: float = 0.45,
+        threshold: float = 0.35,
+        exclude_exact_text: bool = False,
     ) -> Dict[str, Any]:
         """Retrieve Top-K analyst-validated ground truth cases matching the query text.
 
-        Args:
-            query_text: Input post narrative (DOM + OCR).
-            db: Database session.
-            top_k: Maximum number of few-shot cases to return.
-            threshold: Minimum cosine similarity score.
-
-        Returns:
-            Dict containing retrieved cases, formatted prompt section, and retrieval_ms latency.
+        Blends dynamic database memories with 24 curated high-fidelity anchor precedents.
+        Enforces strict anti-leakage protection when exclude_exact_text=True.
         """
         start_time = time.perf_counter()
-        query_emb = cls.compute_embedding(query_text)
+        clean_query = (query_text or "").strip()
+        query_emb = cls.compute_embedding(clean_query)
 
-        # Retrieve verified memory pool
-        memories = (
-            db.query(ValidatedMemory)
-            .order_by(desc(ValidatedMemory.created_at))
-            .limit(300)
-            .all()
-        )
+        scored_cases: List[Dict[str, Any]] = []
+        seen_texts = set()
 
-        scored_cases = []
-        for mem in memories:
-            if not mem.embedding_vector:
-                continue
+        # 1. Search across dynamic ValidatedMemory table in local DB (if DB available)
+        if db is not None:
             try:
-                mem_vec = json.loads(mem.embedding_vector)
-            except Exception:
+                memories = (
+                    db.query(ValidatedMemory)
+                    .order_by(desc(ValidatedMemory.created_at))
+                    .limit(300)
+                    .all()
+                )
+                for mem in memories:
+                    if not mem.embedding_vector or not mem.content_text:
+                        continue
+                    norm_text = mem.content_text.strip().lower()
+                    if exclude_exact_text and (norm_text == clean_query.lower() or norm_text in clean_query.lower()):
+                        continue
+                    if norm_text in seen_texts:
+                        continue
+                    try:
+                        mem_vec = json.loads(mem.embedding_vector)
+                    except Exception:
+                        continue
+
+                    sim = cls.cosine_similarity(query_emb, mem_vec)
+                    if exclude_exact_text and sim >= 0.999:
+                        continue
+                    if sim >= threshold:
+                        seen_texts.add(norm_text)
+                        scored_cases.append({
+                            "memory_id": str(mem.memory_id),
+                            "similarity": round(sim, 3),
+                            "content_text": mem.content_text,
+                            "validated_category": mem.validated_category,
+                            "analyst_rationale": mem.analyst_rationale,
+                            "validated_by": mem.validated_by,
+                            "urgency_score": mem.urgency_score,
+                            "source_type": "dynamic_db",
+                        })
+            except Exception as dberr:
+                logger.debug("Dynamic memory query skipped: %s", dberr)
+
+        # 2. Search across Curated Anchor Precedents (with in-memory embedding cache)
+        for idx, anchor in enumerate(cls.CURATED_ANCHOR_PRECEDENTS):
+            norm_text = anchor["content_text"].strip().lower()
+            if exclude_exact_text and (norm_text == clean_query.lower() or norm_text in clean_query.lower()):
+                continue
+            if norm_text in seen_texts:
                 continue
 
-            sim = cls.cosine_similarity(query_emb, mem_vec)
+            cache_key = anchor["content_text"]
+            if cache_key not in cls._anchor_cache:
+                cls._anchor_cache[cache_key] = cls.compute_embedding(anchor["content_text"])
+            anchor_emb = cls._anchor_cache[cache_key]
+
+            sim = cls.cosine_similarity(query_emb, anchor_emb)
+            if exclude_exact_text and sim >= 0.999:
+                continue
             if sim >= threshold:
+                seen_texts.add(norm_text)
                 scored_cases.append({
-                    "memory_id": str(mem.memory_id),
+                    "memory_id": f"ANCHOR-{idx+1:02d}",
                     "similarity": round(sim, 3),
-                    "content_text": mem.content_text,
-                    "validated_category": mem.validated_category,
-                    "analyst_rationale": mem.analyst_rationale,
-                    "validated_by": mem.validated_by,
-                    "urgency_score": mem.urgency_score,
+                    "content_text": anchor["content_text"],
+                    "validated_category": anchor["validated_category"],
+                    "analyst_rationale": anchor["analyst_rationale"],
+                    "validated_by": "Senior Cyber Patrol Evaluator",
+                    "urgency_score": anchor["urgency_score"],
+                    "source_type": "curated_anchor",
                 })
 
         # Sort descending by similarity

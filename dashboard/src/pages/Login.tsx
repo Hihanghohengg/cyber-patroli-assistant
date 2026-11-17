@@ -46,9 +46,11 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-sm relative z-10 space-y-5">
         {/* Institutional Minimalist Header */}
         <div className="text-center space-y-1.5">
-          <div className="inline-flex p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 mb-1">
-            <Shield className="w-6 h-6" />
-          </div>
+          <img
+            src="./logo-tilik.png"
+            alt="TILIK"
+            className="w-14 h-14 object-contain mx-auto mb-1 drop-shadow-sm"
+          />
           <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] text-slate-500 dark:text-slate-400">
             <span className="font-bold text-blue-600 dark:text-blue-400 uppercase">TILIK</span>
             <span>•</span>
