@@ -2,6 +2,7 @@ import axios from 'axios';
 import {
   OverviewStats,
   TrendingTopicItem,
+  TrendingResponse,
   TrendingDetail,
   ContentItem,
   ContentDetail,
@@ -74,8 +75,8 @@ export const apiClient = {
     },
   },
   trending: {
-    list: async (params?: { category?: string; search?: string; status?: string; limit?: number }) => {
-      const res = await api.get<TrendingTopicItem[]>('/trending', { params });
+    list: async (params?: { category?: string; search?: string; status?: string; issue_type?: string; limit?: number }) => {
+      const res = await api.get<TrendingResponse>('/trending', { params });
       return res.data;
     },
     get: async (issueId: string) => {

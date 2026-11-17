@@ -186,6 +186,14 @@ class TrendingEngine:
         else:
             escalation_label = "PANTAU"
 
+        # Tentukan Tiga Pilar Isu Pemerintahan (Aktual, Kritikal, Tematik)
+        issue_obj = db.query(IssueCluster).filter(IssueCluster.issue_id == issue_id).first()
+        type_info = TrendingEngine.determine_issue_type(issue_obj, {
+            "avg_urgency": avg_urgency,
+            "escalation_label": escalation_label,
+            "trending_score": final_score,
+        })
+
         return {
             "issue_id": issue_id,
             "total_count": total_count,
@@ -203,6 +211,65 @@ class TrendingEngine:
             "sentiment_distribution": sentiments,
             "recency_score": round(score_velocity, 2),
             "snapshot_time": now,
+            "issue_type": type_info["issue_type"],
+            "issue_type_reason": type_info["issue_type_reason"],
+        }
+
+    @staticmethod
+    def determine_issue_type(issue: Optional[IssueCluster], metrics: Dict) -> Dict[str, str]:
+        """Tiga Pilar Isu Pemerintahan:
+        1. AKTUAL: Masalah publik yang sedang hangat diperbincangkan saat ini dan butuh respons cepat (Velocity & HotScore Tinggi).
+        2. KRITIKAL: Masalah krusial dengan tingkat bahaya atau urgensi tinggi (>= 3.8/5) yang dapat melumpuhkan tata kelola pemerintahan bila tidak segera ditangani.
+        3. TEMATIK: Topik besar payung perencanaan strategis dan agenda fokus program bersama lintas instansi (RKP, Reformasi Birokrasi, Perubahan Iklim/Karhutla, Pendidikan/Inovasi).
+        """
+        avg_urgency = float(metrics.get("avg_urgency", 2.5))
+        escalation_label = str(metrics.get("escalation_label", "PANTAU"))
+
+        title = (getattr(issue, "title", None) or "").lower() if issue else ""
+        cat = (getattr(issue, "category", None) or "").lower() if issue else ""
+        keywords = (getattr(issue, "keywords", []) or []) if issue else []
+        kws_str = " ".join(keywords).lower()
+        combined = f"{title} {cat} {kws_str}"
+
+        # 1. Kriteria KRITIKAL (Bahaya & Prioritas Mitigasi Risiko Tata Kelola/Keamanan Negara)
+        critical_keywords = [
+            "penyadapan", "korupsi", "tersangka", "makar", "hacked", "kejahatan siber",
+            "judol", "judi online", "pinjol", "ancaman bom", "senjata", "pembunuhan",
+            "separatis", "separatisme", "biometric records", "c-4", "wiretapping",
+            "tangkap tangan", "pencucian uang", "invasi"
+        ]
+        is_critical = (
+            avg_urgency >= 3.8
+            or escalation_label == "ESKALASI TINGGI"
+            or any(ck in combined for ck in critical_keywords)
+        )
+
+        if is_critical:
+            return {
+                "issue_type": "KRITIKAL",
+                "issue_type_reason": "Tingkat risiko krusial dan ancaman stabilitas tata kelola pemerintahan (Rerata Urgensi >= 3.8/5).",
+            }
+
+        # 2. Kriteria TEMATIK (Payung Perencanaan & Agenda Program Kerja Nasional)
+        thematic_keywords = [
+            "karhutla", "kebakaran hutan", "kabut asap", "asap", "iklim", "krisis iklim",
+            "climate", "lingkungan", "bencana alam", "bencana", "itb", "teknologi",
+            "inovasi", "emjm", "erasmus", "beasiswa", "kampus", "pendidikan", "mahasiswa",
+            "rkp", "reformasi birokrasi", "pangan", "investasi", "asean", "ktt asean",
+            "musrenbang", "kemiskinan", "disabilitas"
+        ]
+        is_thematic = any(tk in combined for tk in thematic_keywords)
+
+        if is_thematic:
+            return {
+                "issue_type": "TEMATIK",
+                "issue_type_reason": "Payung perencanaan strategis & tema fokus program kerja pembangunan lintas instansi.",
+            }
+
+        # 3. Default: AKTUAL (Isu Hangat Publik / Top Trending)
+        return {
+            "issue_type": "AKTUAL",
+            "issue_type_reason": "Masalah publik yang sedang hangat diperbincangkan saat ini dan memerlukan pemantauan respons cepat.",
         }
 
     def generate_and_save_snapshot(
@@ -253,3 +320,164 @@ class TrendingEngine:
 
         logger.info("Successfully generated snapshots for %d issues.", len(snapshots))
         return snapshots
+
+    def extract_word_cloud(self, db: Session, limit: int = 28) -> List[Dict]:
+        """Extract top N prominent unigram and bigram keywords with category and average urgency.
+        Prioritizes formal Indonesian narratives and filters out all bilingual stopwords and UI noise.
+        """
+        import re
+        from collections import Counter
+        from app.models.report import Report
+        from app.services.intelligence.text_processor import STOPWORDS_ID_EN
+
+        reports = db.query(Report).all()
+        kw_counter = Counter()
+        kw_urg = {}
+        kw_cat = {}
+
+        # English translation dictionary mapping for common terms
+        en_to_id = {
+            "fires": "Kebakaran", "forest": "Hutan", "wildfire": "Kebakaran Hutan",
+            "wildfires": "Kebakaran Hutan", "haze": "Kabut Asap", "transboundary": "Lintas Batas",
+            "president": "Presiden", "singapore": "Singapura", "malaysia": "Malaysia",
+            "indonesia": "Indonesia", "asean": "ASEAN", "apologised": "Meminta Maaf",
+            "apologises": "Meminta Maaf", "blazes": "Kebakaran", "companies": "Perusahaan",
+            "action": "Tindakan Tegas", "policy": "Kebijakan", "resignation": "Pengunduran Diri",
+            "letter": "Surat Resmi"
+        }
+
+        extended_stops = set(STOPWORDS_ID_EN) | {
+            "tersebut", "dalam", "menjadi", "sebagai", "bahwa", "pada", "untuk", "dari",
+            "yang", "dan", "dengan", "atas", "oleh", "juga", "telah", "bisa", "akan",
+            "dapat", "adalah", "ini", "itu", "atau", "secara", "antara", "saat", "belum",
+            "sudah", "masih", "namun", "tetapi", "tentang", "mengenai", "yakni", "yaitu",
+            "saja", "pun", "deh", "kok", "sih", "dong", "kan", "nih", "tuh", "kah", "lah",
+            "nya", "konten", "membahas", "indikator", "terkait", "kait", "satu", "dua",
+            "tiga", "banyak", "orang", "pihak", "hal", "kata", "bila", "karena", "agar",
+            "bukan", "hanya", "bagi", "lalu", "maka", "tanpa", "selalu", "kembali"
+        }
+
+        for r in reports:
+            u = 3.0
+            if r.ai_output and isinstance(r.ai_output, dict):
+                u = float(r.ai_output.get("urgency_score", 3.0))
+            elif r.ai_risk_level == "TINGGI":
+                u = 4.0
+            elif r.ai_risk_level == "SEDANG":
+                u = 3.0
+            cat = r.ai_predicted_label or "Politik"
+
+            text = (str(r.indonesian_content or "") + " " + str(r.ai_summary or "")).strip()
+            if not text:
+                continue
+
+            clean = re.sub(r"[^\w\s-]", " ", text)
+            raw_tokens = clean.split()
+
+            tokens = []
+            for t in raw_tokens:
+                tl = t.lower()
+                if tl in en_to_id:
+                    tokens.append(en_to_id[tl])
+                elif len(t) >= 3 and tl not in extended_stops and not t.isdigit():
+                    norm = t.capitalize() if t.islower() else (t if t.isupper() else t.capitalize())
+                    if norm.lower() not in extended_stops:
+                        tokens.append(norm)
+
+            for tok in tokens:
+                if len(tok) < 3 or tok.lower() in extended_stops:
+                    continue
+                kw_counter[tok] += 1
+                kw_cat[tok] = cat
+                if tok not in kw_urg:
+                    kw_urg[tok] = []
+                kw_urg[tok].append(u)
+
+            for i in range(len(tokens) - 1):
+                t1, t2 = tokens[i], tokens[i + 1]
+                if t1.lower() not in extended_stops and t2.lower() not in extended_stops and t1.lower() != t2.lower():
+                    bigram = f"{t1} {t2}"
+                    kw_counter[bigram] += 1
+                    kw_cat[bigram] = cat
+                    if bigram not in kw_urg:
+                        kw_urg[bigram] = []
+                    kw_urg[bigram].append(u)
+
+        items = []
+        for word, cnt in kw_counter.most_common(limit):
+            avg_u = round(sum(kw_urg[word]) / max(1, len(kw_urg[word])), 1)
+            items.append({
+                "text": word,
+                "count": cnt,
+                "avg_urgency": avg_u,
+                "category": kw_cat.get(word, "Politik"),
+            })
+        return items
+
+    def extract_hot_actors(self, db: Session, limit: int = 8) -> List[Dict]:
+        """Extract top prominent political, governmental, and institutional actors
+        from 5W+1H summaries and verified content narratives.
+        """
+        import re
+        from collections import Counter
+        from app.models.report import Report
+
+        reports = db.query(Report).all()
+        actors_dict = {
+            "Presiden Prabowo Subianto": [r"\bprabowo\b", r"\bprabowo subianto\b", r"\bpresiden prabowo\b"],
+            "Gibran Rakabuming Raka": [r"\bgibran\b", r"\bgibran rakabuming\b", r"\bwapres gibran\b"],
+            "Jenderal Listyo Sigit Prabowo": [r"\blistyo\b", r"\blistyo sigit\b"],
+            "Kapolri Jenderal Suyudi Ario Seto": [r"\bsuyudi\b", r"\bsuyudi ario seto\b"],
+            "Ganjar Pranowo": [r"\bganjar\b", r"\bganjar pranowo\b"],
+            "Institut Teknologi Bandung (ITB)": [r"\bitb\b", r"\binstitut teknologi bandung\b"],
+            "Komisi Pemilihan Umum (KPU)": [r"\bkpu\b", r"\bkomisi pemilihan umum\b"],
+            "Bareskrim Polri": [r"\bbareskrim\b", r"\bbareskrim polri\b"],
+            "BNPB Indonesia": [r"\bbnpb\b", r"\bbadan nasional penanggulangan bencana\b"],
+            "Paspampres RI": [r"\bpaspampres\b"],
+            "Kementerian Lingkungan Hidup": [r"\bklhk\b", r"\bkementerian lingkungan hidup\b"],
+            "Google Developer Groups (GDGoC)": [r"\bgdgoc\b", r"\bgoogle developer groups\b"],
+            "Kementerian Luar Negeri RI": [r"\bkemlu\b", r"\bkementerian luar negeri\b"],
+        }
+
+        counts = Counter()
+        actor_urg = {}
+        actor_cat = {}
+
+        for r in reports:
+            u = 3.0
+            if r.ai_output and isinstance(r.ai_output, dict):
+                u = float(r.ai_output.get("urgency_score", 3.0))
+            elif r.ai_risk_level == "TINGGI":
+                u = 4.0
+            cat = r.ai_predicted_label or "Politik"
+
+            text_c = str(r.indonesian_content or "") + " " + str(r.ai_summary or "")
+            who_f = ""
+            if r.ai_output and isinstance(r.ai_output, dict):
+                who_f = str(r.ai_output.get("summary_5w1h", {}).get("who") or "")
+
+            combined = (who_f + " " + text_c).lower()
+
+            for actor_name, patterns in actors_dict.items():
+                matched = False
+                for pat in patterns:
+                    if re.search(pat, combined, re.IGNORECASE):
+                        matched = True
+                        break
+                if matched:
+                    counts[actor_name] += 1
+                    actor_cat[actor_name] = cat
+                    if actor_name not in actor_urg:
+                        actor_urg[actor_name] = []
+                    actor_urg[actor_name].append(u)
+
+        items = []
+        for act, cnt in counts.most_common(limit):
+            avg_u = round(sum(actor_urg[act]) / max(1, len(actor_urg[act])), 1)
+            items.append({
+                "name": act,
+                "mentions": cnt,
+                "category": actor_cat.get(act, "Politik"),
+                "avg_urgency": avg_u,
+            })
+        return items

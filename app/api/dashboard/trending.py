@@ -26,38 +26,50 @@ from app.schemas.dashboard import (
     KeywordCloudItem,
     SourceItem,
     ContentListItem,
+    WordCloudItem,
+    HotActorItem,
+    TrendingDashboardResponse,
 )
 
 router = APIRouter(prefix="/trending", tags=["Dashboard Trending Topics"])
 
 
-@router.get("", response_model=List[TrendingTopicItem])
+@router.get("", response_model=TrendingDashboardResponse)
 def list_trending_topics(
     category: Optional[str] = Query(None, description="Filter by category"),
     search: Optional[str] = Query(None, description="Search by title or keyword"),
     status: str = Query("ACTIVE", description="ACTIVE, ARCHIVED, or ALL"),
+    issue_type: Optional[str] = Query(None, description="Filter by issue type: AKTUAL, KRITIKAL, TEMATIK, or ALL"),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """List trending topics sorted by trending score and recency."""
+    """List trending topics sorted by trending score and recency with word cloud and hot actors."""
+    import re
+    # Normalize when invoked directly as function in unit tests
+    eff_status = status if isinstance(status, str) else "ACTIVE"
+    eff_category = category if isinstance(category, str) else None
+    eff_search = search if isinstance(search, str) else None
+    eff_issue_type = issue_type if isinstance(issue_type, str) else None
+    eff_limit = limit if isinstance(limit, int) else 50
+
     query = db.query(IssueCluster)
 
-    if status != "ALL":
-        query = query.filter(IssueCluster.status == status)
+    if eff_status != "ALL":
+        query = query.filter(IssueCluster.status == eff_status)
 
-    if category:
-        query = query.filter(IssueCluster.category == category)
+    if eff_category and eff_category.upper() != "ALL":
+        query = query.filter(IssueCluster.category == eff_category)
 
-    if search:
-        search_pattern = f"%{search}%"
+    if eff_search:
+        search_pattern = f"%{eff_search}%"
         query = query.filter(
             (IssueCluster.title.ilike(search_pattern)) |
             (IssueCluster.canonical_name.ilike(search_pattern))
         )
 
     # Sort by last_seen_at desc
-    issues = query.order_by(desc(IssueCluster.last_seen_at)).limit(limit).all()
+    issues = query.order_by(desc(IssueCluster.last_seen_at)).limit(eff_limit).all()
 
     engine = TrendingEngine()
     items: List[TrendingTopicItem] = []
@@ -67,6 +79,17 @@ def list_trending_topics(
             dominant_sent = "NETRAL"
             if m.get("sentiment_distribution"):
                 dominant_sent = max(m["sentiment_distribution"], key=m["sentiment_distribution"].get)
+
+            # Extract hashtag from title or top_hashtags
+            hashtag_val = None
+            h_match = re.search(r"(#[a-zA-Z0-9_]+)", issue.title or "")
+            if h_match:
+                hashtag_val = h_match.group(1)
+            elif issue.hashtags and len(issue.hashtags) > 0:
+                hashtag_val = issue.hashtags[0]
+            else:
+                cat_clean = re.sub(r"[^\w]", "", issue.category or "Isu")
+                hashtag_val = f"#{cat_clean}"
 
             items.append(
                 TrendingTopicItem(
@@ -82,17 +105,22 @@ def list_trending_topics(
                     velocity=m["velocity"],
                     first_seen_at=issue.first_seen_at,
                     last_seen_at=issue.last_seen_at,
-                    top_keywords=issue.keywords[:6] if issue.keywords else [],
-                    top_hashtags=issue.hashtags[:6] if issue.hashtags else [],
+                    top_keywords=issue.keywords[:5] if issue.keywords else [],
+                    top_hashtags=issue.hashtags[:5] if issue.hashtags else [],
                     sentiment_dominant=dominant_sent,
                     escalation_label=m["escalation_label"],
                     avg_urgency=m["avg_urgency"],
                     recent_count_24h=m["recent_count_24h"],
                     total_interactions=m["total_interactions"],
+                    issue_type=m.get("issue_type", "AKTUAL"),
+                    issue_type_reason=m.get("issue_type_reason"),
+                    hashtag=hashtag_val,
                 )
             )
         except Exception as ex:
             logger.warning("Gagal menghitung HotScore isu %s: %s", issue.issue_id, ex)
+            cat_tag = re.sub(r'[^a-zA-Z0-9_]', '', issue.category or 'Isu')
+            fallback_h = f"#{cat_tag}"
             items.append(
                 TrendingTopicItem(
                     issue_id=issue.issue_id,
@@ -107,19 +135,52 @@ def list_trending_topics(
                     velocity=0.0,
                     first_seen_at=issue.first_seen_at,
                     last_seen_at=issue.last_seen_at,
-                    top_keywords=issue.keywords[:6] if issue.keywords else [],
-                    top_hashtags=issue.hashtags[:6] if issue.hashtags else [],
+                    top_keywords=issue.keywords[:5] if issue.keywords else [],
+                    top_hashtags=issue.hashtags[:5] if issue.hashtags else [],
                     sentiment_dominant="NETRAL",
                     escalation_label="PANTAU",
                     avg_urgency=2.5,
                     recent_count_24h=0,
                     total_interactions=0,
+                    issue_type="AKTUAL",
+                    issue_type_reason="Isu publik umum.",
+                    hashtag=fallback_h,
                 )
             )
 
     # Sort by trending score descending
     items.sort(key=lambda x: x.trending_score, reverse=True)
-    return items
+
+    # Assign sequential rank 1..N
+    for idx, itm in enumerate(items, 1):
+        itm.rank = idx
+
+    # Calculate Pilar Totals before filtering by issue_type
+    total_critical = sum(1 for it in items if it.issue_type == "KRITIKAL")
+    total_actual = sum(1 for it in items if it.issue_type == "AKTUAL")
+    total_thematic = sum(1 for it in items if it.issue_type == "TEMATIK")
+
+    # Filter by issue_type if specified and not 'ALL'
+    filtered_items = items
+    if eff_issue_type and eff_issue_type.upper() != "ALL":
+        filtered_items = [it for it in items if it.issue_type.upper() == eff_issue_type.upper()]
+
+    # Extract dynamic Word Cloud and Hot Actors
+    word_cloud_raw = engine.extract_word_cloud(db, limit=28)
+    word_cloud_items = [WordCloudItem(**wc) for wc in word_cloud_raw]
+
+    hot_actors_raw = engine.extract_hot_actors(db, limit=8)
+    hot_actor_items = [HotActorItem(**ha) for ha in hot_actors_raw]
+
+    return TrendingDashboardResponse(
+        topics=filtered_items,
+        word_cloud=word_cloud_items,
+        hot_actors=hot_actor_items,
+        total_topics=len(items),
+        total_critical=total_critical,
+        total_actual=total_actual,
+        total_thematic=total_thematic,
+    )
 
 
 @router.get("/{issue_id}", response_model=TrendingDetailResponse)

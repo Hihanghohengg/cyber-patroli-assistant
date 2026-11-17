@@ -43,6 +43,34 @@ export interface TrendingTopicItem {
   avg_urgency?: number;
   recent_count_24h?: number;
   total_interactions?: number;
+  issue_type?: 'AKTUAL' | 'KRITIKAL' | 'TEMATIK';
+  issue_type_reason?: string;
+  rank?: number;
+  hashtag?: string;
+}
+
+export interface WordCloudItem {
+  text: string;
+  count: number;
+  avg_urgency: number;
+  category: string;
+}
+
+export interface HotActorItem {
+  name: string;
+  mentions: number;
+  category: string;
+  avg_urgency: number;
+}
+
+export interface TrendingResponse {
+  topics: TrendingTopicItem[];
+  word_cloud: WordCloudItem[];
+  hot_actors: HotActorItem[];
+  total_topics: number;
+  total_critical: number;
+  total_actual: number;
+  total_thematic: number;
 }
 
 export interface OverviewStats {

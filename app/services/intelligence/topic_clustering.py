@@ -5,6 +5,7 @@ to cluster incoming patrol findings and detect narrative threads across platform
 """
 
 import logging
+import re
 from datetime import datetime
 from typing import List, Optional, Tuple
 import uuid
@@ -189,6 +190,14 @@ class TopicClusteringService:
             else:
                 cluster_title = main_topic
                 slug = self.processor.to_canonical_slug(cluster_title)
+
+            # Ensure hashtag formatting: #{Hashtag} — {Title}
+            clean_category = re.sub(r'[^\w]', '', category or "Isu")
+            if not cluster_title.startswith("#"):
+                first_tag = hashtags[0] if (hashtags and len(hashtags) > 0) else f"#{clean_category}"
+                if not first_tag.startswith("#"):
+                    first_tag = f"#{first_tag}"
+                cluster_title = f"{first_tag} — {cluster_title.lstrip('#-— ').strip()}"
 
             # Ensure canonical slug uniqueness
             unique_slug = slug

@@ -347,12 +347,19 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             scraper = TikTokScraper(storage_dir=settings.EVIDENCE_DIR)
         elif platform == "web":
             # Direct Link Triage untuk Media Nasional & Web Terbuka
-            from app.services.crawler_service import CrawlerService
-            try:
-                crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
-            except Exception as crawl_err:
-                logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
+            # Optimalisasi: Jika dikirim dari Browser Extension dan teks/screenshot sudah diekstrak dari DOM klien,
+            # lewati crawl Playwright server-side agar triase instan (mencegah timeout 60s)
+            has_client_content = bool(payload.caption and len(payload.caption.strip()) >= 30)
+            if payload.source_channel == "BROWSER_EXTENSION" and (has_client_content or payload.screenshot_base64):
+                logger.info(f"Browser Extension telah mengekstrak konten web ({len(payload.caption or '')} karakter) & screenshot. Melewati server-side Playwright crawl.")
                 crawl_res = None
+            else:
+                from app.services.crawler_service import CrawlerService
+                try:
+                    crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
+                except Exception as crawl_err:
+                    logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
+                    crawl_res = None
 
             if crawl_res:
                 if not payload.title and crawl_res.get("title"):

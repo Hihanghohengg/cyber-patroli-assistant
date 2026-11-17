@@ -89,9 +89,37 @@ class TrendingTopicItem(BaseModel):
     avg_urgency: Optional[float] = 2.5
     recent_count_24h: Optional[int] = 0
     total_interactions: Optional[int] = 0
+    issue_type: str = "AKTUAL"  # AKTUAL, KRITIKAL, TEMATIK
+    issue_type_reason: Optional[str] = None
+    rank: Optional[int] = 1
+    hashtag: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class WordCloudItem(BaseModel):
+    text: str
+    count: int
+    avg_urgency: float = 2.5
+    category: str = "Politik"
+
+
+class HotActorItem(BaseModel):
+    name: str
+    mentions: int
+    category: str = "Politik"
+    avg_urgency: float = 3.0
+
+
+class TrendingDashboardResponse(BaseModel):
+    topics: List[TrendingTopicItem]
+    word_cloud: List[WordCloudItem] = []
+    hot_actors: List[HotActorItem] = []
+    total_topics: int = 0
+    total_critical: int = 0
+    total_actual: int = 0
+    total_thematic: int = 0
 
 
 class TopicTimelinePoint(BaseModel):

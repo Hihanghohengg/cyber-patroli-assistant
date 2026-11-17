@@ -66,6 +66,32 @@ INDONESIAN_STOPWORDS: Set[str] = {
     "you", "your", "yours", "gonna", "never", "give", "let", "down", "around", "desert", "make", "cry", "say", "goodbye", "tell", "lie", "hurt",
 }
 
+# Master Bilingual & Social Media UI Noise Stopwords
+STOPWORDS_ID_EN: Set[str] = set(INDONESIAN_STOPWORDS) | {
+    # English Function & Common Words
+    "the", "and", "that", "from", "with", "over", "said", "have", "has", "had", "were", "was",
+    "are", "been", "for", "into", "during", "about", "which", "their", "would", "could", "after",
+    "against", "this", "these", "those", "also", "you", "can", "now", "new", "more", "most",
+    "other", "such", "only", "own", "same", "than", "too", "very", "will", "just", "its", "it",
+    "they", "them", "what", "who", "when", "where", "why", "how", "all", "any", "both", "each",
+    "out", "some", "up", "down", "in", "on", "off", "by", "as", "at", "to", "of", "via", "says",
+    "told", "reported", "arrives", "summit", "session", "statement", "may", "today", "yesterday",
+    # Indonesian Conjunctions & Noise
+    "konten", "membahas", "indikator", "kait", "serta", "hingga", "sampai", "atas", "bawah", "luar",
+    "lebih", "saat", "mengenai", "tentang", "yakni", "yaitu", "saja", "pun", "deh", "kok", "sih",
+    "dong", "kan", "nih", "tuh", "kah", "lah", "nya",
+    # Social Media UI Artifacts & Web Noise
+    "isu", "url", "meet", "our", "core", "team", "am", "pm", "nov", "des", "jan", "feb", "mar",
+    "apr", "mei", "jun", "jul", "agu", "sep", "okt", "disukai", "ikuti", "mengikuti", "hari",
+    "jam", "menit", "detik", "alhamdulillah", "breaking", "news", "relevant", "people", "lihat",
+    "selengkapnya", "baca", "post", "posting", "video", "official", "save", "share", "like", "likes",
+    "comment", "comments", "view", "views", "subscriber", "subscribers", "subscribe", "repost",
+    "reposts", "retweet", "retweets", "terjemahan", "translation", "transkrip", "transcript",
+    "komentar", "tampilkan", "items", "end", "list", "reuters", "staff", "getty", "foto", "photo",
+    "gambar", "image", "halaman", "juga", "simak", "update", "saluran", "kabar", "khusus", "tvone",
+    "tvonenews", "kompas", "channel", "remaster", "4k", "hd", "live", "clip", "anonim", "admin"
+}
+
 # Try loading Sastrawi stemmer if installed
 _STEMMER = None
 try:
@@ -80,7 +106,7 @@ class IndonesianTextProcessor:
 
     def __init__(self, use_stemmer: bool = False):
         self.use_stemmer = use_stemmer and (_STEMMER is not None)
-        self.stopwords = INDONESIAN_STOPWORDS
+        self.stopwords = STOPWORDS_ID_EN
 
     @staticmethod
     def remove_urls(text: str) -> str:

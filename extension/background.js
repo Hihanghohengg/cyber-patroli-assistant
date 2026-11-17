@@ -26,7 +26,27 @@ async function fetchWithFallback(endpoint, options = {}) {
   const hosts = await getServerHosts();
   let lastError = null;
 
+  // 1. Identifikasi host yang aktif secara cepat (1200ms ping) untuk mencegah penundaan pada host mati
+  let activeHost = null;
   for (const host of hosts) {
+    try {
+      const pingCtrl = new AbortController();
+      const pingT = setTimeout(() => pingCtrl.abort(), 1200);
+      const pingRes = await fetch(`${host}/health`, { method: "GET", signal: pingCtrl.signal });
+      clearTimeout(pingT);
+      if (pingRes.ok) {
+        activeHost = host;
+        break;
+      }
+    } catch (_) {
+      // Host tidak merespon, lanjutkan cek host berikutnya
+    }
+  }
+
+  // Jika tidak ada host yang merespon ping health, prioritaskan host terkonfigurasi atau localhost
+  const targetHosts = activeHost ? [activeHost] : hosts;
+
+  for (const host of targetHosts) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout for local AI inference

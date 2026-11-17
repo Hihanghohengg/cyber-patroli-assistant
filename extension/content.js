@@ -706,16 +706,64 @@
   }
 
   // ─────────────────────────────────────────────────────────────
-  // FLOATING UI BADGE & INTEGRITY RESULT MODAL
+  // FLOATING UI BADGE & INTEGRITY RESULT MODAL (DRAGGABLE & RESILIENT)
   // ─────────────────────────────────────────────────────────────
   const btn = document.createElement("div");
   btn.id = "cyber-patrol-floating-badge";
+  btn.title = "Klik untuk Triase. Seret untuk memindahkan posisi.";
   btn.innerHTML = `
     <div class="cp-badge-icon">🛡️</div>
     <span class="cp-badge-text">Triase</span>
   `;
 
-  btn.addEventListener("click", async () => {
+  // Kemampuan Drag-and-Drop agar tidak bertabrakan dengan tombol/widget situs
+  let isDragging = false;
+  let dragMoved = false;
+  let startX = 0;
+  let startY = 0;
+  let initialLeft = 0;
+  let initialTop = 0;
+
+  btn.addEventListener("mousedown", (e) => {
+    if (e.button !== 0) return;
+    isDragging = true;
+    dragMoved = false;
+    startX = e.clientX;
+    startY = e.clientY;
+    const rect = btn.getBoundingClientRect();
+    initialLeft = rect.left;
+    initialTop = rect.top;
+  });
+
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+      dragMoved = true;
+    }
+    const maxLeft = Math.max(10, window.innerWidth - btn.offsetWidth - 10);
+    const maxTop = Math.max(10, window.innerHeight - btn.offsetHeight - 10);
+    const newLeft = Math.min(Math.max(10, initialLeft + dx), maxLeft);
+    const newTop = Math.min(Math.max(10, initialTop + dy), maxTop);
+
+    btn.style.left = `${newLeft}px`;
+    btn.style.top = `${newTop}px`;
+    btn.style.right = "auto";
+    btn.style.bottom = "auto";
+  });
+
+  window.addEventListener("mouseup", () => {
+    if (isDragging) {
+      isDragging = false;
+    }
+  });
+
+  btn.addEventListener("click", async (e) => {
+    if (dragMoved) {
+      // Jika digeser/dragged oleh pengguna, jangan picu triase
+      return;
+    }
     // Guard: Abaikan klik jika proses akuisisi/penyegelan sedang berjalan (anti-double-click)
     if (btn.classList.contains("cp-loading") || btn.classList.contains("cp-capturing")) {
       return;
