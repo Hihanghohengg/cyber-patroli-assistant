@@ -1,4 +1,4 @@
-"""Comprehensive Automated Pipeline Verification for TILIK Cyber Patrol Assistant.
+"""Comprehensive Automated Pipeline Verification for TILIK.
 
 Validates:
 1. Cryptographic Evidence Integrity (NIST FIPS 198-1 HMAC-SHA256)
@@ -183,7 +183,7 @@ def test_full_pipeline():
         print("  [✓] Multimodal Smart Gate correctly triggered for Instagram poster with media")
 
         print("\n" + "=" * 80)
-        print("          [✓] SELURUH PIPELINE TILIK v5.0 TERVERIFIKASI 100% SUKSES (8/8 PASS)")
+        print("          [✓] SELURUH PIPELINE TILIK TERVERIFIKASI 100% SUKSES (8/8 PASS)")
         print("=" * 80 + "\n")
 
     finally:

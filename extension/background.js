@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* cSpell:disable */
-// Background Service Worker for TILIK — Cyber Patrol Assistant Extension
+// Background Service Worker for TILIK Extension
 // Compliant with Manifest V3 and Multi-User LAN Dynamic Configuration
 
 const DEFAULT_SERVER = "http://127.0.0.1:8000";
@@ -64,7 +64,7 @@ async function fetchWithFallback(endpoint, options = {}) {
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "patrol_analyze_link",
-    title: "🛡️ Kirim Tautan ke TILIK Cyber Patrol (AI Triage)",
+    title: "🛡️ Kirim Tautan ke TILIK (AI Triage)",
     contexts: ["link", "page"]
   });
 });
@@ -136,7 +136,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       })
       .catch((err) => {
         console.error("Background submit_intake fetch failed:", err);
-        let msg = "Gagal menghubungi server TILIK Cyber Patrol. Pastikan server backend sedang aktif di IP/Port yang sesuai.";
+        let msg = "Gagal menghubungi server TILIK. Pastikan server backend sedang aktif di IP/Port yang sesuai.";
         if (err.name === "AbortError") {
           msg = "Batas waktu permintaan habis (timeout). Pipeline AI lokal membutuhkan waktu lebih lama.";
         }

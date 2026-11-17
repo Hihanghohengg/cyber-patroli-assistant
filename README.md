@@ -1,5 +1,4 @@
-# 🛡️ TILIK — Sistem Asisten Patroli Siber Lokal Terintegrasi (v4.2)
-### *(Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi — Konsentrasi Siber & Sandi)*
+# 🛡️ TILIK — Sistem Pemantauan & Analisis Konten Siber
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18.3+-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
@@ -10,7 +9,7 @@
 [![Cryptography](https://img.shields.io/badge/Integrity-NIST_FIPS_198--1_HMAC--SHA256-10b981?style=flat)]()
 [![Status](https://img.shields.io/badge/Status-Field_Validated_Ready-10b981?style=flat)]()
 
-> **TILIK** (*Sistem Asisten Patroli Siber Lokal Terintegrasi*) adalah sistem prototipe operasional patroli ruang siber terpadu untuk pengumpulan barang bukti digital, analisis intelijen isu strategis nasional (**IPOLEKSOSBUDHANKAM**), penegakan rantai bukti (*Chain of Custody*) berstandar kriptografi **NIST FIPS 198-1 HMAC-SHA256**, serta klasifikasi adaptif bebas *retraining* (**MemPrompt Few-Shot Learning**) yang dirancang untuk kebutuhan Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi (RPLK).
+> **TILIK** adalah platform operasional pemantauan ruang siber terpadu untuk pengumpulan barang bukti digital, analisis intelijen isu strategis (**IPOLEKSOSBUDHANKAM**), penegakan rantai bukti (*Chain of Custody*) berstandar kriptografi **NIST FIPS 198-1 HMAC-SHA256**, serta klasifikasi adaptif bebas *retraining* (**MemPrompt Few-Shot Learning**).
 
 ---
 
@@ -373,6 +372,5 @@ python tests/test_tilik_full_pipeline.py
 ```
 
 ---
-**TILIK (Sistem Asisten Patroli Siber Lokal Terintegrasi v4.2)**  
-*Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi (RPLK)*  
-*Politeknik Siber dan Sandi Negara (PSSN) — 2026*
+**TILIK — Sistem Pemantauan & Analisis Konten Siber**  
+*Platform Pemantauan Siber Lokal & Berintegritas Kriptografis*

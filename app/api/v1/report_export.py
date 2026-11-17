@@ -32,7 +32,7 @@ def export_daily_patrol_report(
     include_all: bool = Query(False, description="Jika true, sertakan temuan yang belum divalidasi."),
     db: Session = Depends(get_db),
 ):
-    """Generate and download a comprehensive daily executive cyber patrol report."""
+    """Generate and download a comprehensive daily executive intelligence report."""
     target_date_str = date or datetime.utcnow().strftime("%Y-%m-%d")
     try:
         target_date = datetime.strptime(target_date_str, "%Y-%m-%d").date()

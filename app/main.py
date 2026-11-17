@@ -1,4 +1,4 @@
-"""Cyber Patrol Assistant — Main Entry Point.
+"""TILIK — Main Entry Point.
 
 Starts the FastAPI HTTP server for web dashboard, intelligence analytics,
 and pure Browser Extension integration.
@@ -38,7 +38,7 @@ logger = logging.getLogger("patrol")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize database tables and automatic background tasks."""
-    logger.info("🛡️  Cyber Patrol Assistant starting…")
+    logger.info("🛡️ TILIK starting…")
     os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
     os.makedirs(settings.REPORTS_DIR, exist_ok=True)
     init_db()
@@ -74,9 +74,8 @@ async def lifespan(app: FastAPI):
 
 # ── FastAPI App ──
 api = FastAPI(
-    title="Cyber Patrol Assistant & Social Intelligence API",
-    description="REST API for Cyber Patrol, Social Media Profiling, and Social Intelligence Dashboard.",
-    version="1.0.0",
+    title="TILIK — Sistem Pemantauan & Analisis Konten Siber",
+    description="REST API untuk Pemantauan Ruang Siber, Analisis Konten, dan Dasbor Intelijen.",
     lifespan=lifespan,
 )
 app = api  # Standard ASGI entrypoint alias
@@ -183,8 +182,8 @@ async def root():
         return RedirectResponse(url="/dashboard/")
     return {
         "status": "ok",
-        "service": "cyber-patrol-assistant",
-        "message": "Cyber Patrol Assistant API is running. Access /docs for Swagger UI.",
+        "service": "tilik",
+        "message": "TILIK API is running. Access /docs for Swagger UI.",
         "docs_url": "/docs",
     }
 
@@ -193,7 +192,7 @@ async def root():
 async def health():
     return {
         "status": "ok",
-        "service": "cyber-patrol-assistant",
+        "service": "tilik",
         "timestamp": datetime.utcnow().isoformat(),
     }
 

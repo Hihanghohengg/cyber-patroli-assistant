@@ -44,7 +44,7 @@ export const LoginPage: React.FC = () => {
             <Shield className="w-6 h-6" />
           </div>
           <div className="flex items-center justify-center gap-1.5 font-mono text-[10px] text-slate-400">
-            <span className="font-bold text-blue-400 uppercase">TILIK v5.0</span>
+            <span className="font-bold text-blue-400 uppercase">TILIK</span>
             <span>•</span>
             <span>NIST FIPS 198-1</span>
           </div>

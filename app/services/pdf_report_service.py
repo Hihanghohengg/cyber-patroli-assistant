@@ -90,7 +90,7 @@ class NumberedCanvas(canvas.Canvas):
         self.setFillColor(colors.HexColor("#64748B"))
 
         # Header Running Banner
-        self.drawString(36, 810, "DIREKTORAT OPERASI SIBER • SISTEM ASISTEN PATROLI SIBER")
+        self.drawString(36, 810, "TILIK • SISTEM PEMANTAUAN & ANALISIS KONTEN SIBER")
         self.drawRightString(559, 810, "KLASIFIKASI: DOKUMEN INTERNAL / RESMI")
         self.setStrokeColor(colors.HexColor("#CBD5E1"))
         self.setLineWidth(0.6)

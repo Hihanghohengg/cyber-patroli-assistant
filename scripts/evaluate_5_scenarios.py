@@ -1,4 +1,4 @@
-"""Autonomous 5-Scenario Verification and Evaluation Suite for TILIK v5.0.
+"""Autonomous 5-Scenario Verification and Evaluation Suite for TILIK.
 
 Verifies:
 1. Long Indonesian narrative (>2,500 chars, Karhutla Riau) with Head-Middle-Tail representative context sampling.
@@ -24,7 +24,7 @@ from app.services.intelligence.topic_clustering import TopicClusteringService
 
 def evaluate_all():
     print("=================================================================")
-    print("      TILIK v5.0 — 5-SCENARIO SYSTEM EVALUATION BENCHMARK       ")
+    print("      TILIK — 5-SCENARIO SYSTEM EVALUATION BENCHMARK       ")
     print("=================================================================")
     results = {}
     ollama_svc = OllamaService()

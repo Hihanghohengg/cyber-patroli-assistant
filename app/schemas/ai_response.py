@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field, field_validator
 class AIPatrolAnalysis(BaseModel):
     """Structured JSON output expected from the multimodal AI model.
 
-    Standardized schema for cyber patrol triage and intelligence analysis.
-    Extended with PRD v3 fields: topik, aktor_target, sumber_konten, tipe_sumber.
+    Standardized schema for intelligence triage and content analysis.
+    Extended fields: topik, aktor_target, sumber_konten, tipe_sumber.
     """
     status_keamanan: Literal["AMAN", "POTENSI_BAHAYA", "BERPOTENSI_BAHAYA"] = Field(
         default="AMAN",

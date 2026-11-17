@@ -302,7 +302,7 @@ class CrawlerService:
                     img = Image.new("RGB", (1280, 720), color=(15, 23, 42))
                     draw = ImageDraw.Draw(img)
                     draw.rectangle([(0, 0), (1280, 70)], fill=(30, 41, 59))
-                    draw.text((40, 24), "CYBER PATROL DIGITAL EVIDENCE ARCHIVE (NEWS CRAWLER v5.0)", fill=(56, 189, 248))
+                    draw.text((40, 24), "TILIK DIGITAL EVIDENCE ARCHIVE (NEWS CRAWLER)", fill=(56, 189, 248))
                     draw.text((40, 110), f"Nomor Tiket : {ticket_number}", fill=(241, 245, 249))
                     draw.text((40, 150), f"Sumber      : {domain.upper()}", fill=(241, 245, 249))
                     draw.text((40, 190), f"Judul       : {headline[:80]}", fill=(241, 245, 249))

@@ -408,7 +408,7 @@ def seed_proposal_data_if_needed(db: Session):
             img = Image.new("RGB", (1280, 720), color=(15, 23, 42))
             draw = ImageDraw.Draw(img)
             draw.rectangle([(0, 0), (1280, 70)], fill=(30, 41, 59))
-            draw.text((40, 24), "CYBER PATROL DIGITAL EVIDENCE ARCHIVE", fill=(56, 189, 248))
+            draw.text((40, 24), "TILIK DIGITAL EVIDENCE ARCHIVE", fill=(56, 189, 248))
             draw.text((40, 110), f"Nomor Tiket : {item['ticket']}", fill=(241, 245, 249))
             draw.text((40, 150), f"Platform    : {item['platform'].upper()}", fill=(241, 245, 249))
             draw.text((40, 190), f"Judul       : {item['title']}", fill=(148, 163, 184))

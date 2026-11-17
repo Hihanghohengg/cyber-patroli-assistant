@@ -1,4 +1,4 @@
-"""Benchmark Evaluation Framework for TILIK Cyber Patrol Assistant.
+"""Benchmark Evaluation Framework for TILIK.
 
 Evaluates the performance and accuracy of:
 1. Baseline Classification (Zero-Shot)

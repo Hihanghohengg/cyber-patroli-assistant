@@ -1,4 +1,4 @@
-"""Launcher Tunggal Sistem Asisten Patroli Siber (Cyber Patrol Assistant).
+"""Launcher Tunggal Sistem Pemantauan Siber (TILIK).
 
 Menjalankan backend API & dashboard dalam satu perintah dan berhenti dengan Ctrl+C.
 Usage:
@@ -172,7 +172,7 @@ def main():
 
     banner = f"""
 ===============================================================================
-       [+] SISTEM ASISTEN PATROLI SIBER TERPADU (TILIK v5.0)
+       [+] SISTEM PEMANTAUAN SIBER TERPADU (TILIK)
 ===============================================================================
   * Hardware Profile : {gpu_info}
   * Ollama Service   : {ollama_status}

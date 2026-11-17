@@ -16,7 +16,7 @@
 ## DAFTAR ISI
 
 - [DAFTAR ISI](#daftar-isi)
-- [BAB I: PRODUCT REQUIREMENT DOCUMENT (PRD v4.2)](#bab-i-product-requirement-document-prd-v42)
+- [BAB I: PRODUCT REQUIREMENT DOCUMENT (PRD)](#bab-i-product-requirement-document)
   - [1.1 Ringkasan Eksekutif & Latar Belakang](#11-ringkasan-eksekutif--latar-belakang)
   - [1.2 Batasan Arsitektur Utama (Core Architectural Constraints)](#12-batasan-arsitektur-utama-core-architectural-constraints)
   - [1.3 Profil Pengguna & Matriks Hak Akses (RBAC)](#13-profil-pengguna--matriks-hak-akses-rbac)
@@ -61,7 +61,7 @@
 
 ---
 
-# BAB I: PRODUCT REQUIREMENT DOCUMENT (PRD v4.2)
+# BAB I: PRODUCT REQUIREMENT DOCUMENT (PRD)
 
 ## 1.1 Ringkasan Eksekutif & Latar Belakang
 
@@ -72,7 +72,7 @@ Tantangan utama yang dihadapi di lapangan:
 2. **Kerapuhan Rantai Bukti Digital (*Chain of Custody*):** Tangkapan layar tanpa pengikatan kriptografis deterministik rentan terhadap sanggahan di persidangan karena mudah dimanipulasi dengan inspect element atau image editor.
 3. **Kerahasiaan Data & Ketergantungan Cloud:** Penggunaan API kecerdasan buatan komersial berbasis cloud berisiko membocorkan data intelijen dinas ke yurisdiksi luar negeri.
 
-**TILIK** (*Sistem Asisten Patroli Siber Lokal Terintegrasi v4.2*) dibangun untuk memenuhi tuntutan Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi (RPLK) di Politeknik Siber dan Sandi Negara (PSSN) dengan 4 pilar arsitektur operasional:
+**TILIK** (*Sistem Pemantauan & Analisis Konten Siber*) dibangun dengan 4 pilar arsitektur operasional:
 1. **Penyegelan Kriptografis Sejak Titik Akuisisi (NIST FIPS 198-1):** Setiap konten yang ditangkap langsung diikat secara kanonikal dengan **HMAC-SHA256** simetris server menggunakan format JSON deterministik bebas ambiguitas delimiter, melindungi rantai bukti (*Chain of Custody*) dari penyangkalan (*non-repudiation*) dan manipulasi.
 2. **Universal 3-Layer Content Acquisition & Anti-Noise Disambiguation:** Ekstensi peramban Manifest V3 dengan penyaringan spasial anti-sidebar, heuristik kepadatan teks (*text density*), auto-expander postingan panjang (*Show more*), serta isolasi tegas antara konten narasi murni dan metadata akun.
 3. **Local-First AI Engine & MemPrompt In-Context Learning:** Pemrosesan AI 100% lokal melalui inferensi **Ollama** (`qwen2.5:7b`), didukung oleh **Selective Local OCR** (hanya memproses jika teks DOM $< 30$ karakter untuk menghemat komputasi), proyeksi vektor padat 384-dimensi, dan deduplikasi semantik kembar harian ($\ge 0.85$).
@@ -82,7 +82,7 @@ Tantangan utama yang dihadapi di lapangan:
 
 ## 1.2 Batasan Arsitektur Utama (*Core Architectural Constraints*)
 
-Seluruh subsistem TILIK v4.2 tunduk secara mutlak pada 5 batasan arsitektural:
+Seluruh subsistem TILIK tunduk secara mutlak pada 5 batasan arsitektural:
 1. **100% On-Premise / Local-First:** Tidak ada pengiriman bita data apa pun ke layanan cloud pihak ketiga. LLM, OCR, embedding vektor, basis data, dan antarmuka web beroperasi penuh di jaringan lokal/intranet tertutup dinas.
 2. **Multi-User LAN Ready:** Arsitektur mendukung penggunaan paralel oleh beberapa operator stasiun kerja di jaringan area lokal (LAN). Setiap akuisisi merekam `operator_id`, konkurensi basis data dijamin oleh SQLite WAL Mode ber-timeout 60 detik, dan antrean inferensi GPU diamankan oleh semafor asinkron.
 3. **Deterministik & Ringan (Anti Over-Engineering):** Menolak penggunaan framework agen otonom pihak ketiga yang berat dan meniadakan fine-tuning/retraining bobot LLM. Orkestrasi dilakukan dengan kode deterministik yang ringan, stabil, transparan, dan mudah diaudit saat pembuktian sidang.
@@ -195,7 +195,7 @@ Diagram konteks menunjukkan interaksi tingkat tinggi antara entitas luar (Operat
                      ┌──────────────────────────────────────┴───────┐
                      │                                              │
                      │                 SISTEM TILIK                 │
-                     │       (Asisten Patroli Siber Lokal v4.2)     │
+                     │       (Sistem Pemantauan Siber Lokal)        │
                      │                                              │
                      └───────┬──────────────────────────────▲───────┘
                              │                              │
@@ -1007,5 +1007,5 @@ Server backend FastAPI dan Web Dashboard akan aktif seketika pada `http://127.0.
 ---
 
 **Disusun dan Disahkan oleh:**  
-*Mahasiswa Peneliti Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi (RPLK)*  
-*Politeknik Siber dan Sandi Negara (PSSN) — 2026*
+*TILIK — Sistem Pemantauan & Analisis Konten Siber*  
+*Platform Pemantauan Siber Berintegritas Kriptografis*

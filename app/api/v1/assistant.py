@@ -13,7 +13,8 @@ import re
 import uuid
 import asyncio
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
+from urllib.parse import urlparse, parse_qs, urlunparse, urlencode, unquote
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
@@ -22,7 +23,7 @@ from sqlalchemy import func
 import time
 from app.config import settings
 from app.database import get_db
-from app.models.report import Report, Content
+from app.models.report import Report, Content, Account
 from app.models.intelligence import ContentAnalysis
 from app.models.evidence import Evidence
 from app.models.audit import AuditLog
@@ -165,7 +166,7 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
         r"\d+([,\.]\d+)?\s*(rb|jt|k|m)?\s*subscriber",
         r"VideoTentangInstagram\S*",
         r"Tambahkan komentar\S*",
-        r"\b\d+\s*(?:hari|jam|m|menit|d|detik|w|minggu)\s*(?:yang\s+lalu)?\s*(?:Kirim)?$",
+        r"\b\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun|sec|secs|min|mins|hr|hrs|h|m|d|w)\s*(?:yang\s+lalu|lalu|ago)?\b",
         r"\d{1,2}:\d{2}\s*[\/|\\]\s*\d{1,2}:\d{2}",  # Video duration / scrubber e.g. 00:00 / 09:28
         r"\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\s*[·•\u00b7\u2022]\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}",  # Tweet timestamp e.g. 9:14 PM · Oct 20, 2026
         r"[·•\u00b7\u2022\s]*\b\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\b",
@@ -231,7 +232,7 @@ def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
         "channels": [
             {
                 "id": "browser_extension",
-                "name": "Cyber Patrol Browser Extension",
+                "name": "TILIK Browser Extension",
                 "type": "BROWSER_AGENT",
                 "status": "ONLINE",
                 "intake_count": counts_map.get("BROWSER_EXTENSION", 0),
@@ -263,79 +264,326 @@ def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
     }
 
 
+def _clean_url_tracking(url: str) -> str:
+    """Strip social tracking parameters and trailing slashes from URL."""
+    if not url:
+        return ""
+    try:
+        parsed = urlparse(url.strip())
+        qs = parse_qs(parsed.query)
+        tracking_params = {
+            "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+            "fbclid", "igshid", "si", "ref", "share_id", "is_from_webapp",
+            "sender_device", "feature", "tracking_id"
+        }
+        cleaned_qs = {k: v for k, v in qs.items() if k.lower() not in tracking_params}
+        new_query = urlencode(cleaned_qs, doseq=True)
+        new_path = parsed.path.rstrip("/") if len(parsed.path) > 1 else parsed.path
+        return urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, new_query, ""))
+    except Exception:
+        return url.strip().rstrip("/")
+
+
+def _normalize_text_for_hash(text: str) -> str:
+    """Sanitize relative timestamps, UI noise artifacts, and whitespace for canonical hashing."""
+    if not text:
+        return ""
+    cleaned = text
+    # 1. Hapus stempel waktu relatif medsos (e.g. '5 jam lalu', '2 hari yang lalu', '3d ago', '10 menit lalu')
+    rel_time_pat = r"\b\d+\s*(?:detik|menit|jam|hari|minggu|bulan|tahun|sec|secs|min|mins|hr|hrs|h|m|d|w)\s*(?:yang\s+lalu|lalu|ago)?\b"
+    cleaned = re.sub(rel_time_pat, " ", cleaned, flags=re.IGNORECASE)
+
+    # 2. Hapus noise UI umum
+    cleaned = clean_caption_noise(cleaned)
+
+    # 3. Normalisasi karakter dan spasi
+    cleaned = re.sub(r"[^\w\s]", " ", cleaned, flags=re.UNICODE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip().lower()
+    return cleaned
+
+
+def _compute_canonical_text_hash(text: str) -> str:
+    """Compute SHA-256 hash of normalized text."""
+    norm = _normalize_text_for_hash(text)
+    return hashlib.sha256(norm.encode("utf-8")).hexdigest() if norm else ""
+
+
+def _extract_post_identity(url: str) -> Tuple[str, Optional[str]]:
+    """Extract (platform_key, canonical_post_id) from permalinks.
+    
+    Returns (platform_key, None) if URL is a generic feed/home page.
+    """
+    clean_url = _clean_url_tracking(url)
+    try:
+        platform = BaseScraper.detect_platform(clean_url)
+    except Exception:
+        platform = "web"
+
+    parsed = urlparse(clean_url)
+    path = parsed.path.lower()
+    netloc = parsed.netloc.lower()
+
+    if "tiktok.com" in netloc:
+        if path in ["", "/", "/foryou", "/home"]:
+            return ("tiktok", None)
+        m = re.search(r"/(?:video|photo)/(\d+)", clean_url)
+        return ("tiktok", m.group(1)) if m else ("tiktok", None)
+
+    if "instagram.com" in netloc:
+        if path in ["", "/", "/home", "/explore"]:
+            return ("instagram", None)
+        m = re.search(r"/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", clean_url, re.IGNORECASE)
+        return ("instagram", m.group(1)) if m else ("instagram", None)
+
+    if any(d in netloc for d in ["twitter.com", "x.com"]):
+        if path in ["", "/", "/home", "/explore"]:
+            return ("x", None)
+        m = re.search(r"/status/(\d+)", clean_url)
+        return ("x", m.group(1)) if m else ("x", None)
+
+    if any(d in netloc for d in ["youtube.com", "youtu.be"]):
+        if path in ["", "/"]:
+            return ("youtube", None)
+        m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", clean_url)
+        return ("youtube", m.group(1)) if m else ("youtube", None)
+
+    # Web umum
+    if path in ["", "/", "/home", "/feed"]:
+        return ("web", None)
+    cleaned_no_query = urlunparse((parsed.scheme, parsed.netloc, parsed.path.rstrip("/"), "", "", ""))
+    return ("web", cleaned_no_query)
+
+
+def _detect_author_username(url: str, username_param: Optional[str] = None, caption: Optional[str] = None) -> str:
+    """Extract and normalize author username from payload, URL pattern, or caption context."""
+    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com"}
+    detected_user = username_param
+
+    if detected_user and (any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames):
+        detected_user = None
+
+    if not detected_user:
+        # Pola 1: X / Twitter -> https://x.com/ganjarpranowo/status/123...
+        x_match = re.search(r"(?:twitter\.com|x\.com)/([a-zA-Z0-9_]{1,30})(?:/status|\b)", url, re.IGNORECASE)
+        if x_match and x_match.group(1).lower() not in ["home", "explore", "notifications", "messages", "search", "i"]:
+            detected_user = x_match.group(1)
+
+        # Pola 2: Instagram URL -> https://instagram.com/vivacoid/p/...
+        if not detected_user:
+            ig_match = re.search(r"instagram\.com/([a-zA-Z0-9_\.]{1,30})/(?:p|reel|reels)/", url, re.IGNORECASE)
+            if ig_match and ig_match.group(1).lower() not in ["p", "reel", "reels", "stories", "explore", "direct"]:
+                detected_user = ig_match.group(1)
+
+        # Pola 3: TikTok URL -> https://tiktok.com/@username
+        if not detected_user:
+            tt_match = re.search(r"tiktok\.com/@([a-zA-Z0-9_\.]+)", url, re.IGNORECASE)
+            if tt_match:
+                detected_user = tt_match.group(1)
+
+        # Pola 4: YouTube URL -> https://youtube.com/@channel
+        if not detected_user:
+            yt_match = re.search(r"youtube\.com/@([a-zA-Z0-9_\.]+)", url, re.IGNORECASE)
+            if yt_match:
+                detected_user = yt_match.group(1)
+
+        # Pola 5: Ekstrak dari teks caption mentah jika menempel
+        if not detected_user and caption:
+            ig_caption_user = re.search(r"^([a-zA-Z0-9_\.]{2,30})(?:Ikuti|Follow|Mengikuti|Following)", caption, re.IGNORECASE)
+            if ig_caption_user:
+                detected_user = ig_caption_user.group(1)
+
+        # Pola 6: Regex @username di dalam URL atau caption
+        if not detected_user:
+            at_match = re.search(r"@([a-zA-Z0-9_\.]{2,30})", url) or (re.search(r"@([a-zA-Z0-9_\.]{2,30})", caption) if caption else None)
+            if at_match and at_match.group(1).lower() not in invalid_usernames:
+                detected_user = at_match.group(1)
+
+        # Pola 7: Portal berita (kompas.com) atau fallback anonim
+        if not detected_user:
+            parsed = urlparse(url)
+            if parsed.netloc:
+                domain = parsed.netloc.replace("www.", "")
+                detected_user = domain
+
+    if detected_user:
+        if any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames:
+            detected_user = "Anonim"
+
+    return detected_user or "Anonim"
+
+
 @router.post("/intake")
 async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Accept patrol intake from any client channel (Browser Extension, WhatsApp, Web, etc.)."""
+    # 0. Pembersihan URL Pelacak & Ekstraksi Identitas Kanonik
+    clean_url = _clean_url_tracking(payload.url)
     try:
-        platform = BaseScraper.detect_platform(payload.url)
+        platform_key, canonical_post_id = _extract_post_identity(clean_url)
+        platform = platform_key if platform_key != "twitter" else "x"
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Platform tidak didukung atau URL tidak valid: {str(e)}")
-
-    if not BaseScraper.is_specific_post_url(payload.url):
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"URL target adalah beranda/halaman utama platform ({platform.upper()}). "
-                "Harap buka postingan, video, atau Shorts spesifik sebelum melakukan triase AI."
-            ),
-        )
 
     ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     active_operator_id = (payload.operator_id or payload.reporter_identifier or "OP-01").strip()
     active_captured_at_utc = (payload.captured_at_utc or datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')).strip()
     active_ocr_text = (payload.ocr_text or "").strip()
 
-    # Idempotency Guard (90 Detik): Cegah duplikasi temuan akibat double-click atau multi-dispatch pada browser extension
-    try:
-        existing_content = (
+    # Ekstraksi Pengunggah & Narasi Awal untuk Deduplikasi
+    detected_user = _detect_author_username(clean_url, payload.username, payload.caption)
+    account_username = detected_user
+
+    raw_caption = payload.caption or payload.notes or f"Temuan patroli siber dari kanal {payload.source_channel.upper()} untuk URL {clean_url}"
+    clean_caption = clean_caption_noise(raw_caption, username=account_username)
+    if payload.caption:
+        payload.caption = clean_caption
+    canonical_text_hash = _compute_canonical_text_hash(clean_caption)
+
+    # Validasi Feed/Beranda Umum: Tolak HANYA jika berupa beranda TANPA konten teks atau tangkapan layar
+    if not canonical_post_id and len(clean_caption) < 15 and not payload.screenshot_base64:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"URL target adalah beranda/halaman utama platform ({platform.upper()}). "
+                "Harap buka postingan spesifik atau gunakan tangkapan layar/seleksi teks."
+            ),
+        )
+
+    # ── HIERARCHICAL DEDUPLICATION 3 LAPIS ──
+    matched_content: Optional[Content] = None
+
+    # Lapis 1: Pencocokan Canonical Post ID (Permalink Platform)
+    if canonical_post_id:
+        cand = db.query(Content).filter(
+            Content.platform == platform,
+            Content.platform_content_id == canonical_post_id
+        ).order_by(Content.created_at.desc()).first()
+        if not cand:
+            cand = db.query(Content).filter(
+                Content.platform == platform,
+                Content.canonical_url.like(f"%{canonical_post_id}%")
+            ).order_by(Content.created_at.desc()).first()
+        if cand:
+            matched_content = cand
+            logger.info(f"[DEDUP-L1] Postingan teridentifikasi duplikat via canonical_post_id '{canonical_post_id}' -> Content {cand.content_id}")
+
+    # Lapis 2: Fallback Feed / Beranda (Normalized Author + Canonical Text Hash)
+    if not matched_content and canonical_text_hash and detected_user and detected_user != "Anonim":
+        author_candidates = (
             db.query(Content)
-            .filter(Content.canonical_url == payload.url)
+            .join(Account, Content.account_id == Account.account_id)
+            .filter(Account.username.ilike(detected_user))
             .order_by(Content.created_at.desc())
+            .all()
+        )
+        for cand in author_candidates:
+            cand_text_hash = _compute_canonical_text_hash(cand.caption_text or "")
+            if cand_text_hash and cand_text_hash == canonical_text_hash:
+                matched_content = cand
+                logger.info(f"[DEDUP-L2] Postingan teridentifikasi duplikat via author '{detected_user}' + canonical_text_hash -> Content {cand.content_id}")
+                break
+
+    # Lapis 3: Smart Update vs Deduplicated Return
+    if matched_content:
+        existing_rep = (
+            db.query(Report)
+            .filter(Report.content_id == matched_content.content_id)
+            .order_by(Report.created_at.desc())
             .first()
         )
-        if existing_content and existing_content.created_at:
-            delta_sec = (datetime.utcnow() - existing_content.created_at).total_seconds()
-            if delta_sec < 90.0:
-                existing_rep = (
-                    db.query(Report)
-                    .filter(Report.content_id == existing_content.content_id)
-                    .order_by(Report.created_at.desc())
-                    .first()
+        existing_evi = (
+            db.query(Evidence)
+            .filter(Evidence.report_id == existing_rep.report_id)
+            .first() if existing_rep else None
+        )
+
+        old_clean = clean_caption_noise(matched_content.caption_text or "")
+        new_clean = clean_caption
+        is_smart_update = len(new_clean) > len(old_clean) * 1.5
+
+        if is_smart_update:
+            logger.info(f"[DEDUP-L3 SMART UPDATE] Teks baru ({len(new_clean)} karakter) > 1.5x teks lama ({len(old_clean)} karakter). Memperbarui Content {matched_content.content_id}")
+            matched_content.caption_text = clean_caption
+            if payload.title and not matched_content.title:
+                matched_content.title = clean_caption_noise(payload.title, username=detected_user)
+            if payload.likes_count: matched_content.likes_count = _safe_int(payload.likes_count)
+            if payload.views_count: matched_content.views_count = _safe_int(payload.views_count)
+            if payload.comments_count: matched_content.comments_count = _safe_int(payload.comments_count)
+            if payload.shares_count: matched_content.shares_count = _safe_int(payload.shares_count)
+
+            if existing_evi:
+                seal = CryptoService.seal_evidence_package(
+                    screenshot_sha256=existing_evi.sha256,
+                    source_url=matched_content.canonical_url,
+                    dom_text=clean_caption,
+                    ocr_text=active_ocr_text or existing_evi.ocr_text or "",
+                    captured_at_utc=active_captured_at_utc,
+                    operator_id=active_operator_id,
                 )
-                existing_evi = (
-                    db.query(Evidence)
-                    .filter(Evidence.content_id == existing_content.content_id)
-                    .first()
-                )
-                if existing_rep:
-                    cid_str = str(existing_content.content_id)
-                    logger.info(
-                        f"[IDEMPOTENCY] Temuan duplikat terdeteksi untuk URL {payload.url} "
-                        f"(berusia {delta_sec:.1f}s). Mengembalikan tiket eksisting: {existing_rep.ticket_number}"
-                    )
-                    return {
-                        "status": "QUEUED",
-                        "ticket_number": existing_rep.ticket_number,
-                        "content_id": cid_str,
-                        "platform": platform,
-                        "source_channel": payload.source_channel.upper(),
-                        "reporter_identifier": payload.reporter_identifier,
-                        "operator_id": active_operator_id,
-                        "captured_at_utc": active_captured_at_utc,
-                        "canonical_hash": existing_evi.canonical_json_hash if existing_evi else None,
-                        "hmac_tag": existing_evi.hmac_signature if existing_evi else None,
-                        "verification_status": existing_evi.verification_status if existing_evi else "VERIFIED",
-                        "tracking_url": f"/dashboard/#/contents/{cid_str}",
-                        "dashboard_url": f"http://localhost:8000/dashboard/#/contents/{cid_str}",
-                        "contents_url": "http://localhost:8000/dashboard/#/contents",
-                        "ai_status": existing_rep.ai_status,
-                        "ai_predicted_label": existing_rep.ai_predicted_label,
-                        "ai_confidence_score": round((existing_rep.ai_confidence_score or 0.85) * 100),
-                        "ai_summary": existing_rep.ai_summary,
-                        "message": f"Tiket patroli {existing_rep.ticket_number} untuk {platform} telah tercatat pada Web Dashboard.",
-                    }
-    except Exception as idemp_err:
-        logger.debug(f"Idempotency check warning: {idemp_err}")
+                existing_evi.dom_text = clean_caption
+                existing_evi.canonical_hash = seal["canonical_hash"]
+                existing_evi.hmac_tag = seal["hmac_tag"]
+                existing_evi.last_verified_at = datetime.utcnow()
+
+            analysis = db.query(ContentAnalysis).filter_by(content_id=matched_content.content_id).first()
+            if analysis:
+                analysis.summary = new_clean[:300]
+            if existing_rep:
+                existing_rep.ai_summary = new_clean[:300]
+
+            db.commit()
+
+            cid_str = str(matched_content.content_id)
+            tkt_str = existing_rep.ticket_number if existing_rep else ticket_number
+            return {
+                "status": "QUEUED",
+                "ticket_number": tkt_str,
+                "content_id": cid_str,
+                "platform": platform,
+                "source_channel": payload.source_channel.upper(),
+                "reporter_identifier": payload.reporter_identifier,
+                "operator_id": active_operator_id,
+                "captured_at_utc": active_captured_at_utc,
+                "canonical_hash": existing_evi.canonical_hash if existing_evi else None,
+                "hmac_tag": existing_evi.hmac_tag if existing_evi else None,
+                "verification_status": "VERIFIED",
+                "tracking_url": f"/dashboard/#/contents/{cid_str}",
+                "dashboard_url": f"http://localhost:8000/dashboard/#/contents/{cid_str}",
+                "contents_url": "http://localhost:8000/dashboard/#/contents",
+                "ai_status": existing_rep.ai_status if existing_rep else "AMAN",
+                "ai_predicted_label": existing_rep.ai_predicted_label if existing_rep else "Non-Isu",
+                "ai_confidence_score": round((existing_rep.ai_confidence_score or 0.88) * 100) if existing_rep else 88,
+                "ai_summary": existing_rep.ai_summary if existing_rep else new_clean[:200],
+                "deduplicated": True,
+                "updated": True,
+                "message": f"Tiket patroli {tkt_str} berhasil diperbarui dengan teks yang lebih lengkap (Smart Update).",
+            }
+        else:
+            logger.info(f"[DEDUP-L3] Duplikat terdeteksi untuk Content {matched_content.content_id}. Mengembalikan data eksisting tanpa re-run LLM.")
+            cid_str = str(matched_content.content_id)
+            tkt_str = existing_rep.ticket_number if existing_rep else ticket_number
+            return {
+                "status": "QUEUED",
+                "ticket_number": tkt_str,
+                "content_id": cid_str,
+                "platform": platform,
+                "source_channel": payload.source_channel.upper(),
+                "reporter_identifier": payload.reporter_identifier,
+                "operator_id": active_operator_id,
+                "captured_at_utc": active_captured_at_utc,
+                "canonical_hash": existing_evi.canonical_hash if existing_evi else None,
+                "hmac_tag": existing_evi.hmac_tag if existing_evi else None,
+                "verification_status": existing_evi.verification_status if existing_evi else "VERIFIED",
+                "tracking_url": f"/dashboard/#/contents/{cid_str}",
+                "dashboard_url": f"http://localhost:8000/dashboard/#/contents/{cid_str}",
+                "contents_url": "http://localhost:8000/dashboard/#/contents",
+                "ai_status": existing_rep.ai_status if existing_rep else "AMAN",
+                "ai_predicted_label": existing_rep.ai_predicted_label if existing_rep else "Non-Isu",
+                "ai_confidence_score": round((existing_rep.ai_confidence_score or 0.88) * 100) if existing_rep else 88,
+                "ai_summary": existing_rep.ai_summary if existing_rep else old_clean[:200],
+                "deduplicated": True,
+                "updated": False,
+                "message": f"Tiket patroli {tkt_str} untuk {platform} telah tercatat pada Web Dashboard.",
+            }
 
     # 0. Hybrid Metadata Enrichment: Jika ada data metrik atau judul yang belum lengkap dari klien,
     # otomatis lengkapi menggunakan backend scraper engine (yt-dlp, Playwright)
@@ -557,7 +805,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             img = Image.new("RGB", (1280, 720), color=(15, 23, 42))  # slate-900
             draw = ImageDraw.Draw(img)
             draw.rectangle([(0, 0), (1280, 70)], fill=(30, 41, 59))
-            draw.text((40, 24), "CYBER PATROL DIGITAL EVIDENCE ARCHIVE (ACQUISITION RECORD)", fill=(56, 189, 248))
+            draw.text((40, 24), "TILIK DIGITAL EVIDENCE ARCHIVE (ACQUISITION RECORD)", fill=(56, 189, 248))
             draw.text((40, 110), f"Nomor Tiket : {ticket_number}", fill=(241, 245, 249))
             draw.text((40, 150), f"Platform    : {platform.upper()}", fill=(241, 245, 249))
             draw.text((40, 190), f"URL Target  : {payload.url}", fill=(148, 163, 184))
@@ -669,7 +917,8 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         content = Content(
             account_id=account.account_id,
             platform=platform,
-            canonical_url=payload.url,
+            canonical_url=clean_url,
+            platform_content_id=canonical_post_id,
             title=content_title,
             caption_text=full_narrative,
             ocr_text=active_ocr_text,
@@ -680,6 +929,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             extra_metadata={
                 "transcript": payload.transcript or "",
                 "clean_caption": clean_caption,
+                "canonical_text_hash": canonical_text_hash,
                 "posted_at": str(posted_at_raw) if posted_at_raw else None,
                 "status_klaim": ollama_res.get("status_klaim", "Fakta Terverifikasi"),
                 "kutipan_bukti": ollama_res.get("kutipan_bukti", ""),
@@ -886,6 +1136,8 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         "ai_predicted_label": report.ai_predicted_label,
         "ai_confidence_score": round((report.ai_confidence_score or 0.85) * 100),
         "ai_summary": report.ai_summary,
+        "deduplicated": False,
+        "updated": False,
         "message": f"Tiket patroli {ticket_number} untuk {platform} berhasil didaftarkan dan langsung masuk ke Web Dashboard.",
     }
 

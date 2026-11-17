@@ -1,7 +1,7 @@
 # GEMINI.md — Context & Architecture Guide
 
 ## Project Overview
-**TILIK (Sistem Asisten Patroli Siber Lokal Terintegrasi v5.0)** adalah platform prototipe operasional patroli ruang siber terpadu untuk pengumpulan barang bukti digital, analisis intelijen isu strategis nasional (**IPOLEKSOSBUDHANKAM**), penegakan rantai bukti (*Chain of Custody*) berstandar kriptografi **NIST FIPS 198-1 HMAC-SHA256**, serta klasifikasi adaptif bebas *retraining* (**MemPrompt Few-Shot Learning & BGE-M3 Cross-Lingual**) yang dirancang untuk Tugas Akhir D4 Rekayasa Perangkat Lunak Kriptografi (RPLK) di Politeknik Siber dan Sandi Negara (PSSN).
+**TILIK** adalah platform operasional pemantauan ruang siber terpadu untuk pengumpulan barang bukti digital, analisis intelijen isu strategis (**IPOLEKSOSBUDHANKAM**), penegakan rantai bukti (*Chain of Custody*) berstandar kriptografi **NIST FIPS 198-1 HMAC-SHA256**, serta klasifikasi adaptif bebas *retraining* (**MemPrompt Few-Shot Learning & BGE-M3 Cross-Lingual**).
 
 Sistem menganut prinsip **100% On-Premise / Local-First**, **Forensic Integrity**, **Multi-User LAN Concurrency**, dan **Human-in-the-Loop Supremacy**.
 

@@ -36,7 +36,7 @@ class TestDashboardAPI(unittest.TestCase):
         except StopIteration as e:
             res = e.value
         self.assertEqual(res.get("status"), "ok")
-        self.assertEqual(res.get("service"), "cyber-patrol-assistant")
+        self.assertEqual(res.get("service"), "tilik")
 
     def test_login_and_overview(self):
         # 1. Login with seeded admin credentials

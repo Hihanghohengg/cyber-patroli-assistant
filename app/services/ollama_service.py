@@ -1,4 +1,4 @@
-"""Local-First Ollama LLM Service for TILIK Cyber Patrol.
+"""Local-First Ollama LLM Service for TILIK.
 
 Enforces strict JSON structured outputs for IPOLEKSOSBUDHANKAM threat classification,
 5W+1H intelligence summarization, dynamic few-shot MemPrompt injection,
@@ -302,7 +302,7 @@ class OllamaService:
         sampled_context = self._build_representative_context(clean_id_text, max_chars=2600)
 
         stage1_system = (
-            "Anda adalah Asisten Verifikator Bukti Forensik Siber Nasional (TILIK v5.0).\n"
+            "Anda adalah Asisten Analis Konten dan Bukti Digital Siber (TILIK).\n"
             "TUGAS TAHAP 1: EKSTRAKSI BUKTI BERDASARKAN DOKUMEN ASLI.\n"
             "1. DILARANG MENAMBAH FAKTA ATAU BERASUMSI. Rujuk hanya teks yang diberikan.\n"
             "2. BAHASA: Seluruh output wajib disajikan dalam BAHASA INDONESIA BAKU.\n"
@@ -384,7 +384,7 @@ class OllamaService:
         context_type = evidenced_summary.get("tipe_konteks", "Berita / Publikasi Digital")
 
         stage2_system = (
-            "Anda adalah Analis Senior Intelijen Patroli Siber Nasional (TILIK v5.0).\n"
+            "Anda adalah Analis Senior Intelijen dan Konten Siber (TILIK).\n"
             "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN STRATEGIS & SINTESIS 5W+1H.\n"
             "Gunakan HANYA ringkasan dan fakta terverifikasi dari Tahap 1 berikut sebagai batasan mutlak (anti-halusinasi):\n"
             f"- Status Klaim: {claim_status}\n"
@@ -1087,7 +1087,7 @@ class OllamaService:
         if "kemlu" in (author or "").lower():
             who_val = "Kementerian Luar Negeri RI (@kemlu_ri)"
         elif "gdgoc" in (author or "").lower():
-            who_val = "Google Developer Groups on Campus Poltek SSN"
+            who_val = "Google Developer Groups on Campus"
 
         when_val = "Tidak disebutkan dalam konten"
         where_val = f"Platform {(platform or 'media sosial').upper()}"

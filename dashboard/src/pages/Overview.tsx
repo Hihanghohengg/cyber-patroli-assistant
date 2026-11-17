@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -19,20 +19,14 @@ import {
   AlertTriangle,
   ArrowRight,
   TrendingUp,
-  ShieldCheck,
   UserCheck,
-  Radio,
-  Download,
   FileDown,
+  Download,
   Filter,
   RotateCcw,
-  ExternalLink,
   Layers,
-  BarChart2,
-  XCircle,
   Tag,
-  Edit3,
-  ChevronDown,
+  XCircle,
   X,
   RefreshCw,
 } from 'lucide-react';
@@ -40,9 +34,6 @@ import {
 export const OverviewPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-
-  // Active View Tab
-  const [activeTab, setActiveTab] = useState<'proposal' | 'intel'>('proposal');
 
   // Filter Bar State
   const [dateFrom, setDateFrom] = useState<string>('');
@@ -67,7 +58,6 @@ export const OverviewPage: React.FC = () => {
   const [timeseries, setTimeseries] = useState<DualLinePoint[]>([]);
   const [topTopics, setTopTopics] = useState<any[]>([]);
   const [topActors, setTopActors] = useState<any[]>([]);
-  const [topSources, setTopSources] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [trendingStats, setTrendingStats] = useState<any>(null);
 
@@ -87,7 +77,7 @@ export const OverviewPage: React.FC = () => {
       if (selectedCategory !== 'Semua') filterParams.category = selectedCategory;
       if (selectedRisk !== 'Semua') filterParams.risk_level = selectedRisk;
 
-      const [sumRes, tsRes, topTRes, topARes, topSRes, repRes, trendRes] = await Promise.all([
+      const [sumRes, tsRes, topTRes, topARes, repRes, trendRes] = await Promise.all([
         apiClient.v1.getSummary(filterParams).catch(() => null),
         apiClient.v1.getTimeseries({
           date_from: dateFrom || undefined,
@@ -96,7 +86,6 @@ export const OverviewPage: React.FC = () => {
         }).catch(() => ({ series: [] })),
         apiClient.v1.getTop('topics', 8).catch(() => ({ items: [] })),
         apiClient.v1.getTop('actors', 8).catch(() => ({ items: [] })),
-        apiClient.v1.getTop('sources', 8).catch(() => ({ items: [] })),
         apiClient.v1.getReports({
           platform: selectedPlatform !== 'Semua' ? selectedPlatform.toLowerCase() : undefined,
           category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
@@ -111,7 +100,6 @@ export const OverviewPage: React.FC = () => {
       setTimeseries(tsRes?.series || []);
       setTopTopics(topTRes?.items || []);
       setTopActors(topARes?.items || []);
-      setTopSources(topSRes?.items || []);
       setReports(repRes?.items || []);
       setTrendingStats(trendRes);
     } catch (err: any) {
@@ -136,8 +124,8 @@ export const OverviewPage: React.FC = () => {
   };
 
   const hasActiveFilters =
-    dateFrom ||
-    dateTo ||
+    Boolean(dateFrom) ||
+    Boolean(dateTo) ||
     selectedPlatform !== 'Semua' ||
     selectedCategory !== 'Semua' ||
     selectedRisk !== 'Semua' ||
@@ -163,7 +151,7 @@ export const OverviewPage: React.FC = () => {
     }
   };
 
-  // Visual 2: Vertical Bar Distribusi Platform
+  // Visual: Vertical Bar Distribusi Platform
   const platformBarItems: VerticalBarItem[] = useMemo(() => {
     if (!summary?.distribusi_platform) return [];
     const colorMap: Record<string, string> = {
@@ -181,7 +169,7 @@ export const OverviewPage: React.FC = () => {
     }));
   }, [summary]);
 
-  // Visual 3: Horizontal Bar Distribusi Kategori
+  // Visual: Horizontal Bar Distribusi Kategori
   const categoryBarItems = useMemo(() => {
     if (!summary?.distribusi_kategori) return [];
     const colorMap: Record<string, string> = {
@@ -199,7 +187,7 @@ export const OverviewPage: React.FC = () => {
     }));
   }, [summary]);
 
-  // Visual 4: Donut Distribusi Risiko
+  // Visual: Donut Distribusi Risiko
   const riskDonutItems: DonutItem[] = useMemo(() => {
     if (!summary?.distribusi_risiko) return [];
     const colorMap: Record<string, string> = {
@@ -215,86 +203,37 @@ export const OverviewPage: React.FC = () => {
     }));
   }, [summary]);
 
-  // Visual 8: Vertical Bar Kesepakatan AI vs Analis
-  const agreementBarItems: VerticalBarItem[] = useMemo(() => {
-    if (!summary?.putusan_evaluasi) return [];
-    return [
-      {
-        label: 'VALIDATED',
-        count: summary.putusan_evaluasi.VALIDATED || 0,
-        color: '#10b981',
-        key: 'VALIDATED',
-      },
-      {
-        label: 'MODIFIED',
-        count: summary.putusan_evaluasi.MODIFIED || 0,
-        color: '#f59e0b',
-        key: 'MODIFIED',
-      },
-      {
-        label: 'REJECTED',
-        count: summary.putusan_evaluasi.REJECTED || 0,
-        color: '#f43f5e',
-        key: 'REJECTED',
-      },
-    ];
-  }, [summary]);
-
   return (
     <div className="space-y-5">
-      {/* ── Page Header & Single Export Dropdown ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
+      {/* ── Page Header & Minimalist PDF Export Icon ── */}
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-mono">
             Ringkasan Operasi
           </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Metrik operasional, tren aktivitas, dan pemantauan sasaran strategis terpadu
+          </p>
         </div>
 
-        {/* Tab Selector & Sleek Download Dropdown Button */}
-        <div className="flex items-center gap-2.5">
-          <div className="bg-slate-100 dark:bg-white/[0.04] p-0.5 rounded-lg border border-slate-200 dark:border-white/[0.06] flex items-center text-xs">
-            <button
-              onClick={() => setActiveTab('proposal')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                activeTab === 'proposal'
-                  ? 'bg-white dark:bg-white/[0.08] text-slate-900 dark:text-white shadow-sm font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <BarChart2 className="w-3.5 h-3.5" />
-              <span>Metrik Operasi</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('intel')}
-              className={`px-3 py-1 rounded-md font-medium transition-colors flex items-center gap-1.5 ${
-                activeTab === 'intel'
-                  ? 'bg-white dark:bg-white/[0.08] text-slate-900 dark:text-white shadow-sm font-semibold'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5" />
-              <span>Radar & Sasaran</span>
-            </button>
-          </div>
-
-          {/* Single Unduh Laporan PDF Button */}
-          <button
-            onClick={() => setShowPdfModal(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors"
-            title="Unduh Laporan Analitis PDF"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Unduh Laporan PDF</span>
-          </button>
-        </div>
+        {/* Minimalist Icon Export Button */}
+        <button
+          type="button"
+          onClick={() => setShowPdfModal(true)}
+          className="p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0E131F] hover:bg-slate-50 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-xs group relative shrink-0"
+          title="Unduh Laporan PDF"
+          aria-label="Unduh Laporan PDF"
+        >
+          <FileDown className="w-4 h-4" />
+        </button>
       </div>
 
       {/* ── 1. BAR FILTER COMPACT & CLEAN ── */}
       <div className="cyber-card p-3 rounded-xl border border-slate-200 dark:border-white/[0.06] space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono">
             <Filter className="w-3.5 h-3.5 text-blue-500" />
-            <span>Filter Operasi</span>
+            <span>FILTER OPERASI</span>
           </div>
           {hasActiveFilters && (
             <button
@@ -309,7 +248,9 @@ export const OverviewPage: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
           <div>
-            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Dari Tanggal</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
+              Dari Tanggal
+            </label>
             <input
               type="date"
               value={dateFrom}
@@ -319,7 +260,9 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Sampai Tanggal</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
+              Sampai Tanggal
+            </label>
             <input
               type="date"
               value={dateTo}
@@ -329,7 +272,9 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Platform</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
+              Platform
+            </label>
             <select
               value={selectedPlatform}
               onChange={(e) => setSelectedPlatform(e.target.value)}
@@ -343,7 +288,9 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Kategori</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
+              Kategori
+            </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
@@ -358,7 +305,9 @@ export const OverviewPage: React.FC = () => {
           </div>
 
           <div className="col-span-2 sm:col-span-1">
-            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">Risiko</label>
+            <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
+              Risiko
+            </label>
             <select
               value={selectedRisk}
               onChange={(e) => setSelectedRisk(e.target.value)}
@@ -378,19 +327,25 @@ export const OverviewPage: React.FC = () => {
             {selectedPlatform !== 'Semua' && (
               <span className="inline-flex items-center gap-1 text-[11px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-mono font-medium">
                 Platform: {selectedPlatform}
-                <button onClick={() => setSelectedPlatform('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
+                <button onClick={() => setSelectedPlatform('Semua')}>
+                  <XCircle className="w-3 h-3 hover:opacity-75" />
+                </button>
               </span>
             )}
             {selectedCategory !== 'Semua' && (
               <span className="inline-flex items-center gap-1 text-[11px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded font-mono font-medium">
                 Kategori: {selectedCategory}
-                <button onClick={() => setSelectedCategory('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
+                <button onClick={() => setSelectedCategory('Semua')}>
+                  <XCircle className="w-3 h-3 hover:opacity-75" />
+                </button>
               </span>
             )}
             {selectedRisk !== 'Semua' && (
               <span className="inline-flex items-center gap-1 text-[11px] bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded font-mono font-medium">
                 Risiko: {selectedRisk}
-                <button onClick={() => setSelectedRisk('Semua')}><XCircle className="w-3 h-3 hover:opacity-75" /></button>
+                <button onClick={() => setSelectedRisk('Semua')}>
+                  <XCircle className="w-3 h-3 hover:opacity-75" />
+                </button>
               </span>
             )}
           </div>
@@ -423,12 +378,9 @@ export const OverviewPage: React.FC = () => {
           <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-2" />
           <p className="text-rose-600 dark:text-rose-300 text-sm font-semibold">{error}</p>
         </div>
-      ) : activeTab === 'proposal' ? (
-        /* ══════════════════════════════════════════════════════════════
-           TAB 1: METRIK OPERASI (ASYMMETRIC BENTO COMMAND CENTER)
-           ══════════════════════════════════════════════════════════════ */
+      ) : (
         <div className="space-y-5">
-          {/* Baris 1: 4 KPI Strip Kompak */}
+          {/* ── 2. KARTU KPI RINGKAS (4 KPI STRIP) ── */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             <KPICard
               title="Total Temuan"
@@ -439,32 +391,37 @@ export const OverviewPage: React.FC = () => {
             />
 
             <KPICard
-              title="Temuan Tervalidasi"
+              title="Isu Aktif"
+              value={trendingStats?.active_issues_count ?? 0}
+              subtitle="Klaster terpantau aktif"
+              icon={<Flame className="w-4 h-4 text-amber-500" />}
+              onClick={() => navigate('/trending')}
+            />
+
+            <KPICard
+              title="Urgensi Tinggi"
+              value={summary?.distribusi_risiko?.TINGGI ?? trendingStats?.high_risk_contents ?? 0}
+              subtitle="Konten risiko tinggi"
+              icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}
+              onClick={() => setSelectedRisk('TINGGI')}
+            />
+
+            <KPICard
+              title="Status Validasi"
               value={summary?.temuan_tervalidasi ?? 0}
-              subtitle="Verifikasi analis resmi"
+              subtitle={`${
+                summary?.total_laporan
+                  ? Math.round((summary.temuan_tervalidasi / summary.total_laporan) * 100)
+                  : 0
+              }% terverifikasi analis`}
               icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
               trend={{ value: 'HITL OK', isPositive: true }}
               onClick={() => setSelectedStatus('VALIDATED')}
             />
-
-            <KPICard
-              title="Koreksi Analis"
-              value={summary?.koreksi_analis ?? 0}
-              subtitle="Label / risiko dimodifikasi"
-              icon={<Edit3 className="w-4 h-4 text-amber-500" />}
-              onClick={() => setSelectedStatus('MODIFIED')}
-            />
-
-            <KPICard
-              title="Bukan Pelanggaran"
-              value={summary?.bukan_pelanggaran ?? 0}
-              subtitle="Ditolak / konten aman"
-              icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}
-              onClick={() => setSelectedStatus('REJECTED')}
-            />
           </div>
 
-          {/* Baris 2: Grid Asimetris 8:4 */}
+          {/* ── 3. VISUALISASI GRAFIK UTAMA ── */}
+          {/* Grid Asimetris 8:4 (Tren Aktivitas & Distribusi Risiko) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
             {/* Kiri (8 kolom): Tren Aktivitas Temuan (Line Chart) */}
             <div className="lg:col-span-8 cyber-card p-4 sm:p-5 rounded-xl space-y-3">
@@ -511,12 +468,14 @@ export const OverviewPage: React.FC = () => {
 
               <div className="pt-3 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-[10.5px] font-mono text-slate-400">
                 <span>Klik irisan untuk filter</span>
-                <span className="text-emerald-500 font-semibold">Tervalidasi: {summary?.temuan_tervalidasi ?? 0}</span>
+                <span className="text-emerald-500 font-semibold">
+                  Tervalidasi: {summary?.temuan_tervalidasi ?? 0}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Baris Tambahan: Distribusi Platform & Kategori */}
+          {/* Baris Grafis: Distribusi Platform & Kategori */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Visual: Distribusi Platform */}
             <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
@@ -552,7 +511,78 @@ export const OverviewPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Baris 3: Tabel Temuan Prioritas Terbaru (Linear Style) */}
+          {/* ── 4. RINGKASAN ISU MENONJOL & TOKOH/SASARAN (2 KOLOM BERDAMPINGAN) ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Kolom Kiri: Topik Isu Teratas */}
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-2.5">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase tracking-wider font-mono">
+                  <Flame className="w-4 h-4 text-blue-500" />
+                  Topik Isu Teratas ({topTopics.length})
+                </h3>
+                <Link
+                  to="/trending"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-mono"
+                >
+                  <span>Buka Radar Isu</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="pt-1">
+                {topTopics.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs font-mono">
+                    Belum ada data topik terpantau.
+                  </div>
+                ) : (
+                  <HorizontalBarList
+                    items={topTopics.map((t) => ({
+                      label: t.name,
+                      count: t.count,
+                      color: '#3b82f6',
+                      subtitle: t.category,
+                    }))}
+                    onBarClick={() => navigate('/trending')}
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* Kolom Kanan: Tokoh & Entitas Sasaran */}
+            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-2.5">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase tracking-wider font-mono">
+                  <UserCheck className="w-4 h-4 text-emerald-500" />
+                  Tokoh & Entitas Sasaran ({topActors.length})
+                </h3>
+                <Link
+                  to="/trending"
+                  className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-mono"
+                >
+                  <span>Buka Radar Isu</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+              <div className="pt-1">
+                {topActors.length === 0 ? (
+                  <div className="text-center py-6 text-slate-400 text-xs font-mono">
+                    Belum ada data tokoh/entitas terpantau.
+                  </div>
+                ) : (
+                  <HorizontalBarList
+                    items={topActors.map((a) => ({
+                      label: a.name,
+                      count: a.count,
+                      color: '#10b981',
+                      subtitle: a.category,
+                    }))}
+                    onBarClick={() => navigate('/trending')}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── 5. TABEL TEMUAN PRIORITAS TERBARU (LINEAR STYLE) ── */}
           <div className="cyber-card rounded-xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-3">
               <div className="flex items-center gap-2">
@@ -601,7 +631,9 @@ export const OverviewPage: React.FC = () => {
                           className="hover:bg-slate-50 dark:hover:bg-white/[0.02] cursor-pointer transition-colors"
                         >
                           <td className="py-2.5 px-3">
-                            <div className="font-bold text-slate-800 dark:text-slate-200">{r.ticket_number}</div>
+                            <div className="font-bold text-slate-800 dark:text-slate-200">
+                              {r.ticket_number}
+                            </div>
                             <div className="text-[10px] text-slate-400 font-mono">
                               {r.created_at ? r.created_at.slice(0, 16).replace('T', ' ') : '-'}
                             </div>
@@ -669,72 +701,6 @@ export const OverviewPage: React.FC = () => {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      ) : (
-        /* ══════════════════════════════════════════════════════════════
-           TAB 2: RADAR & SASARAN
-           ══════════════════════════════════════════════════════════════ */
-        <div className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="cyber-card p-4 rounded-xl">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Isu Aktif</span>
-              <div className="text-2xl font-bold font-mono text-slate-900 dark:text-white mt-1">
-                {trendingStats?.active_issues_count || 0}
-              </div>
-            </div>
-            <div className="cyber-card p-4 rounded-xl">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Menunggu Validasi</span>
-              <div className="text-2xl font-bold font-mono text-amber-500 mt-1">
-                {trendingStats?.pending_validations || 0}
-              </div>
-            </div>
-            <div className="cyber-card p-4 rounded-xl">
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">Konten Risiko Tinggi</span>
-              <div className="text-2xl font-bold font-mono text-rose-500 mt-1">
-                {trendingStats?.high_risk_contents || 0}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* Topik Teratas */}
-            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
-              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase tracking-wider font-mono">
-                <TrendingUp className="w-4 h-4 text-blue-500" />
-                Topik Teratas
-              </h3>
-              <div className="pt-1">
-                <HorizontalBarList
-                  items={topTopics.map((t) => ({
-                    label: t.name,
-                    count: t.count,
-                    color: '#3b82f6',
-                    subtitle: t.category,
-                  }))}
-                  onBarClick={() => {}}
-                />
-              </div>
-            </div>
-
-            {/* Aktor Sasaran Teratas */}
-            <div className="cyber-card p-4 sm:p-5 rounded-xl space-y-2">
-              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2 uppercase tracking-wider font-mono">
-                <UserCheck className="w-4 h-4 text-emerald-500" />
-                Tokoh & Entitas Sasaran
-              </h3>
-              <div className="pt-1">
-                <HorizontalBarList
-                  items={topActors.map((a) => ({
-                    label: a.name,
-                    count: a.count,
-                    color: '#10b981',
-                    subtitle: a.category,
-                  }))}
-                  onBarClick={() => {}}
-                />
-              </div>
-            </div>
           </div>
         </div>
       )}

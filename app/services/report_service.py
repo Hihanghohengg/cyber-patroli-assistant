@@ -29,7 +29,7 @@ def _set_cell_margins(cell, top=100, bottom=100, left=150, right=150):
 
 
 class ReportService:
-    """Generates official daily cyber patrol recap documents in DOCX format.
+    """Generates official daily intelligence recap documents in DOCX format.
 
     Designed for hand-off to leadership (Pimpinan), with executive summary,
     embedded high-res visual evidence snapshots, forensic SHA-256 integrity,

@@ -1,4 +1,4 @@
-"""Atomic Database Cleanup & Migration for TILIK v5.0.
+"""Atomic Database Cleanup & Migration for TILIK.
 
 Performs:
 1. Automatic backup of storage/patrol.db to storage/patrol.db.bak.

@@ -1,6 +1,6 @@
 // @ts-nocheck
 /* cSpell:disable */
-// Popup Controller for TILIK — Cyber Patrol Assistant Extension
+// Popup Controller for TILIK Extension
 // Universal 3-Layer Content Acquisition & NIST FIPS 198-1 Verification Display
 
 (() => {

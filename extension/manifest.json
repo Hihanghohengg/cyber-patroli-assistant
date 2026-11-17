@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Cyber Patrol Assistant — Browser Agent",
+  "name": "TILIK — Agen Peramban Pemantauan Siber",
   "version": "1.0.0",
-  "description": "Asisten Intelijen Patroli Siber untuk ekstraksi metadata, triase AI 5W+1H, dan pelaporan satu kali klik langsung dari peramban.",
+  "description": "Ekstraksi bukti digital, triase AI 5W+1H, dan penegakan integritas kriptografis satu kali klik langsung dari peramban.",
   "permissions": [
     "activeTab",
     "tabs",
@@ -23,7 +23,7 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Cyber Patrol Assistant"
+    "default_title": "TILIK"
   },
   "background": {
     "service_worker": "background.js"

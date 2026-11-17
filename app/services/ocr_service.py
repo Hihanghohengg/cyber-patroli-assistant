@@ -1,5 +1,5 @@
 # cSpell:ignore pytesseract easyocr rapidocr onnxruntime
-"""Selective Local OCR Engine for TILIK Cyber Patrol (RapidOCR ONNX Priority).
+"""Selective Local OCR Engine for TILIK (RapidOCR ONNX Priority).
 
 Executes local OCR extraction based on Smart Multimodal Gate:
 1. DOM text is empty or below threshold (e.g. < 30 characters)

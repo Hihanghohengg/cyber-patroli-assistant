@@ -7,7 +7,7 @@
 **Status Dokumen:** DRAF FINAL untuk submission ke pembimbing lapangan (Bang Zazal), dosen pembimbing, dan Pak Giri.  
 **Versi:** 3.1 (Field-Aligned Final)  
 **Tanggal:** 27 Oktober 2026  
-**Lokus Penugasan:** Badan Siber dan Sandi Negara (BSSN) — Tim Pengendalian Operasi Informasi (Dalinfo), Sub Tim Analisis Intelijen Siber  
+**Lokus Penugasan:** Tim Pengendalian Operasi Informasi, Sub Tim Analisis Intelijen Siber  
 **Basis Dokumen:** PRD v3 (review dosen pembimbing) + Notulensi Rapat D22 Dalinfo + Arahan Teknis Bang Zazal + PRD v2 (usulan awal kelompok)  
 **Prinsip Desain:** *Keep it simple*, terukur secara matematis, *fail-open* bertingkat, dapat dimatikan via saklar fitur (*feature flags*), tidak menghentikan triase operasional, dan siap untuk operasional jangka panjang dan pengembangan berkelanjutan.
 
@@ -15,11 +15,11 @@
 
 ## Riwayat Revisi
 
-| Versi | Tanggal | Perubahan Utama |
+| Iterasi | Tanggal | Perubahan Utama |
 |---|---|---|
-| **v1.0** | Okt 2026 | Fondasi awal: Dual Intake, scraper Playwright headless, verifikasi SHA-256, HITL Telegram Bot, dan ekspor DOCX. |
-| **v2.0** | Okt 2026 | Penambahan memori preseden RAG, web dashboard analitik, ekstraksi topik/aktor/sumber, serta form catatan analis. |
-| **v3.0** | Okt 2026 | Penguatan sistemik menyeluruh: evaluasi buta RAG (FR-13), model ancaman keamanan (T1–T8), audit hash-chain, privasi *fail-closed*, fase rilis bertahap, dan 32 kriteria penerimaan (AC-01 s.d. AC-32). |
+| **Tahap 1** | Okt 2026 | Fondasi awal: Dual Intake, scraper Playwright headless, verifikasi SHA-256, HITL Telegram Bot, dan ekspor DOCX. |
+| **Tahap 2** | Okt 2026 | Penambahan memori preseden RAG, web dashboard analitik, ekstraksi topik/aktor/sumber, serta form catatan analis. |
+| **Tahap 3** | Okt 2026 | Penguatan sistemik menyeluruh: evaluasi buta RAG (FR-13), model ancaman keamanan (T1–T8), audit hash-chain, privasi *fail-closed*, fase rilis bertahap, dan 32 kriteria penerimaan (AC-01 s.d. AC-32). |
 | **v3.1** | **27 Okt 2026** | **Field-Aligned Final (Kondisi Lapangan Riil D22 Dalinfo):**<br>• Pintu masuk utama beralih penuh dari Bot Telegram ke **Browser Extension** (Chrome/Edge/Firefox MV3).<br>• Antrean validasi dipusatkan di **Web Dashboard Console**.<br>• Hierarki peran disederhanakan menjadi **3 Role** (`OPERATOR`, `ANALYST`, `ADMIN`); role `VIEWER` ditunda pasca-MVP.<br>• Taksonomi topik diselaraskan dengan **8 Bidang IPOLEKSOSBUDHANKAM**.<br>• Strategi akuisisi bukti beralih ke **Client-First Capture** (tangkapan layar tab aktif Full HD + DOM render + hash SHA-256 dihitung di browser klien via WebCrypto).<br>• Penerapan **Adapter Pattern** untuk platform media sosial (YouTube, TikTok, Instagram) serta dukungan X/Threads berbasis DOM aktif.<br>• Pemisahan tegas batasan scope implementasi operasional versus rencana pengembangan lanjutan. |
 
 ---
@@ -36,7 +36,7 @@
 | **Hierarki Peran (Role)** | 4 Role (OPERATOR, ANALYST, ADMIN, VIEWER) | **3 Role** (OPERATOR, ANALYST, ADMIN) | Realistis diselesaikan oleh tim magang 3 orang; peran VIEWER ditunda ke rilis pasca-MVP. |
 | **Akuisisi Bukti Visual** | Scraper Playwright server-side | **Client-First Capture** + Playwright fallback | Anti login-wall & IP-block media sosial; menangkap persis apa yang dirender di layar mata personel. |
 | **Cakupan Platform** | 3 platform (YouTube, TikTok, IG) | **3 platform utama + Adapter Pattern** untuk X/Threads via active-tab capture | Menjawab kebutuhan operasional “semua platform” tanpa melanggar batasan stabilitas server. |
-| **Taksonomi Topik** | Kategori pelanggaran saja | **Kategori pelanggaran + Topik Terkontrol IPOLEKSOSBUDHANKAM** | Menjawab langsung notulensi rapat D22 Tim Dalinfo BSSN. |
+| **Taksonomi Topik** | Kategori pelanggaran saja | **Kategori pelanggaran + Topik Terkontrol IPOLEKSOSBUDHANKAM** | Menjawab langsung notulensi rapat Tim Dalinfo. |
 | **Evaluasi RAG (FR-13)** | Lengkap dengan evaluasi buta | **Dipertahankan penuh 100%** | Menjadi landasan pembuktian empiris keandalan AI sebelum diaktifkan penuh. |
 | **Audit Hash-Chain** | Hash-chain + jangkar DOCX harian | **Dipertahankan penuh 100%** | Menjamin keabsahan rantai bukti digital (Chain of Custody) yang berkekuatan hukum. |
 | **Fase Rilis** | 3 fase implementasi | **3 fase dengan scope terfokus** | Sangat terukur, bertahap, dan realistis diselesaikan dalam periode magang. |
@@ -54,7 +54,7 @@ Asisten Patroli Siber adalah sistem terintegrasi yang membantu personel piket pa
 
 Keputusan final analis disimpan sebagai **memori institusional** (*Retrieval-Augmented Generation* / RAG) untuk memperkaya konteks triase pada kasus-kasus berikutnya, dan seluruh hasil analisis disajikan secara agregat pada **Web Dashboard Analitik**.
 
-Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Sub Tim Analisis Intelijen Siber, Tim Dalinfo BSSN:
+Versi 3.1 menyelaraskan seluruh rancangan sistem dengan kondisi kerja riil di Sub Tim Analisis Intelijen Siber, Tim Dalinfo:
 1. **Pintu Masuk Dialihkan ke Browser Extension**: Personel patroli bekerja aktif di peramban web workstation dinas; 1-klik ekstensi menangkap layar aktif, struktur DOM, metadata, dan nilai hash SHA-256 di sisi klien.
 2. **Validasi Dipusatkan di Web Dashboard**: Analis memvalidasi temuan pada antrean tiket terpusat di konsol web workstation.
 3. **Penyederhanaan Ruang Lingkup**: Memangkas kompleksitas non-esensial agar realistis diselesaikan oleh 3 mahasiswa magang dalam periode waktu yang tersedia, dengan arsitektur bersih yang siap diintegrasikan secara operasional berkelanjutan.
@@ -842,7 +842,7 @@ Rancangan arsitektur PRD v3.1 sengaja dibangun secara modular agar hasil impleme
 
 Dokumen ini merupakan **DRAF FINAL PRD v3.1 (Field-Aligned Final)** yang telah mengintegrasikan secara harmonis:
 - Disiplin produk, model ancaman, dan metodologi evaluasi buta dari **PRD v3 Dosen Pembimbing**.
-- Kebutuhan operasional riil di ruangan penugasan dari **Notulensi Rapat D22 Dalinfo BSSN**.
+- Kebutuhan operasional riil di ruangan penugasan dari **Notulensi Rapat Dalinfo**.
 - Arahan teknis workstation dinas dari **Bang Zazal** (Browser Extension, automatic screenshot ber-SHA-256, dan antrean validasi web).
 - Usulan awal arsitektur dan sistem dari **PRD v2**.
 

@@ -37,7 +37,7 @@ class Content(Base):
     account_id = Column(UUID(as_uuid=True), ForeignKey("accounts.account_id"), nullable=True, index=True)
     platform = Column(String(50), nullable=False, index=True)
     canonical_url = Column(Text, unique=False, nullable=True, index=True)  # Nullable for manual photo uploads
-    platform_content_id = Column(String(255), nullable=True)
+    platform_content_id = Column(String(255), nullable=True, index=True)
     title = Column(Text, nullable=True)
     caption_text = Column(Text, nullable=True)
     ocr_text = Column(Text, nullable=True, default="")
