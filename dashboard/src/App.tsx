@@ -10,8 +10,6 @@ const TrendingTopicsPage = lazy(() => import('./pages/TrendingTopics').then((m) 
 const IssueDetailPage = lazy(() => import('./pages/IssueDetail').then((m) => ({ default: m.IssueDetailPage })));
 const ContentExplorerPage = lazy(() => import('./pages/ContentExplorer').then((m) => ({ default: m.ContentExplorerPage })));
 const ContentDetailPage = lazy(() => import('./pages/ContentDetail').then((m) => ({ default: m.ContentDetailPage })));
-const AnalyticsPage = lazy(() => import('./pages/Analytics').then((m) => ({ default: m.AnalyticsPage })));
-const CurationPage = lazy(() => import('./pages/Curation').then((m) => ({ default: m.CurationPage })));
 const LoginPage = lazy(() => import('./pages/Login').then((m) => ({ default: m.LoginPage })));
 
 // Minimalist, high-performance page transition fallback
@@ -66,9 +64,9 @@ export const App: React.FC = () => {
                 <Route path="trending/:id" element={<IssueDetailPage />} />
                 <Route path="contents" element={<ContentExplorerPage />} />
                 <Route path="contents/:id" element={<ContentDetailPage />} />
-                <Route path="analytics" element={<AnalyticsPage />} />
+                <Route path="analytics" element={<Navigate to="/" replace />} />
                 <Route path="assistant" element={<Navigate to="/" replace />} />
-                <Route path="curation" element={<CurationPage />} />
+                <Route path="curation" element={<Navigate to="/" replace />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />

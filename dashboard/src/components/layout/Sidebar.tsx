@@ -4,19 +4,13 @@ import {
   LayoutDashboard,
   Flame,
   Search,
-  BarChart2,
   ExternalLink,
-  Cpu,
   Terminal,
   PanelLeftClose,
   PanelLeftOpen,
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 
 export const Sidebar: React.FC = () => {
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
-
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('tilik_sidebar_collapsed') === 'true';
@@ -37,7 +31,7 @@ export const Sidebar: React.FC = () => {
     });
   };
 
-  const operationalItems = [
+  const menuItems = [
     {
       to: '/',
       label: 'Ringkasan',
@@ -53,22 +47,7 @@ export const Sidebar: React.FC = () => {
       label: 'Arsip Temuan',
       icon: <Search className="w-4 h-4 shrink-0" />,
     },
-    {
-      to: '/analytics',
-      label: 'Telemetri',
-      icon: <BarChart2 className="w-4 h-4 shrink-0" />,
-    },
   ];
-
-  const governanceItems = isAdmin
-    ? [
-        {
-          to: '/curation',
-          label: 'Kurasi & HITL',
-          icon: <Cpu className="w-4 h-4 shrink-0" />,
-        },
-      ]
-    : [];
 
   return (
     <aside
@@ -108,7 +87,7 @@ export const Sidebar: React.FC = () => {
           </button>
         </div>
 
-        {/* Operasional Nav */}
+        {/* 3 Core Nav Items */}
         <div>
           {!isCollapsed && (
             <div className="px-2 mb-1.5">
@@ -118,7 +97,7 @@ export const Sidebar: React.FC = () => {
             </div>
           )}
           <nav className="space-y-1">
-            {operationalItems.map((item) => (
+            {menuItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -151,54 +130,6 @@ export const Sidebar: React.FC = () => {
             ))}
           </nav>
         </div>
-
-        {/* Tata Kelola (Admin) */}
-        {governanceItems.length > 0 && (
-          <div>
-            {isCollapsed ? (
-              <div className="my-2 border-t border-slate-200/80 dark:border-white/[0.06] mx-1" />
-            ) : (
-              <div className="px-2 mb-1.5 pt-2">
-                <span className="text-[10px] font-semibold tracking-wider uppercase text-slate-400 dark:text-slate-500 font-mono">
-                  Tata Kelola
-                </span>
-              </div>
-            )}
-            <nav className="space-y-1">
-              {governanceItems.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={isCollapsed ? item.label : undefined}
-                  className={({ isActive }) =>
-                    `flex items-center ${
-                      isCollapsed ? 'justify-center py-2 px-0' : 'gap-2.5 px-2.5 py-1.5'
-                    } rounded-md text-xs transition-colors relative ${
-                      isActive
-                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 font-semibold border-l-2 border-blue-500'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.04]'
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <div
-                        className={`transition-colors shrink-0 ${
-                          isActive
-                            ? 'text-blue-600 dark:text-blue-400'
-                            : 'text-slate-400 dark:text-slate-500'
-                        }`}
-                      >
-                        {item.icon}
-                      </div>
-                      {!isCollapsed && <span className="truncate">{item.label}</span>}
-                    </>
-                  )}
-                </NavLink>
-              ))}
-            </nav>
-          </div>
-        )}
       </div>
 
       {/* Footer */}

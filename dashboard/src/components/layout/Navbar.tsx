@@ -12,9 +12,6 @@ export const Navbar: React.FC = () => {
     if (pathname === '/') return 'Ringkasan Operasi';
     if (pathname.startsWith('/trending')) return 'Radar Isu';
     if (pathname.startsWith('/contents')) return 'Arsip Temuan';
-    if (pathname.startsWith('/analytics')) return 'Telemetri & Analitik';
-    if (pathname.startsWith('/curation')) return 'Kurasi & Validasi HITL';
-    if (pathname.startsWith('/assistant')) return 'Integrasi Ekstensi';
     return 'Workstation';
   };
 

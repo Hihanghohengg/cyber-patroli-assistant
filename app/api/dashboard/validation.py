@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.report import Report, Content
+from app.models.memory import ValidatedMemory
 from app.models.audit import AuditLog
 from app.models.intelligence import ContentAnalysis, IssueCluster, IssueContent
 from app.auth.dependencies import get_current_user
@@ -122,6 +123,13 @@ def validate_content_finding(
                 logger.info(f"MemPrompt Memory Entry added for content {content_id} [{report.final_label}]")
         except Exception as mem_err:
             logger.warning(f"Failed to add case to ValidatedMemory: {mem_err}")
+    elif decision == "REJECTED":
+        # Safeguard: Hapus preseden dari ValidatedMemory jika konten ini ditolak sebagai bukan pelanggaran
+        try:
+            db.query(ValidatedMemory).filter(ValidatedMemory.report_id == report.report_id).delete()
+            logger.info(f"MemPrompt Memory Entry removed for rejected report {report.report_id}")
+        except Exception as mem_del_err:
+            logger.warning(f"Failed to remove rejected case from ValidatedMemory: {mem_del_err}")
 
     db.commit()
 
