@@ -312,7 +312,8 @@ class OllamaService:
             "   - 'Dugaan / Belum Terverifikasi': Jika naskah memuat klaim yang belum dikonfirmasi aparat/pejabat, berbau tuduhan, atau rumor beredar di medsos.\n"
             "   - 'Opini / Rumor': Jika murni opini perseorangan, spekulasi tanpa bukti dokumen, atau narasi polemik netizen.\n"
             "5. KUTIPAN BUKTI: Wajib mengutip 1 kalimat persis (verbatim quote) dari teks yang menjadi bukti inti peristiwa.\n"
-            "6. RINGKASAN EKSEKUTIF: Susun 2-3 kalimat padat bahasa Indonesia baku merangkum peristiwa, aktor utama, dampak, dan mitigasi penanganan."
+            "6. RINGKASAN EKSEKUTIF: Susun 2-3 kalimat padat bahasa Indonesia baku merangkum peristiwa, aktor utama, dampak, dan mitigasi penanganan nyata.\n"
+            "7. ANTI-PROMOSI: JANGAN PERNAH menganggap ajakan klik link di bio, kunjungan website, atau unduh aplikasi sebagai 'upaya mitigasi' atau tindakan resmi."
         )
 
         user_content = (
@@ -391,11 +392,12 @@ class OllamaService:
             f"- Tipe Konteks: {context_type}\n\n"
             "ATURAN MUTLAK:\n"
             "1. BAHASA BAKU: Seluruh isian wajib disajikan dalam BAHASA INDONESIA BAKU.\n"
-            "2. PEMISAHAN ENTITAS: Pada summary_5w1h['who'], bedakan secara tegas Pengunggah Konten (@author) dengan Tokoh/Lembaga yang Diberitakan.\n"
-            "3. KELENGKAPAN WAKTU & TEMPAT: Jika tidak tercantum pada fakta, isi persis 'Tidak disebutkan dalam konten'.\n"
-            "4. TAKSONOMI: Pilih satu kategori dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
-            "5. URGENSI: Skor 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
-            "6. PENALARAN: ai_reasoning WAJIB disusun persis dalam 3 bagian berlabel:\n"
+            "2. ANTI-CTA PROMOSI: JANGAN PERNAH menganggap ajakan klik link di bio, kunjungan website, atau unduh aplikasi sebagai 'upaya mitigasi' atau solusi penanganan.\n"
+            "3. PEMISAHAN ENTITAS: Pada summary_5w1h['who'], bedakan secara tegas Pengunggah Konten (@author) dengan Tokoh/Lembaga yang Diberitakan.\n"
+            "4. KELENGKAPAN WAKTU & TEMPAT: Jika tidak tercantum pada fakta, isi persis 'Tidak disebutkan dalam konten'.\n"
+            "5. TAKSONOMI: Pilih satu kategori dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
+            "6. URGENSI: Skor 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
+            "7. PENALARAN: ai_reasoning WAJIB disusun persis dalam 3 bagian berlabel:\n"
             "Fakta vs Dugaan Tertulis: [Uraian objektif mengenai apa yang faktual dan apa yang dugaan/belum terbukti]\n\n"
             "Penalaran Kausal (Karena-Maka): [Alur sebab-akibat dampak terhadap stabilitas nasional atau ketertiban publik]\n\n"
             "Rekomendasi Verifikasi & Tindak Lanjut: [Langkah verifikasi silang dan tindakan operasional patroli siber]"

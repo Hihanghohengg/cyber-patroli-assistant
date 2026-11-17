@@ -183,6 +183,11 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
         r"\[[^\]]*?(?:Getty|Reuters|AFP|AP|Antara|Usep|Ezra|Photo)[^\]]*?\]",
         r"\([^\)]*?(?:Getty|Reuters|AFP|AP|Antara|Usep|Ezra|Photo)[^\)]*?\)",
         r"Follow us on[^\n]*",
+        # Social media promotional & call-to-action (CTA) noise
+        r"[-–—]?\s*Selengkapnya\s+kunjungi\s+website[^\n]*",
+        r"(?:klik\s+link\s+di\s+bio|download\s+aplikasi\s+di\s+App\s*Store[^\n]*)",
+        r"baca\s+selengkapnya\s+di\s+link[^\n]*",
+        r"(?:\s+#[A-Za-z0-9_]+){2,}\s*$",
     ]
     for pat in patterns:
         cleaned = re.sub(pat, " ", cleaned, flags=re.IGNORECASE)

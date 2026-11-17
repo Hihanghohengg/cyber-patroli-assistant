@@ -27,6 +27,118 @@ import {
   Sparkles,
 } from 'lucide-react';
 
+interface ReasoningSection {
+  title: string;
+  content: string;
+}
+
+const parseAIReasoningString = (text: string): ReasoningSection[] => {
+  if (!text || !text.trim()) return [];
+
+  const sectionHeaders = [
+    'Fakta vs Dugaan Tertulis:',
+    'Penalaran Kausal (Karena-Maka):',
+    'Penalaran Kausal:',
+    'Alasan Penilaian:',
+    'Analisis Dampak & Kerawanan:',
+    'Analisis Dampak:',
+    'Rekomendasi Verifikasi & Tindak Lanjut:',
+    'Rekomendasi Tindak Lanjut:',
+    'Indikasi Pelanggaran:',
+  ];
+
+  const pattern = new RegExp(
+    `(?=(?:${sectionHeaders.map((h) => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}))`,
+    'i'
+  );
+
+  const rawBlocks = text.split(pattern).map((b) => b.trim()).filter(Boolean);
+  const sections: ReasoningSection[] = [];
+
+  for (const block of rawBlocks) {
+    let matchedHeader = '';
+    for (const h of sectionHeaders) {
+      if (block.toLowerCase().startsWith(h.toLowerCase())) {
+        matchedHeader = h;
+        break;
+      }
+    }
+
+    if (matchedHeader) {
+      const title = matchedHeader.replace(/:$/, '').trim();
+      const content = block.slice(matchedHeader.length).trim();
+      if (content) {
+        sections.push({ title, content });
+      }
+    } else if (sections.length > 0) {
+      sections[sections.length - 1].content += ' ' + block;
+    } else {
+      sections.push({ title: 'Alasan Penilaian', content: block });
+    }
+  }
+
+  // Deduplicate recommendations if both "Rekomendasi Verifikasi & Tindak Lanjut" and "Rekomendasi Tindak Lanjut" exist
+  const uniqueSections: ReasoningSection[] = [];
+  const seenTitles = new Set<string>();
+  for (const sec of sections) {
+    const normalizedKey = sec.title.toLowerCase().replace(/verifikasi\s*&\s*/, '');
+    if (!seenTitles.has(normalizedKey)) {
+      seenTitles.add(normalizedKey);
+      uniqueSections.push(sec);
+    }
+  }
+
+  return uniqueSections.length > 0 ? uniqueSections : [{ title: 'Alasan Penilaian', content: text }];
+};
+
+const parseAIReasoning = (rawReasoning: any): ReasoningSection[] => {
+  if (!rawReasoning) return [];
+
+  if (typeof rawReasoning === 'object' && !Array.isArray(rawReasoning)) {
+    const values = Object.values(rawReasoning);
+    for (const val of values) {
+      if (typeof val === 'string' && (val.includes('Fakta vs Dugaan') || val.includes('Penalaran Kausal'))) {
+        return parseAIReasoningString(val);
+      }
+    }
+
+    const sections: ReasoningSection[] = [];
+    for (const [k, v] of Object.entries(rawReasoning)) {
+      if (!v) continue;
+      const formattedTitle = k
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      const formattedContent = Array.isArray(v) ? v.join(', ') : String(v);
+      sections.push({
+        title: formattedTitle,
+        content: formattedContent,
+      });
+    }
+    return sections;
+  }
+
+  return parseAIReasoningString(String(rawReasoning));
+};
+
+const formatNarrativeParagraphs = (rawText: string): string[] => {
+  if (!rawText || !rawText.trim()) return [];
+  const clean = rawText.trim();
+  if (clean.includes('\n\n')) {
+    return clean.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  }
+  if (clean.includes('\n')) {
+    const lines = clean.split('\n').map((p) => p.trim()).filter(Boolean);
+    if (lines.length > 1) return lines;
+  }
+  const sentences = clean.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [clean];
+  if (sentences.length <= 3) return [clean];
+  const chunks: string[] = [];
+  for (let i = 0; i < sentences.length; i += 3) {
+    chunks.push(sentences.slice(i, i + 3).join(' ').trim());
+  }
+  return chunks.filter(Boolean);
+};
+
 export const ContentDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<ContentDetail | null>(null);
@@ -403,8 +515,8 @@ export const ContentDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* Card: Narasi Bahasa Indonesia (Editorial Typography) */}
-          <div className="cyber-card rounded-xl p-4 sm:p-5 space-y-2">
+          {/* Card: Narasi Bahasa Indonesia (Editorial Typography with Paragraph Spacing) */}
+          <div className="cyber-card rounded-xl p-4 sm:p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h4 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono flex items-center gap-1.5">
                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
@@ -417,8 +529,20 @@ export const ContentDetailPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="text-[13px] leading-[1.65] text-slate-700 dark:text-slate-300 whitespace-pre-wrap select-text pt-1 font-sans">
-              {detail.indonesian_content || detail.ai_patrol?.indonesian_content || detail.caption || '(Tidak ada narasi teks)'}
+            <div className="space-y-3 text-[13px] leading-[1.7] text-slate-700 dark:text-slate-300 select-text font-sans pt-1">
+              {formatNarrativeParagraphs(
+                detail.indonesian_content || detail.ai_patrol?.indonesian_content || detail.caption || ''
+              ).length > 0 ? (
+                formatNarrativeParagraphs(
+                  detail.indonesian_content || detail.ai_patrol?.indonesian_content || detail.caption || ''
+                ).map((para, idx) => (
+                  <p key={idx} className="whitespace-normal break-words">
+                    {para}
+                  </p>
+                ))
+              ) : (
+                <p className="italic text-slate-400">(Tidak ada narasi teks)</p>
+              )}
             </div>
           </div>
 
@@ -523,73 +647,82 @@ export const ContentDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Kutipan Bukti Sumber Verbatim */}
+            {/* Ringkasan Eksekutif */}
+            <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-white/[0.03] border-l-2 border-blue-500 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
+              <span className="font-semibold block text-slate-900 dark:text-white mb-1.5 font-mono text-[11px] uppercase tracking-wider">
+                Ringkasan Eksekutif:
+              </span>
+              {ai_patrol?.summary || 'Belum ada ringkasan analisis.'}
+            </div>
+
+            {/* Kutipan Bukti Sumber Verbatim (Placed cleanly under Ringkasan Eksekutif) */}
             {ai_patrol?.kutipan_bukti && (
               <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-blue-500/25 space-y-1">
                 <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 text-[10px] font-mono uppercase tracking-wider font-bold">
                   <Fingerprint className="w-3.5 h-3.5" />
                   <span>Kutipan Bukti Sumber</span>
                 </div>
-                <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed font-sans">
+                <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed font-sans select-text">
                   "{ai_patrol.kutipan_bukti}"
                 </p>
               </div>
             )}
 
-            {/* Ringkasan Eksekutif */}
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/[0.03] border-l-2 border-blue-500 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
-              <span className="font-semibold block text-slate-900 dark:text-white mb-1 font-mono text-[11px] uppercase tracking-wider">
-                Ringkasan Eksekutif:
-              </span>
-              {ai_patrol?.summary || 'Belum ada ringkasan analisis.'}
-            </div>
-
-            {/* Matriks 5W+1H (Clean 2-Col Grid) */}
+            {/* Matriks 5W+1H (All 6 Keys, Full Text Unclamped) */}
             {analysis_5w1h && (
               <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-2">
                 <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider">
                   Matriks 5W+1H
                 </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="p-2 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                    <span className="text-[9.5px] text-blue-500 font-bold uppercase block">What:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-sans line-clamp-2">{analysis_5w1h.what || '-'}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">What (Peristiwa)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.what || '-'}</p>
                   </div>
-                  <div className="p-2 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                    <span className="text-[9.5px] text-blue-500 font-bold uppercase block">Who:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-sans line-clamp-2">{analysis_5w1h.who || '-'}</span>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Who (Aktor / Pengunggah)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.who || '-'}</p>
                   </div>
-                  <div className="p-2 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                    <span className="text-[9.5px] text-blue-500 font-bold uppercase block">Why:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-sans line-clamp-2">{analysis_5w1h.why || '-'}</span>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">When (Waktu)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{(analysis_5w1h as any).when || analysis_5w1h.when_info || 'Tidak disebutkan dalam konten'}</p>
                   </div>
-                  <div className="p-2 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                    <span className="text-[9.5px] text-blue-500 font-bold uppercase block">How:</span>
-                    <span className="text-slate-800 dark:text-slate-200 font-sans line-clamp-2">{analysis_5w1h.how || '-'}</span>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Where (Lokasi)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{(analysis_5w1h as any).where || analysis_5w1h.where_info || 'Tidak disebutkan dalam konten'}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Why (Motif / Alasan)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.why || '-'}</p>
+                  </div>
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">How (Kronologi / Modus)</span>
+                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.how || '-'}</p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Penalaran Kausal AI */}
+            {/* Penalaran Kausal AI (Sub-Cards with generous spacing, parsed sections) */}
             {ai_patrol?.reasoning && (
-              <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-1.5">
-                <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider">
+              <div className="pt-2.5 border-t border-slate-100 dark:border-white/[0.06] space-y-2.5">
+                <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider block">
                   Penalaran Kausal AI
                 </span>
-                <div className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans space-y-1">
-                  {typeof ai_patrol.reasoning === 'object' ? (
-                    Object.entries(ai_patrol.reasoning).map(([k, v]) => (
-                      <div key={k} className="p-1.5 rounded bg-slate-50 dark:bg-[#0A0D14]">
-                        <span className="font-semibold text-blue-500 font-mono text-[10px] uppercase block">
-                          {k.replace(/_/g, ' ')}
-                        </span>
-                        <span className="text-[11.5px]">{Array.isArray(v) ? v.join(', ') : String(v)}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="p-2 rounded bg-slate-50 dark:bg-[#0A0D14]">{String(ai_patrol.reasoning)}</p>
-                  )}
+                <div className="space-y-3">
+                  {parseAIReasoning(ai_patrol.reasoning).map((sec, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1.5"
+                    >
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-500 dark:text-blue-400 font-mono block">
+                        {sec.title}:
+                      </span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans whitespace-normal break-words">
+                        {sec.content}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
