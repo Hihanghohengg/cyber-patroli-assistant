@@ -8,6 +8,12 @@ export default {
   theme: {
     extend: {
       colors: {
+        obsidian: {
+          canvas: '#090A0F',
+          surface: '#0F1117',
+          elevated: '#161922',
+          active: '#1D2230',
+        },
         cyber: {
           950: '#090d16',
           900: '#0e1422',

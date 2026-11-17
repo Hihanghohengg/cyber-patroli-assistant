@@ -9,39 +9,22 @@
     color: #0f172a;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
   }
   .dark body, html.dark body {
-    background-color: #090d16;
-    color: #f8fafc;
+    background-color: #090A0F;
+    color: #f1f5f9;
   }
   code, pre, .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
     font-feature-settings: 'tnum' 1;
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
-/* Native View Transitions API support for seamless theme switching */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 250ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-/* Synchronized theme switching across all surfaces & borders */
-html.theme-transitioning,
-html.theme-transitioning *,
-html.theme-transitioning *::before,
-html.theme-transitioning *::after {
-  transition: background-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
-              color 180ms cubic-bezier(0.16, 1, 0.3, 1),
-              fill 180ms cubic-bezier(0.16, 1, 0.3, 1),
-              stroke 180ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
-  transition-delay: 0s !important;
-}
-
-/* Precision Tactical Scrollbar */
+/* Precision Scrollbars */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -54,42 +37,41 @@ html.theme-transitioning *::after {
   border-radius: 9999px;
 }
 .dark ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #1e2533;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #2b3548;
 }
 
-/* Institutional Card Surfaces */
-.cyber-card, .intel-card {
+/* Layered Obsidian Surface Cards (Palantir / Linear Standard) */
+.cyber-card, .intel-card, .obsidian-card {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.03), 0 1px 2px -1px rgba(15, 23, 42, 0.02);
   border-radius: 0.75rem;
   position: relative;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.dark .cyber-card, .dark .intel-card {
-  background-color: #101625;
-  border: 1px solid #1e293b;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05), 0 1px 3px 0 rgba(0, 0, 0, 0.35);
+.dark .cyber-card, .dark .intel-card, .dark .obsidian-card {
+  background-color: #0F1117;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(255, 255, 255, 0.03);
 }
 
-.cyber-card:hover, .intel-card:hover {
+.cyber-card:hover, .intel-card:hover, .obsidian-card:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06);
 }
 
-.dark .cyber-card:hover, .dark .intel-card:hover {
-  border-color: #2e3d57;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 6px 16px -2px rgba(0, 0, 0, 0.5);
+.dark .cyber-card:hover, .dark .intel-card:hover, .dark .obsidian-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background-color: #12151E;
 }
 
-/* Subtle Specular Top Border for key command surfaces */
+/* Specular Hairline Top Border */
 .specular-border {
   position: relative;
 }
@@ -100,8 +82,20 @@ html.theme-transitioning *::after {
   left: 0;
   right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.12) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
   pointer-events: none;
+}
+
+/* Micro-Typography Classes */
+.text-micro-label {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+.dark .text-micro-label {
+  color: #64748b;
 }
 
 /* Skeleton Loading Shimmer */
@@ -128,9 +122,9 @@ html.theme-transitioning *::after {
 .dark .skeleton-shimmer {
   background: linear-gradient(
     90deg,
-    rgba(23, 32, 51, 0.6) 25%,
-    rgba(30, 41, 59, 0.9) 37%,
-    rgba(23, 32, 51, 0.6) 63%
+    rgba(16, 22, 33, 0.6) 25%,
+    rgba(26, 35, 52, 0.9) 37%,
+    rgba(16, 22, 33, 0.6) 63%
   );
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
