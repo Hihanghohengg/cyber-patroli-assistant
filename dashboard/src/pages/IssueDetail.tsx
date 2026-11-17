@@ -116,16 +116,25 @@ export const IssueDetailPage: React.FC = () => {
   }));
 
   return (
-    <div className="space-y-8">
-      {/* Back button */}
+    <div className="space-y-6">
+      {/* Top Nav & Tactical Kicker */}
       <div>
         <Link
           to="/trending"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors font-mono mb-2"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowLeft className="w-3.5 h-3.5" />
           Kembali ke Radar Trending
         </Link>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-widest text-blue-600 dark:text-blue-400 font-bold uppercase">
+            DOSSIER KLUSTER ISU // TILIK
+          </span>
+          <span className="text-[10px] text-slate-300 dark:text-slate-700 font-mono">•</span>
+          <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase">
+            ANALISIS DINAMIKA NARASI
+          </span>
+        </div>
       </div>
 
       {/* Header Banner */}
@@ -190,7 +199,7 @@ export const IssueDetailPage: React.FC = () => {
           <div>
             <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Compass className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-              Sintesis Ekstraksi 5W+1H (Gemini AI Multimodal)
+              Sintesis Ekstraksi 5W+1H (AI On-Premise)
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Ekstraksi berbasis bukti visual dan kontekstual. Informasi diverifikasi tanpa manipulasi fakta.

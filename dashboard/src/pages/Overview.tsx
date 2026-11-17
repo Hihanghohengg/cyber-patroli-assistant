@@ -209,11 +209,20 @@ export const OverviewPage: React.FC = () => {
       {/* ── Page Header & Minimalist PDF Export Icon ── */}
       <div className="flex items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-mono">
-            Ringkasan Operasi
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-[10px] tracking-widest text-blue-600 dark:text-blue-400 font-bold uppercase">
+              KONSOL OPERASIONAL // TILIK
+            </span>
+            <span className="text-[10px] text-slate-300 dark:text-slate-700 font-mono">•</span>
+            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase">
+              RINGKASAN METRIK & SASARAN
+            </span>
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+            Ringkasan Operasi Ruang Siber
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Metrik operasional, tren aktivitas, dan pemantauan sasaran strategis terpadu
+            Pantauan metrik patroli real-time, tren eskalasi narasi, dan pemantauan sasaran strategis terpadu
           </p>
         </div>
 
@@ -221,7 +230,7 @@ export const OverviewPage: React.FC = () => {
         <button
           type="button"
           onClick={() => setShowPdfModal(true)}
-          className="p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0E131F] hover:bg-slate-50 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors shadow-xs group relative shrink-0"
+          className="p-2.5 rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0E131F] hover:bg-slate-50 dark:hover:bg-white/[0.06] text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 active:scale-[0.98] transition-all shadow-xs group relative shrink-0"
           title="Unduh Laporan PDF"
           aria-label="Unduh Laporan PDF"
         >
@@ -234,7 +243,7 @@ export const OverviewPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 dark:text-slate-300 font-mono">
             <Filter className="w-3.5 h-3.5 text-blue-500" />
-            <span>FILTER OPERASI</span>
+            <span>PARAMETER OPERASI</span>
           </div>
           {hasActiveFilters && (
             <button
@@ -242,7 +251,7 @@ export const OverviewPage: React.FC = () => {
               className="text-[11px] font-mono text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 transition-colors"
             >
               <RotateCcw className="w-3 h-3" />
-              Reset Filter
+              Atur Ulang Filter
             </button>
           )}
         </div>
@@ -256,7 +265,7 @@ export const OverviewPage: React.FC = () => {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono transition-colors"
+              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono transition-colors"
             />
           </div>
 
@@ -268,7 +277,7 @@ export const OverviewPage: React.FC = () => {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono transition-colors"
+              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono transition-colors"
             />
           </div>
 
@@ -279,7 +288,7 @@ export const OverviewPage: React.FC = () => {
             <select
               value={selectedPlatform}
               onChange={(e) => setSelectedPlatform(e.target.value)}
-              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             >
               <option value="Semua">Semua Platform</option>
               <option value="Instagram">Instagram</option>
@@ -295,7 +304,7 @@ export const OverviewPage: React.FC = () => {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             >
               <option value="Semua">Semua Kategori</option>
               <option value="HOAKS">HOAKS</option>
@@ -312,7 +321,7 @@ export const OverviewPage: React.FC = () => {
             <select
               value={selectedRisk}
               onChange={(e) => setSelectedRisk(e.target.value)}
-              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             >
               <option value="Semua">Semua Risiko</option>
               <option value="TINGGI">TINGGI</option>
@@ -407,6 +416,7 @@ export const OverviewPage: React.FC = () => {
               value={summary?.total_laporan ?? 0}
               subtitle="Seluruh laporan tersimpan"
               icon={<FileText className="w-4 h-4 text-blue-500" />}
+              accentColor="blue"
               onClick={() => setSelectedStatus('Semua')}
             />
 
@@ -415,6 +425,7 @@ export const OverviewPage: React.FC = () => {
               value={trendingStats?.active_issues_count ?? 0}
               subtitle="Klaster terpantau aktif"
               icon={<Flame className="w-4 h-4 text-amber-500" />}
+              accentColor="amber"
               onClick={() => navigate('/trending')}
             />
 
@@ -423,6 +434,7 @@ export const OverviewPage: React.FC = () => {
               value={summary?.distribusi_risiko?.TINGGI ?? trendingStats?.high_risk_contents ?? 0}
               subtitle="Konten risiko tinggi"
               icon={<AlertTriangle className="w-4 h-4 text-rose-500" />}
+              accentColor="rose"
               onClick={() => setSelectedRisk('TINGGI')}
             />
 
@@ -435,7 +447,8 @@ export const OverviewPage: React.FC = () => {
                   : 0
               }% terverifikasi analis`}
               icon={<CheckCircle className="w-4 h-4 text-emerald-500" />}
-              trend={{ value: 'HITL OK', isPositive: true }}
+              trend={{ value: 'TERVERIFIKASI', isPositive: true }}
+              accentColor="emerald"
               onClick={() => setSelectedStatus('VALIDATED')}
             />
           </div>
@@ -622,7 +635,9 @@ export const OverviewPage: React.FC = () => {
 
             {reports.length === 0 ? (
               <div className="text-center py-10 text-slate-400 dark:text-slate-500 text-xs font-mono">
-                Tidak ada laporan yang sesuai dengan kriteria filter saat ini.
+                {hasActiveFilters
+                  ? 'Tidak ada temuan yang sesuai dengan kriteria filter saat ini.'
+                  : 'Belum ada temuan prioritas yang terekam dalam sistem.'}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -643,6 +658,15 @@ export const OverviewPage: React.FC = () => {
                       const isHighRisk = r.final_risk === 'TINGGI';
                       const isMediumRisk = r.final_risk === 'SEDANG';
                       const contentId = r.content_id || r.ticket_number;
+
+                      const statusLabel =
+                        r.status === 'VALIDATED'
+                          ? 'TERVALIDASI'
+                          : r.status === 'MODIFIED'
+                          ? 'KOREKSI'
+                          : r.status === 'REJECTED'
+                          ? 'BUKAN PELANGGARAN'
+                          : 'MENUNGGU';
 
                       return (
                         <tr
@@ -698,15 +722,15 @@ export const OverviewPage: React.FC = () => {
                             <span
                               className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-medium ${
                                 r.status === 'VALIDATED'
-                                  ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20'
+                                  ? 'text-emerald-500 bg-emerald-500/10 border border-emerald-500/20'
                                   : r.status === 'MODIFIED'
-                                  ? 'text-amber-400 bg-amber-500/10 border border-amber-500/20'
+                                  ? 'text-amber-500 bg-amber-500/10 border border-amber-500/20'
                                   : r.status === 'REJECTED'
-                                  ? 'text-rose-400 bg-rose-500/10 border border-rose-500/20'
-                                  : 'text-slate-400 bg-slate-500/10 border border-slate-500/20'
+                                  ? 'text-rose-500 bg-rose-500/10 border border-rose-500/20'
+                                  : 'text-slate-500 bg-slate-500/10 border border-slate-500/20'
                               }`}
                             >
-                              {r.status}
+                              {statusLabel}
                             </span>
                           </td>
                           <td className="py-2.5 px-3 text-right">

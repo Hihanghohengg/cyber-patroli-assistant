@@ -56,11 +56,20 @@ export const ContentExplorerPage: React.FC = () => {
       {/* ── 1. HEADER RINGKAS ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-mono">
-            Arsip Temuan
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-[10px] tracking-widest text-blue-600 dark:text-blue-400 font-bold uppercase">
+              ARSIP FORENSIK // TILIK
+            </span>
+            <span className="text-[10px] text-slate-300 dark:text-slate-700 font-mono">•</span>
+            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase">
+              RANTAI BUKTI DIGITAL
+            </span>
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+            Arsip Temuan Patroli
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Daftar seluruh barang bukti digital, hasil triase, dan rekam audit patroli
+            Daftar seluruh barang bukti digital, hasil triase, dan rekam audit berstandar NIST FIPS 198-1
           </p>
         </div>
       </div>
@@ -74,16 +83,16 @@ export const ContentExplorerPage: React.FC = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari judul, kata kunci, akun, atau URL..."
-              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full pl-8 pr-3 py-1.5 bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
           </div>
 
           <button
             type="submit"
-            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1.5 shrink-0 font-mono"
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 active:scale-[0.98] text-white font-semibold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shrink-0 font-mono shadow-xs"
           >
-            <Filter className="w-3 h-3" /> Filter
+            <Filter className="w-3 h-3" /> Saring
           </button>
         </form>
 
@@ -91,7 +100,7 @@ export const ContentExplorerPage: React.FC = () => {
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
-            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
             <option value="">Semua Platform</option>
             <option value="youtube">YouTube</option>
@@ -104,7 +113,7 @@ export const ContentExplorerPage: React.FC = () => {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
             <option value="">Semua Kategori</option>
             <option value="Kejahatan Finansial">Kejahatan Finansial</option>
@@ -117,7 +126,7 @@ export const ContentExplorerPage: React.FC = () => {
           <select
             value={sentiment}
             onChange={(e) => setSentiment(e.target.value)}
-            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
             <option value="">Semua Sentimen</option>
             <option value="POSITIF">Positif</option>
@@ -129,7 +138,7 @@ export const ContentExplorerPage: React.FC = () => {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:border-blue-500 transition-colors"
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
             <option value="">Semua Status</option>
             <option value="WAITING_VALIDATION">Menunggu Validasi</option>

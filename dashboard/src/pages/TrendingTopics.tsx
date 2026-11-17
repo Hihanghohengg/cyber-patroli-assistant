@@ -196,11 +196,20 @@ export const TrendingTopicsPage: React.FC = () => {
       {/* ── 1. HEADER RINGKAS & PENCARIAN ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            Radar Isu
+          <div className="flex items-center gap-2 mb-1">
+            <span className="font-mono text-[10px] tracking-widest text-blue-600 dark:text-blue-400 font-bold uppercase">
+              RADAR INTELIJEN // TILIK
+            </span>
+            <span className="text-[10px] text-slate-300 dark:text-slate-700 font-mono">•</span>
+            <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase">
+              DETEKSI TREN & KLASTERISASI
+            </span>
+          </div>
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
+            Radar Isu & Tren Strategis
           </h1>
-          <p className="text-xs text-slate-500 font-mono mt-0.5">
-            Deteksi tren percakapan strategis, tokoh prioritas, dan klasterisasi isu nasional
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Deteksi tren percakapan ruang siber, analisis eskalasi HotScore, dan pemantauan sasaran strategis
           </p>
         </div>
 
@@ -209,8 +218,8 @@ export const TrendingTopicsPage: React.FC = () => {
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Cari isu, tokoh, atau hashtag..."
-            className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono transition-colors"
+            placeholder="Cari isu, tokoh, atau tagar..."
+            className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono transition-colors"
           />
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
           {searchInput && (

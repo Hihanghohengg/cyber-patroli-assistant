@@ -303,18 +303,24 @@ export const ContentDetailPage: React.FC = () => {
 
   return (
     <div className="space-y-5 pb-12">
-      {/* ── 1. TOP NAV BREADCRUMB ── */}
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-white/[0.06] pb-3">
-        <Link
-          to="/contents"
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors font-mono"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Kembali ke Arsip
-        </Link>
+      {/* ── 1. TOP NAV BREADCRUMB & KICKER ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-white/[0.06] pb-3">
+        <div className="flex items-center gap-2.5">
+          <Link
+            to="/contents"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors font-mono"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Kembali ke Arsip
+          </Link>
+          <span className="text-slate-300 dark:text-slate-700 font-mono text-xs">•</span>
+          <span className="font-mono text-[10px] tracking-widest text-blue-600 dark:text-blue-400 font-bold uppercase">
+            DOSSIER ANALISIS // TILIK
+          </span>
+        </div>
 
         {ai_patrol?.ticket_number && (
-          <span className="font-mono text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08]">
+          <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-slate-100 dark:bg-white/[0.04] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/[0.08] self-start sm:self-auto">
             Tiket: <strong>{ai_patrol.ticket_number}</strong>
           </span>
         )}
@@ -668,36 +674,78 @@ export const ContentDetailPage: React.FC = () => {
               </div>
             )}
 
-            {/* Matriks 5W+1H (All 6 Keys, Full Text Unclamped) */}
+            {/* Matriks 5W+1H (Hierarchical Editorial Intelligence Layout) */}
             {analysis_5w1h && (
-              <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-2">
-                <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider">
-                  Matriks 5W+1H
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">What (Peristiwa)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.what || '-'}</p>
+              <div className="pt-2 border-t border-slate-100 dark:border-white/[0.06] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-mono font-semibold uppercase text-slate-400 tracking-wider">
+                    Matriks Sintesis 5W+1H
+                  </span>
+                  <span className="text-[9.5px] font-mono text-blue-500 uppercase">
+                    Ekstraksi Multimodal
+                  </span>
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Primary Narrative: What (Full Width with Left Accent) */}
+                  <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border-l-2 border-l-blue-500 border border-slate-200 dark:border-white/[0.06] space-y-1">
+                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">
+                      WHAT // Peristiwa Inti
+                    </span>
+                    <p className="text-xs text-slate-900 dark:text-slate-100 font-sans whitespace-normal break-words leading-relaxed font-medium">
+                      {analysis_5w1h.what || '-'}
+                    </p>
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Who (Aktor / Pengunggah)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.who || '-'}</p>
+
+                  {/* Secondary Context: Who & Why */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[10px] text-emerald-500 font-bold uppercase font-mono block">
+                        WHO // Pihak Terlibat
+                      </span>
+                      <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {analysis_5w1h.who || '-'}
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[10px] text-amber-500 font-bold uppercase font-mono block">
+                        WHY // Motif & Indikasi
+                      </span>
+                      <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {analysis_5w1h.why || '-'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">When (Waktu)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{(analysis_5w1h as any).when || analysis_5w1h.when_info || 'Tidak disebutkan dalam konten'}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Where (Lokasi)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{(analysis_5w1h as any).where || analysis_5w1h.where_info || 'Tidak disebutkan dalam konten'}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">Why (Motif / Alasan)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.why || '-'}</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
-                    <span className="text-[10px] text-blue-500 font-bold uppercase font-mono block">How (Kronologi / Modus)</span>
-                    <p className="text-xs text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">{analysis_5w1h.how || '-'}</p>
+
+                  {/* Spatio-Temporal & Mechanism: When, Where, How */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-bold uppercase font-mono block">
+                        WHEN // Waktu
+                      </span>
+                      <p className="text-[11.5px] text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {(analysis_5w1h as any).when || analysis_5w1h.when_info || 'Tidak tertera'}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-bold uppercase font-mono block">
+                        WHERE // Lokasi
+                      </span>
+                      <p className="text-[11.5px] text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {(analysis_5w1h as any).where || analysis_5w1h.where_info || 'Tidak tertera'}
+                      </p>
+                    </div>
+
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1">
+                      <span className="text-[9.5px] text-slate-500 dark:text-slate-400 font-bold uppercase font-mono block">
+                        HOW // Modus Operandi
+                      </span>
+                      <p className="text-[11.5px] text-slate-800 dark:text-slate-200 font-sans whitespace-normal break-words leading-relaxed">
+                        {analysis_5w1h.how || '-'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
