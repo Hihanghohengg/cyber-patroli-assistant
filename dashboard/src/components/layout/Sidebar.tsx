@@ -7,7 +7,6 @@ import {
   BarChart2,
   ExternalLink,
   Cpu,
-  Chrome,
   Terminal,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -36,11 +35,6 @@ export const Sidebar: React.FC = () => {
       to: '/analytics',
       label: 'Telemetri',
       icon: <BarChart2 className="w-4 h-4" />,
-    },
-    {
-      to: '/assistant',
-      label: 'Ekstensi Peramban',
-      icon: <Chrome className="w-4 h-4" />,
     },
   ];
 

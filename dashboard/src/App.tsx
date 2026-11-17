@@ -12,7 +12,6 @@ const ContentExplorerPage = lazy(() => import('./pages/ContentExplorer').then((m
 const ContentDetailPage = lazy(() => import('./pages/ContentDetail').then((m) => ({ default: m.ContentDetailPage })));
 const AnalyticsPage = lazy(() => import('./pages/Analytics').then((m) => ({ default: m.AnalyticsPage })));
 const CurationPage = lazy(() => import('./pages/Curation').then((m) => ({ default: m.CurationPage })));
-const OmnichannelAssistantPage = lazy(() => import('./pages/OmnichannelAssistant').then((m) => ({ default: m.OmnichannelAssistantPage })));
 const LoginPage = lazy(() => import('./pages/Login').then((m) => ({ default: m.LoginPage })));
 
 // Minimalist, high-performance page transition fallback
@@ -68,7 +67,7 @@ export const App: React.FC = () => {
                 <Route path="contents" element={<ContentExplorerPage />} />
                 <Route path="contents/:id" element={<ContentDetailPage />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
-                <Route path="assistant" element={<OmnichannelAssistantPage />} />
+                <Route path="assistant" element={<Navigate to="/" replace />} />
                 <Route path="curation" element={<CurationPage />} />
               </Route>
 

@@ -311,6 +311,28 @@ export const apiClient = {
     },
   },
   reports: {
+    downloadAnalyticalPdf: async (params: {
+      period: 'daily' | 'weekly' | 'custom';
+      date?: string;
+      start_date?: string;
+      end_date?: string;
+      category?: string;
+    }) => {
+      const res = await apiV1.get('/reports/analytical-pdf', {
+        params,
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const stamp = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `Laporan_Analisis_Siber_${params.period}_${stamp}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
     dailyExportBlob: async (date?: string, format: 'md' | 'pdf' = 'md') => {
       const res = await apiV1.get('/reports/daily-export', {
         params: { date, format },

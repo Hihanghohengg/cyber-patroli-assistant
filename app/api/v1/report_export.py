@@ -172,3 +172,100 @@ def export_daily_patrol_report(
             headers={"Content-Disposition": f"attachment; filename={filename}"},
         )
 
+
+@router.get("/analytical-pdf")
+def export_analytical_patrol_report(
+    period: str = Query("daily", pattern="^(daily|weekly|custom)$", description="Periode: daily, weekly, custom"),
+    date: Optional[str] = Query(None, description="Tanggal spesifik YYYY-MM-DD untuk periode daily"),
+    start_date: Optional[str] = Query(None, description="Tanggal awal YYYY-MM-DD untuk periode custom"),
+    end_date: Optional[str] = Query(None, description="Tanggal akhir YYYY-MM-DD untuk periode custom"),
+    category: Optional[str] = Query(None, description="Filter kategori: Politik, Keamanan, dll atau Semua Kategori"),
+    db: Session = Depends(get_db),
+):
+    """Generate and download grounded, multi-chart analytical PDF report with visual statistics and AI insights."""
+    from datetime import timedelta
+    from app.models.intelligence import IssueCluster
+
+    today = datetime.utcnow().date()
+    period_label = "Periode Harian"
+
+    query = db.query(Report)
+
+    if period == "daily":
+        target_date = today
+        if date:
+            try:
+                target_date = datetime.strptime(date, "%Y-%m-%d").date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Format tanggal tidak valid. Gunakan YYYY-MM-DD.")
+        query = query.filter(func.date(Report.created_at) == target_date)
+        period_label = f"Harian ({target_date.strftime('%d %B %Y')})"
+    elif period == "weekly":
+        start_dt = today - timedelta(days=7)
+        query = query.filter(func.date(Report.created_at) >= start_dt, func.date(Report.created_at) <= today)
+        period_label = f"Mingguan ({start_dt.strftime('%d %b')} – {today.strftime('%d %b %Y')})"
+    elif period == "custom":
+        if not start_date or not end_date:
+            raise HTTPException(status_code=400, detail="Parameter start_date dan end_date wajib diisi untuk periode kustom.")
+        try:
+            s_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+            e_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Format tanggal kustom tidak valid. Gunakan YYYY-MM-DD.")
+        if s_date > e_date:
+            s_date, e_date = e_date, s_date
+        query = query.filter(func.date(Report.created_at) >= s_date, func.date(Report.created_at) <= e_date)
+        period_label = f"Kustom ({s_date.strftime('%d %b %Y')} – {e_date.strftime('%d %b %Y')})"
+
+    eff_cat = category if category and category.lower() not in ("semua", "semua kategori", "all") else None
+    if eff_cat:
+        query = query.filter(
+            func.lower(func.coalesce(Report.final_label, Report.ai_predicted_label, "")) == eff_cat.lower()
+        )
+
+    # Order by urgency desc, then created_at desc
+    reports: List[Report] = query.order_by(Report.created_at.desc()).all()
+
+    # Map content_id -> ContentAnalysis
+    content_ids = [r.content_id for r in reports if r.content_id]
+    ca_map: Dict[Any, ContentAnalysis] = {}
+    if content_ids:
+        ca_rows = db.query(ContentAnalysis).filter(ContentAnalysis.content_id.in_(content_ids)).all()
+        for ca in ca_rows:
+            ca_map[ca.content_id] = ca
+
+    # Fetch top active issues for contextual narrative
+    top_issues_raw = (
+        db.query(IssueCluster)
+        .filter(IssueCluster.status == "ACTIVE", IssueCluster.category != "Non-Isu")
+        .order_by(IssueCluster.last_seen_at.desc())
+        .limit(6)
+        .all()
+    )
+    actual_topics = [{"title": iss.title, "keywords": iss.keywords} for iss in top_issues_raw[:3]]
+    thematic_topics = [{"title": iss.title, "keywords": iss.keywords} for iss in top_issues_raw[3:]]
+
+    filter_meta = {
+        "period_label": period_label,
+        "category": eff_cat or "Semua Kategori",
+    }
+
+    pdf_service = PDFReportService()
+    pdf_bytes = pdf_service.generate_analytical_report_pdf(
+        reports=reports,
+        content_analysis_map=ca_map,
+        filter_meta=filter_meta,
+        actual_topics=actual_topics,
+        thematic_topics=thematic_topics,
+    )
+
+    clean_period_name = period
+    timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"Laporan_Analisis_Siber_{clean_period_name}_{timestamp_str}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+

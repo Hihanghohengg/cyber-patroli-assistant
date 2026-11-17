@@ -33,6 +33,8 @@ import {
   Tag,
   Edit3,
   ChevronDown,
+  X,
+  RefreshCw,
 } from 'lucide-react';
 
 export const OverviewPage: React.FC = () => {
@@ -50,10 +52,15 @@ export const OverviewPage: React.FC = () => {
   const [selectedRisk, setSelectedRisk] = useState<string>('Semua');
   const [selectedStatus, setSelectedStatus] = useState<string>('Semua');
 
-  // Export dropdown state
-  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
-  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'csv' | 'daily_md' | 'daily_pdf' | null>(null);
-  const exportMenuRef = useRef<HTMLDivElement>(null);
+  // Analytical PDF Modal State
+  const [showPdfModal, setShowPdfModal] = useState<boolean>(false);
+  const [pdfPeriod, setPdfPeriod] = useState<'daily' | 'weekly' | 'custom'>('daily');
+  const [pdfDate, setPdfDate] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [pdfStartDate, setPdfStartDate] = useState<string>('');
+  const [pdfEndDate, setPdfEndDate] = useState<string>('');
+  const [pdfCategory, setPdfCategory] = useState<string>('Semua Kategori');
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Data states
   const [summary, setSummary] = useState<any>(null);
@@ -66,17 +73,6 @@ export const OverviewPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Close export dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
-        setShowExportMenu(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
 
   // Fetch all analytical data based on active filters
   const fetchData = async () => {
@@ -147,26 +143,23 @@ export const OverviewPage: React.FC = () => {
     selectedRisk !== 'Semua' ||
     selectedStatus !== 'Semua';
 
-  const handleExport = async (fmt: 'pdf' | 'csv' | 'daily_md' | 'daily_pdf') => {
-    setShowExportMenu(false);
+  const handleDownloadAnalyticalPdf = async () => {
     try {
-      setExportingFormat(fmt);
-      if (fmt === 'daily_pdf') {
-        await apiClient.reports.dailyExportBlob(undefined, 'pdf');
-      } else if (fmt === 'daily_md') {
-        await apiClient.reports.dailyExportBlob(undefined, 'md');
-      } else {
-        await apiClient.v1.exportBlob(fmt, {
-          platform: selectedPlatform !== 'Semua' ? selectedPlatform.toLowerCase() : undefined,
-          category: selectedCategory !== 'Semua' ? selectedCategory : undefined,
-          risk_level: selectedRisk !== 'Semua' ? selectedRisk : undefined,
-          status: selectedStatus !== 'Semua' ? selectedStatus : undefined,
-        });
-      }
-    } catch (err) {
-      console.error('Failed to export:', err);
+      setIsGeneratingPdf(true);
+      setPdfError(null);
+      await apiClient.reports.downloadAnalyticalPdf({
+        period: pdfPeriod,
+        date: pdfPeriod === 'daily' ? (pdfDate || undefined) : undefined,
+        start_date: pdfPeriod === 'custom' ? (pdfStartDate || undefined) : undefined,
+        end_date: pdfPeriod === 'custom' ? (pdfEndDate || undefined) : undefined,
+        category: pdfCategory !== 'Semua Kategori' ? pdfCategory : undefined,
+      });
+      setShowPdfModal(false);
+    } catch (err: any) {
+      console.error('Failed to generate PDF:', err);
+      setPdfError(err?.message || 'Gagal membuat laporan PDF. Silakan coba lagi.');
     } finally {
-      setExportingFormat(null);
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -284,65 +277,15 @@ export const OverviewPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Export Dropdown Button */}
-          <div className="relative" ref={exportMenuRef}>
-            <button
-              onClick={() => setShowExportMenu(!showExportMenu)}
-              disabled={exportingFormat !== null}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white dark:bg-[#12151E] text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/[0.08] hover:border-blue-500 shadow-sm transition-colors disabled:opacity-50"
-              title="Ekspor data patroli"
-            >
-              <Download className={`w-3.5 h-3.5 text-blue-500 ${exportingFormat ? 'animate-bounce' : ''}`} />
-              <span>{exportingFormat ? `Mengunduh...` : 'Ekspor'}</span>
-              <ChevronDown className="w-3 h-3 text-slate-400" />
-            </button>
-
-            {showExportMenu && (
-              <div className="absolute right-0 mt-1.5 w-60 rounded-xl bg-white dark:bg-[#0F1117] border border-slate-200 dark:border-white/[0.08] shadow-2xl py-1.5 z-50 text-xs">
-                <button
-                  onClick={() => handleExport('daily_pdf')}
-                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
-                >
-                  <FileText className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">Laporan Harian (PDF)</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Dossier Resmi & Segel HMAC</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleExport('daily_md')}
-                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
-                >
-                  <FileText className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">Laporan Harian (Markdown)</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Matriks 5W+1H & Rantai Bukti</div>
-                  </div>
-                </button>
-                <div className="border-t border-slate-100 dark:border-white/[0.06] my-1" />
-                <button
-                  onClick={() => handleExport('pdf')}
-                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
-                >
-                  <FileText className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">Dossier Lengkap (PDF)</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Seluruh temuan terfilter</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => handleExport('csv')}
-                  className="w-full px-3.5 py-2 text-left flex items-start gap-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors"
-                >
-                  <FileDown className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-semibold text-slate-800 dark:text-slate-200">Metadata Temuan (CSV)</div>
-                    <div className="text-[10px] text-slate-500 font-mono">Rekap tabular data olahan</div>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Single Unduh Laporan PDF Button */}
+          <button
+            onClick={() => setShowPdfModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors"
+            title="Unduh Laporan Analitis PDF"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Unduh Laporan PDF</span>
+          </button>
         </div>
       </div>
 
@@ -791,6 +734,188 @@ export const OverviewPage: React.FC = () => {
                   onBarClick={() => {}}
                 />
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Filter Laporan PDF Analitis ── */}
+      {showPdfModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0E131F] border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden font-sans">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/[0.08]">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <Download className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white font-mono">
+                    Unduh Laporan PDF
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Laporan analitis, visualisasi grafik & narasi AI
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPdfModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 space-y-4 text-xs">
+              {pdfError && (
+                <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 text-[11px] font-mono">
+                  {pdfError}
+                </div>
+              )}
+
+              {/* Periode Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Periode Pemantauan
+                </label>
+                <div className="grid grid-cols-3 gap-1.5 p-1 rounded-lg bg-slate-100 dark:bg-white/[0.04] border border-slate-200 dark:border-white/[0.06] text-center">
+                  <button
+                    type="button"
+                    onClick={() => setPdfPeriod('daily')}
+                    className={`py-1.5 rounded-md font-mono text-[11px] font-semibold transition-colors ${
+                      pdfPeriod === 'daily'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Harian
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfPeriod('weekly')}
+                    className={`py-1.5 rounded-md font-mono text-[11px] font-semibold transition-colors ${
+                      pdfPeriod === 'weekly'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Mingguan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPdfPeriod('custom')}
+                    className={`py-1.5 rounded-md font-mono text-[11px] font-semibold transition-colors ${
+                      pdfPeriod === 'custom'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Kustom
+                  </button>
+                </div>
+              </div>
+
+              {/* Conditional Inputs */}
+              {pdfPeriod === 'daily' && (
+                <div className="space-y-1">
+                  <label className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400">
+                    Pilih Tanggal
+                  </label>
+                  <input
+                    type="date"
+                    value={pdfDate}
+                    onChange={(e) => setPdfDate(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-[#070A11] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                  />
+                </div>
+              )}
+
+              {pdfPeriod === 'weekly' && (
+                <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-600 dark:text-blue-400 font-mono">
+                  Mencakup akumulasi seluruh temuan 7 hari terakhir hingga hari ini.
+                </div>
+              )}
+
+              {pdfPeriod === 'custom' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400">
+                      Dari Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={pdfStartDate}
+                      onChange={(e) => setPdfStartDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#070A11] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-mono uppercase text-slate-500 dark:text-slate-400">
+                      Sampai Tanggal
+                    </label>
+                    <input
+                      type="date"
+                      value={pdfEndDate}
+                      onChange={(e) => setPdfEndDate(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-[#070A11] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Kategori Selector */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                  Filter Kategori Kasus
+                </label>
+                <select
+                  value={pdfCategory}
+                  onChange={(e) => setPdfCategory(e.target.value)}
+                  className="w-full bg-slate-50 dark:bg-[#070A11] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
+                >
+                  <option value="Semua Kategori">Semua Kategori</option>
+                  <option value="Politik">Politik</option>
+                  <option value="Keamanan">Keamanan</option>
+                  <option value="Sosial">Sosial</option>
+                  <option value="Ekonomi">Ekonomi</option>
+                  <option value="Ideologi">Ideologi</option>
+                  <option value="Pertahanan">Pertahanan</option>
+                  <option value="Budaya">Budaya</option>
+                  <option value="Non-Isu">Non-Isu</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-end gap-2 p-3.5 bg-slate-50 dark:bg-white/[0.02] border-t border-slate-100 dark:border-white/[0.08]">
+              <button
+                type="button"
+                onClick={() => setShowPdfModal(false)}
+                disabled={isGeneratingPdf}
+                className="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadAnalyticalPdf}
+                disabled={isGeneratingPdf}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white shadow-sm transition-colors disabled:opacity-50"
+              >
+                {isGeneratingPdf ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Mengenerate PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Generate & Unduh PDF</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
