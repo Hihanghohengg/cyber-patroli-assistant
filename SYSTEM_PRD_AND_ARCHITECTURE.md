@@ -790,26 +790,26 @@ Pengujian komparatif otomatis dijalankan menggunakan skrip `scripts/evaluate_til
 ================================================================================
 Metrik Pengujian          | Mode BASELINE (Zero-Shot)  | Mode ADAPTIVE (MemPrompt)
 --------------------------------------------------------------------------------
-Akurasi Total             |  62.50% (15/24)            |  62.50% (15/24)
-Macro Precision           |  64.58%                    |  64.58%
-Macro Recall              |  62.50%                    |  62.50%
-Macro F1-Score            |  59.31%                    |  59.31%
-Rerata Latensi Retrieval  | 0.00 ms (Tidak aktif)      |   2.83 ms
-Rerata Latensi Pipeline   | 349.31 ms                  | 361.07 ms
+Akurasi Total             |  83.33% (20/24)            |  95.83% (23/24)
+Macro Precision           |  88.33%                    |  96.88%
+Macro Recall              |  83.33%                    |  95.83%
+Macro F1-Score            |  83.33%                    |  95.71%
+Rerata Latensi Retrieval  | 0.00 ms (Tidak aktif)      | 2505.12 ms
+Rerata Latensi Pipeline   | 145388.97 ms               | 158844.38 ms
 ================================================================================
 ```
 
 ### Rincian F1-Score per Kategori IPOLEKSOSBUDHANKAM:
 | Bidang Isu | Baseline Precision | Baseline F1 | Adaptive Precision | Adaptive F1 | Status Evaluasi |
 |---|:---:|:---:|:---:|:---:|:---:|
-| **Ideologi** | 66.7% | 66.7% | 66.7% | 66.7% | Stabil Teruji |
-| **Politik** | 100.0% | 80.0% | 100.0% | 80.0% | Sangat Presisi |
-| **Ekonomi** | 100.0% | 50.0% | 100.0% | 50.0% | Presisi Tinggi |
-| **Sosial** | 50.0% | 66.7% | 50.0% | 66.7% | Responsif |
-| **Budaya** | 66.7% | 66.7% | 66.7% | 66.7% | Stabil Teruji |
+| **Ideologi** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
+| **Politik** | 100.0% | 50.0% | 100.0% | 100.0% | Sempurna (100%) |
+| **Ekonomi** | 100.0% | 100.0% | 75.0% | 85.7% | Sangat Kuat (85.7%) |
+| **Sosial** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
+| **Budaya** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
 | **Pertahanan** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Keamanan** | 0.0% | 0.0% | 0.0% | 0.0% | Butuh Kurasi Tambahan |
-| **Non-Isu** | 33.3% | 44.4% | 33.3% | 44.4% | Cukup Terfilter |
+| **Keamanan** | 40.0% | 50.0% | 100.0% | 80.0% | Pulih Signifikan (80.0%) |
+| **Non-Isu** | 66.7% | 66.7% | 100.0% | 100.0% | Sempurna (100%) |
 
 ---
 
