@@ -6,10 +6,10 @@
 
 **Identifikasi Dokumen:** `SYS-PRD-ARCH-2026-FINAL`  
 **Status:** DRAF RESMI FINAL — TUGAS AKHIR D4 REKAYASA PERANGKAT LUNAK KRIPTOGRAFI (RPLK)  
-**Versi:** 5.2 (*Unified Operational Cockpit, Zero-Dead-End Intelligence Workflow, Anti-Slop UI/UX Standard, & Automated HITL Learning Loop*)  
-**Tanggal Rilis:** 17 November 2026  
+**Versi:** 5.3 (*Tactical BLUF Dossier, 95.83% Adaptive Accuracy, Anti-Aliased Logo Omnipresence, & High-Craft Tactical Cockpit*)  
+**Tanggal Rilis:** 18 November 2026  
 **Lokus Penugasan:** Analisis Intelijen Siber Ruang Digital — Penanganan Isu Strategis Nasional IPOLEKSOSBUDHANKAM  
-**Prinsip Desain:** *100% Local-First / On-Premise*, *Forensic Integrity (NIST FIPS 198-1)*, *100% Indonesian Output*, *Multi-User LAN Concurrency*, *Selective Compute*, *Anti-Noise Content/Metadata Disambiguation*, *Human-in-the-Loop Supremacy*, *Unified Single-Stream Cockpit*, *Anti-Slop & High-Craft Intelligence UI/UX*, *100% Dark/Light Theme Parity*, *Automated In-Dossier HITL Learning*, dan *Zero Dead-End Interconnectivity*.
+**Prinsip Desain:** *100% Local-First / On-Premise*, *Forensic Integrity (NIST FIPS 198-1)*, *100% Indonesian Output*, *Multi-User LAN Concurrency*, *Selective Compute*, *Anti-Noise Content/Metadata Disambiguation*, *Human-in-the-Loop Supremacy*, *Unified Single-Stream Cockpit*, *Anti-Slop & High-Craft Intelligence UI/UX*, *100% Dark/Light Theme Parity*, *Tactical BLUF Dossier Standard*, *Anti-Aliased Logo Omnipresence*, dan *Zero Dead-End Interconnectivity*.
 
 ---
 
@@ -21,7 +21,7 @@
   - [1.2 Batasan Arsitektur Utama (Core Architectural Constraints)](#12-batasan-arsitektur-utama-core-architectural-constraints)
   - [1.3 Profil Pengguna & Matriks Hak Akses (RBAC)](#13-profil-pengguna--matriks-hak-akses-rbac)
   - [1.4 Ruang Lingkup Sistem & Batasan Batas (Scope & Boundary)](#14-ruang-lingkup-sistem--batasan-batas-scope--boundary)
-  - [1.5 Kebutuhan Fungsional (FR-01 s.d. FR-24)](#15-kebutuhan-fungsional-fr-01-sd-fr-24)
+  - [1.5 Kebutuhan Fungsional (FR-01 s.d. FR-26)](#15-kebutuhan-fungsional-fr-01-sd-fr-26)
   - [1.6 Kebutuhan Non-Fungsional (NFR-01 s.d. NFR-09)](#16-kebutuhan-non-fungsional-nfr-01-sd-nfr-09)
 - [BAB II: DATA FLOW DIAGRAM (DFD) & WORKFLOW PIPELINES LENGKAP](#bab-ii-data-flow-diagram-dfd--workflow-pipelines-lengkap)
   - [2.1 DFD Level 0 (Context Diagram)](#21-dfd-level-0-context-diagram)
@@ -149,7 +149,7 @@ graph TD
 
 ---
 
-## 1.5 Kebutuhan Fungsional (*Functional Requirements*)
+## 1.5 Kebutuhan Fungsional (*Functional Requirements: FR-01 s.d. FR-26*)
 
 | ID | Nama Kebutuhan | Deskripsi Fungsional Lengkap | Status |
 |---|---|---|:---:|
@@ -177,6 +177,8 @@ graph TD
 | **FR-22** | **Unified Single-Stream Overview** | Penggabungan metrik operasi, grafik aktivitas, proporsi risiko, kanal platform, serta topik & aktor sasaran dalam 1 halaman terpadu. | ✅ Selesai |
 | **FR-23** | **Collapsible Tactical Sidebar** | Sidebar responsif dapat dilipat (`w-[68px]`) atau diperluas (`w-60`) dengan persistensi `localStorage`. | ✅ Selesai |
 | **FR-24** | **Editorial Dossier & Anti-Slop UI**| Tata letak 5W+1H hierarkis asimetris, *kicker* taktis Indonesia, paritas Dark/Light 100%, dan status fresh-install database. | ✅ Selesai |
+| **FR-25** | **Tactical BLUF Dossier Standard** | Ringkasan analitis mengadopsi 5 pilar BLUF (*Bottom Line Up Front*): Intisari, Fakta vs Klaim, Proyeksi Dampak, Aktor & Modus, serta Rekomendasi Tindakan. | ✅ Selesai |
+| **FR-26** | **Anti-Aliased Logo Omnipresence** | Integrasi logo resmi transparan (*anti-aliased alpha matting*) pada Web Dashboard (Favicon, Sidebar, Navbar, Login), Ekstensi MV3 (Icons 16-128, Popup, Floating Badge), dan KOP Laporan PDF ReportLab. | ✅ Selesai |
 
 ---
 
@@ -846,6 +848,8 @@ Rerata Latensi Pipeline   | 145388.97 ms               | 158844.38 ms
 │ Fresh-Install Clean Baseline State   │ 100% Siap Operasi    │ Terverifikasi    │ storage/patrol.db│
 │ Single-Command Runner (run.bat/py)   │ 100% Siap Operasi    │ Terverifikasi    │ run.py, run.bat  │
 │ Quantitative Evaluation Benchmark    │ 100% Siap Operasi    │ Terverifikasi    │ evaluate_tilik.py│
+│ Tactical BLUF Dossier (5 Pilar)      │ 100% Siap Operasi    │ Terverifikasi    │ ContentDetail.tsx│
+│ Anti-Aliased Logo Omnipresence       │ 100% Siap Operasi    │ Terverifikasi    │ Dashboard, Ext, PDF│
 └──────────────────────────────────────┴──────────────────────┴──────────────────┴──────────────────┘
 ```
 
@@ -869,6 +873,8 @@ cyber-patrol-assistant/
 │   ├── main.py                      # ASGI entrypoint, CORS, PNA, Lifespan, Auto-Trending Worker
 │   ├── config.py                    # Konfigurasi Pydantic BaseSettings
 │   ├── database.py                  # Engine SQLAlchemy, SQLite WAL Mode, Skema Auto-Migration
+│   ├── static/                      # Aset statis backend
+│   │   └── logo-tilik.png           # Master logo transparan resmi backend (256x256)
 │   │
 │   ├── api/                         # Lapisan Rute REST API
 │   │   ├── v1/
@@ -900,6 +906,9 @@ cyber-patrol-assistant/
 │   ├── vite.config.ts               # Konfigurasi build Vite & chunk splitting
 │   ├── package.json                 # Konfigurasi dependensi frontend
 │   ├── tailwind.config.js           # Konfigurasi palet tema Obsidian & typography
+│   ├── public/                      # Aset publik statis frontend
+│   │   ├── favicon.png              # Favicon resmi web (64x64 transparan)
+│   │   └── logo-tilik.png           # Logo aplikasi resmi web (512x512 transparan)
 │   ├── src/
 │   │   ├── App.tsx                  # Rute navigasi utama (3 menu inti + 2 detail + login)
 │   │   ├── index.css                # Style global, animasi shimmer & scrollbar
@@ -913,7 +922,7 @@ cyber-patrol-assistant/
 │   │   │   ├── TrendingTopics.tsx   # Radar Isu & Tren Strategis (Terkoneksi URL Params)
 │   │   │   ├── IssueDetail.tsx      # Dossier Kluster Isu & Dinamika Narasi
 │   │   │   ├── ContentExplorer.tsx  # Arsip Temuan Patroli & Forensic Ledger
-│   │   │   ├── ContentDetail.tsx    # Editorial Dossier Analisis & Validasi HITL
+│   │   │   ├── ContentDetail.tsx    # Editorial Dossier Analisis (5 Pilar BLUF) & Validasi HITL
 │   │   │   └── Login.tsx            # Workstation Login dengan ThemeToggle Terintegrasi
 │   │   └── components/
 │   │       ├── layout/
@@ -929,6 +938,11 @@ cyber-patrol-assistant/
 │
 ├── extension/                       # Ekstensi Peramban (Manifest V3)
 │   ├── manifest.json                # Konfigurasi Chrome MV3 resmi
+│   ├── icons/                       # Aset ikon ekstensi transparan resmi
+│   │   ├── icon16.png               # Ikon toolbar peramban (16x16)
+│   │   ├── icon32.png               # Ikon retina & floating badge (32x32)
+│   │   ├── icon48.png               # Ikon manajemen ekstensi & header popup (48x48)
+│   │   └── icon128.png              # Ikon instalasi toko peramban (128x128)
 │   ├── popup.html / popup.js        # Antarmuka popup akuisisi bukti & router LAN dinamis
 │   ├── content.js / content.css     # Universal 3-Layer Script, Anti-Sidebar Filter, Clean Capture
 │   └── background.js                # Service Worker: captureVisibleTab & fetch proxy
@@ -938,6 +952,7 @@ cyber-patrol-assistant/
 │   └── ingest_real_patrol_data.py   # Seeding data patroli awal
 │
 ├── tests/                           # Test Suite Otomatis
+│   ├── test_live_comprehensive_e2e.py # Uji integrasi penuh end-to-end tanpa mock (100% Pass)
 │   ├── test_tilik_full_pipeline.py  # Uji otomatis seluruh pipeline TILIK (5/5 suites PASS)
 │   ├── test_api_dashboard.py        # Uji otomatis endpoint dashboard & analitik
 │   └── test_rag_entities.py         # Uji modul retrieval MemPrompt & entitas
