@@ -769,7 +769,7 @@
       return;
     }
     btn.classList.add("cp-loading");
-    btn.querySelector(".cp-badge-text").textContent = "Akuisisi 3-Layer...";
+    btn.querySelector(".cp-badge-text").textContent = "1/3 Mengamankan bukti...";
 
     // 1. Jalankan Universal 3-Layer Content Acquisition
     const extracted = acquirePageContent();
@@ -870,16 +870,22 @@
       platform_hint: extracted.platform || undefined,
     };
 
-    btn.querySelector(".cp-badge-text").textContent = "Penyegelan HMAC...";
-    const statusTextTimer = setTimeout(() => {
+    btn.querySelector(".cp-badge-text").textContent = "1/3 Mengamankan bukti...";
+    const statusTextTimer1 = setTimeout(() => {
       if (btn.classList.contains("cp-loading")) {
-        btn.querySelector(".cp-badge-text").textContent = "Analisis AI Lokal...";
+        btn.querySelector(".cp-badge-text").textContent = "2/3 Memahami konteks...";
       }
-    }, 3500);
+    }, 2800);
+    const statusTextTimer2 = setTimeout(() => {
+      if (btn.classList.contains("cp-loading")) {
+        btn.querySelector(".cp-badge-text").textContent = "3/3 Menyusun analisis...";
+      }
+    }, 6000);
 
     // 5. Kirim ke Backend API
     const handleResult = (ok, data, errorText) => {
-      clearTimeout(statusTextTimer);
+      clearTimeout(statusTextTimer1);
+      clearTimeout(statusTextTimer2);
       if (ok && data && data.ticket_number) {
         btn.querySelector(".cp-badge-text").textContent = `Tiket: ${data.ticket_number}`;
         btn.classList.remove("cp-loading");
@@ -980,6 +986,7 @@
       <div style="font-size:11px;color:#cbd5e1;line-height:1.4;margin-bottom:8px;background:#090d16;padding:7px;border-radius:6px;border:1px solid #1e293b;">
         <div><strong>Metode:</strong> <span style="color:#38bdf8;">${extracted.extraction_method.toUpperCase()}</span></div>
         <div><strong>Operator:</strong> <span style="color:#a7f3d0;">${operatorId}</span></div>
+        <div><strong>Kategori:</strong> <span style="color:#fde047;">${data.ai_predicted_label || 'Teranalisis'}</span></div>
         <div><strong>HMAC-SHA256:</strong> <span style="font-family:monospace;color:#fbcfe8;">${hmacTagShort}</span></div>
       </div>
       <div style="font-size:10.5px;color:#94a3b8;margin-bottom:10px;max-height:60px;overflow-y:auto;">

@@ -358,6 +358,10 @@ class TrendingEngine:
         }
 
         for r in reports:
+            # Filter ketat: Eksklusikan temuan Non-Isu dan status REJECTED
+            if (r.ai_predicted_label and r.ai_predicted_label == "Non-Isu") or r.status == "REJECTED" or r.review_decision == "REJECTED":
+                continue
+
             u = 3.0
             if r.ai_output and isinstance(r.ai_output, dict):
                 u = float(r.ai_output.get("urgency_score", 3.0))
@@ -444,6 +448,10 @@ class TrendingEngine:
         actor_cat = {}
 
         for r in reports:
+            # Filter ketat: Eksklusikan temuan Non-Isu dan status REJECTED
+            if (r.ai_predicted_label and r.ai_predicted_label == "Non-Isu") or r.status == "REJECTED" or r.review_decision == "REJECTED":
+                continue
+
             u = 3.0
             if r.ai_output and isinstance(r.ai_output, dict):
                 u = float(r.ai_output.get("urgency_score", 3.0))

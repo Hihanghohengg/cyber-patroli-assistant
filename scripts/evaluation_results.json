@@ -1,0 +1,43 @@
+{
+  "skenario_1": {
+    "status": "PASS",
+    "category": "Keamanan",
+    "urgency": 4,
+    "status_klaim": "Dugaan / Belum Terverifikasi",
+    "kutipan_bukti": "Bencana kebakaran hutan dan lahan (Karhutla) di wilayah Provinsi Riau dan sebagian Sumatera Selatan kian meluas hingga membakar lebih dari 12.500 hektare area gambut serta hutan lindung selama empat b",
+    "summary": "Bencana kebakaran hutan dan lahan (Karhutla) di wilayah Provinsi Riau dan sebagian Sumatera Selatan kian meluas hingga membakar lebih dari 12.500 hektare area gambut serta hutan lindung selama empat bulan terakhir. Investigasi gabungan mengindikasikan adanya dugaan pembukaan lahan secara ilegal menggunakan metode tebas bakar oleh sejumlah oknum pengusaha demi menekan biaya operasional pembukaan perkebunan baru secara drastis. Di samping itu, Bareskrim Polri dan Ditjen Gakkum KLHK telah menyegel 14 area konsesi bermasalah serta menetapkan sembilan korporasi sebagai tersangka tindak pidana lingkungan dengan ancaman pencabutan izin konsesi dan denda pemulihan ekosistem.",
+    "latency_ms": 307.5
+  },
+  "skenario_2": {
+    "status": "PASS",
+    "original_language": "en",
+    "category": "Politik",
+    "urgency": 4,
+    "status_klaim": "Fakta Terverifikasi",
+    "kutipan_bukti": "Presiden Indonesia Prabowo Subianto telah menyampaikan permohonan maaf kepada Singapura and Malaysia atas kabut asap lintas batas akibat kebakaran hutan yang berlangsung berbulan-bulan.",
+    "summary": "Presiden Indonesia Prabowo Subianto telah menyampaikan permohonan maaf kepada Singapura and Malaysia atas kabut asap lintas batas akibat kebakaran hutan yang berlangsung berbulan-bulan. It is not our fault, but once again we apologise. 'Kami telah mencabut izin konsesi of several firms, others are sedang dalam proses penyelidikan, and several individuals telah ditetapkan sebagai tersangka,' he added.",
+    "latency_ms": 590.4
+  },
+  "skenario_3": {
+    "status": "PASS",
+    "category": "Politik",
+    "urgency": 3,
+    "status_klaim": "Dugaan / Belum Terverifikasi",
+    "kutipan_bukti": "Beredar kabar viral di media sosial bahwa Menteri Keuangan dan jajaran kabinet diduga bakal melakukan reshuffle besar-besaran akhir pekan ini akibat penolakan anggaran program makan bergizi gratis.",
+    "latency_ms": 294.4
+  },
+  "skenario_4": {
+    "status": "PASS",
+    "category": "Non-Isu",
+    "urgency": 1,
+    "status_klaim": "Fakta Terverifikasi",
+    "latency_ms": 296.8
+  },
+  "skenario_5": {
+    "status": "PASS",
+    "verification_status": "VERIFIED",
+    "tamper_detected_status": "TAMPERED",
+    "canonical_hash_preview": "e7ffc80d128f43bad051af48...",
+    "hmac_tag_preview": "f2dd44b477008c187cfbb1e6..."
+  }
+}

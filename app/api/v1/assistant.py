@@ -484,8 +484,10 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     account_followers = _safe_int(payload.followers_count)
     account_profile_url = f"{parsed_url.scheme}://{parsed_url.netloc}" if parsed_url.netloc else payload.url
 
-    # Clean UI artifacts from caption (with known username context)
+    # Clean UI artifacts from caption (with known username context) and normalize punctuation spacing
     payload.caption = clean_caption_noise(payload.caption, username=detected_user)
+    if payload.caption:
+        payload.caption = re.sub(r"\.([A-Z])", r". \1", payload.caption)
 
     # 2. Akuisisi Bukti Digital Visual (Screenshot) Terlebih Dahulu agar Siap Dianalisis AI Multimodal
     evidence_storage_path = None
@@ -674,6 +676,9 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                 "transcript": payload.transcript or "",
                 "clean_caption": clean_caption,
                 "posted_at": str(posted_at_raw) if posted_at_raw else None,
+                "status_klaim": ollama_res.get("status_klaim", "Fakta Terverifikasi"),
+                "kutipan_bukti": ollama_res.get("kutipan_bukti", ""),
+                "tipe_konteks": ollama_res.get("tipe_konteks", "Publikasi Digital"),
             },
         )
         db.add(content)
@@ -713,6 +718,10 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                 ollama_res.get("ai_reasoning")
                 or "Konten dalam pemantauan rutin intelijen siber."
             ),
+            "status_klaim": ollama_res.get("status_klaim", "Fakta Terverifikasi"),
+            "kutipan_bukti": ollama_res.get("kutipan_bukti", ""),
+            "tipe_konteks": ollama_res.get("tipe_konteks", "Publikasi Digital"),
+            "fakta_ekstraksi": ollama_res.get("ekstraksi_awal_tengah_akhir", []),
             "indikasi_pelanggaran": (
                 ollama_indikasi
                 or ("Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum." if pred_cat == "Non-Isu" else (f"Indikasi isu {pred_cat} dengan tingkat urgensi {urgency_val}/5." if urgency_val >= 3 else ""))

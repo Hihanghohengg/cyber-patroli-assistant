@@ -197,6 +197,9 @@ export interface ContentDetail {
     confidence_score?: number;
     summary?: string;
     reasoning?: any;
+    status_klaim?: string;
+    kutipan_bukti?: string;
+    tipe_konteks?: string;
     ticket_number?: string;
     operator_id?: string;
     classification_mode?: string;

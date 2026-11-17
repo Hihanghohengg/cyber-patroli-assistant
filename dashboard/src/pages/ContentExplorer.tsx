@@ -38,6 +38,7 @@ export const ContentExplorerPage: React.FC = () => {
   const [inputUrl, setInputUrl] = useState<string>('');
   const [inputNotes, setInputNotes] = useState<string>('');
   const [isSubmittingIntake, setIsSubmittingIntake] = useState<boolean>(false);
+  const [intakeStage, setIntakeStage] = useState<string>('1/3 Mengamankan bukti halaman...');
   const [intakeSuccess, setIntakeSuccess] = useState<any | null>(null);
   const [intakeError, setIntakeError] = useState<string | null>(null);
 
@@ -105,8 +106,17 @@ export const ContentExplorerPage: React.FC = () => {
     if (!inputUrl.trim()) return;
 
     setIsSubmittingIntake(true);
+    setIntakeStage('1/3 Mengamankan bukti halaman...');
     setIntakeError(null);
     setIntakeSuccess(null);
+
+    const stageTimer1 = setTimeout(() => {
+      setIntakeStage('2/3 Memahami konteks & bahasa...');
+    }, 2800);
+
+    const stageTimer2 = setTimeout(() => {
+      setIntakeStage('3/3 Menyusun ringkasan & analisis...');
+    }, 6000);
 
     try {
       const res = await apiClient.assistant.intake({
@@ -116,11 +126,20 @@ export const ContentExplorerPage: React.FC = () => {
         notes: inputNotes.trim() || undefined,
       });
 
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
       setIntakeSuccess(res);
       setInputUrl('');
       setInputNotes('');
       await fetchContents();
+
+      // Auto-redirect langsung ke halaman detail temuan
+      if (res && res.content_id) {
+        navigate(`/contents/${res.content_id}`);
+      }
     } catch (err: any) {
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
       setIntakeError(err.response?.data?.detail || 'Gagal mengirim URL untuk triase.');
     } finally {
       setIsSubmittingIntake(false);
@@ -226,7 +245,7 @@ export const ContentExplorerPage: React.FC = () => {
                 className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs rounded-lg transition-colors flex items-center justify-center gap-1 font-mono disabled:opacity-50 shrink-0"
               >
                 <Zap className={`w-3.5 h-3.5 ${isSubmittingIntake ? 'animate-spin' : ''}`} />
-                {isSubmittingIntake ? 'Memproses...' : 'Kirim Triase'}
+                {isSubmittingIntake ? intakeStage : 'Kirim Triase'}
               </button>
             </div>
           </form>
@@ -401,8 +420,8 @@ export const ContentExplorerPage: React.FC = () => {
                         {item.author_username && ['x.com', 'instagram.com', 'facebook.com', 'twitter.com', 'tiktok.com'].includes(item.author_username.toLowerCase())
                           ? '@Anonim'
                           : (item.author_username && (item.author_username.endsWith('.com') || item.author_username.endsWith('.id'))
-                              ? item.author_username
-                              : `@${(item.author_username || 'Anonim').replace(/^@/, '')}`)}
+                            ? item.author_username
+                            : `@${(item.author_username || 'Anonim').replace(/^@/, '')}`)}
                       </span>
                     </td>
 

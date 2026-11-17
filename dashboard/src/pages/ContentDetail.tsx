@@ -477,21 +477,64 @@ export const ContentDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Verdict Strip */}
-            <div className="grid grid-cols-2 gap-2 font-mono">
-              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                <div className="text-[9.5px] text-slate-400 uppercase">Status</div>
-                <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-                  {ai_patrol?.status || 'N/A'}
-                </div>
+            {/* Verdict Strip & Status Klaim */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">
+                  Klasifikasi Integritas Narasi
+                </span>
+                {ai_patrol?.status_klaim ? (
+                  <span
+                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold font-mono flex items-center gap-1.5 border ${
+                      ai_patrol.status_klaim === 'Fakta Terverifikasi'
+                        ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                        : ai_patrol.status_klaim === 'Dugaan / Belum Terverifikasi'
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                    }`}
+                  >
+                    {ai_patrol.status_klaim === 'Fakta Terverifikasi' ? (
+                      <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                    ) : (
+                      <AlertTriangle className="w-3 h-3 text-amber-400" />
+                    )}
+                    {ai_patrol.status_klaim}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold">
+                    Fakta Terverifikasi
+                  </span>
+                )}
               </div>
-              <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                <div className="text-[9.5px] text-slate-400 uppercase">Label Prediksi</div>
-                <div className="text-xs font-bold text-blue-500 mt-0.5 truncate">
-                  {ai_patrol?.predicted_label || 'N/A'}
+
+              <div className="grid grid-cols-2 gap-2 font-mono">
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
+                  <div className="text-[9.5px] text-slate-400 uppercase">Status Operasional</div>
+                  <div className="text-xs font-bold text-slate-800 dark:text-slate-200 mt-0.5">
+                    {ai_patrol?.status || 'N/A'}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
+                  <div className="text-[9.5px] text-slate-400 uppercase">Domain Ancaman</div>
+                  <div className="text-xs font-bold text-blue-500 mt-0.5 truncate">
+                    {ai_patrol?.predicted_label || 'N/A'}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Kutipan Bukti Sumber Verbatim */}
+            {ai_patrol?.kutipan_bukti && (
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-blue-500/25 space-y-1">
+                <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 text-[10px] font-mono uppercase tracking-wider font-bold">
+                  <Fingerprint className="w-3.5 h-3.5" />
+                  <span>Kutipan Bukti Sumber</span>
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed font-sans">
+                  "{ai_patrol.kutipan_bukti}"
+                </p>
+              </div>
+            )}
 
             {/* Ringkasan Eksekutif */}
             <div className="p-3 rounded-lg bg-slate-50 dark:bg-white/[0.03] border-l-2 border-blue-500 text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-sans">
@@ -550,33 +593,6 @@ export const ContentDetailPage: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Telemetri Sistem Kompak */}
-          <div className="cyber-card rounded-xl p-3.5 space-y-2 font-mono">
-            <span className="text-[10px] uppercase text-slate-400 tracking-wider font-semibold">
-              Telemetri Sistem
-            </span>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="p-1.5 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                <div className="text-[9px] text-slate-400">OCR</div>
-                <div className="font-bold text-slate-800 dark:text-slate-200">
-                  {ai_patrol?.execution_latencies?.ocr_ms !== undefined ? `${ai_patrol.execution_latencies.ocr_ms}ms` : 'Bypass'}
-                </div>
-              </div>
-              <div className="p-1.5 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                <div className="text-[9px] text-slate-400">Retrieval</div>
-                <div className="font-bold text-slate-800 dark:text-slate-200">
-                  {ai_patrol?.execution_latencies?.retrieval_ms !== undefined ? `${ai_patrol.execution_latencies.retrieval_ms}ms` : '2.8ms'}
-                </div>
-              </div>
-              <div className="p-1.5 rounded bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06]">
-                <div className="text-[9px] text-slate-400">LLM</div>
-                <div className="font-bold text-blue-500">
-                  {ai_patrol?.execution_latencies?.llm_ms ? `${ai_patrol.execution_latencies.llm_ms}ms` : '0ms'}
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Card: Keputusan Analis (HITL Validation) */}

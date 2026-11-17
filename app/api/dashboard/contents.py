@@ -205,6 +205,18 @@ def get_content_detail(
     # AI Patrol
     ai_patrol_dict = None
     if report:
+        status_klaim_val = None
+        kutipan_bukti_val = None
+        tipe_konteks_val = None
+        if report.ai_reasoning and isinstance(report.ai_reasoning, dict):
+            status_klaim_val = report.ai_reasoning.get("status_klaim")
+            kutipan_bukti_val = report.ai_reasoning.get("kutipan_bukti")
+            tipe_konteks_val = report.ai_reasoning.get("tipe_konteks")
+        if not status_klaim_val and content.extra_metadata and isinstance(content.extra_metadata, dict):
+            status_klaim_val = content.extra_metadata.get("status_klaim")
+            kutipan_bukti_val = content.extra_metadata.get("kutipan_bukti")
+            tipe_konteks_val = content.extra_metadata.get("tipe_konteks")
+
         ai_patrol_dict = {
             "status": report.ai_status,
             "predicted_label": report.ai_predicted_label,
@@ -212,6 +224,9 @@ def get_content_detail(
             "confidence_score": float(report.ai_confidence_score) if report.ai_confidence_score is not None else None,
             "summary": report.ai_summary,
             "reasoning": report.ai_reasoning,
+            "status_klaim": status_klaim_val or "Fakta Terverifikasi",
+            "kutipan_bukti": kutipan_bukti_val or "",
+            "tipe_konteks": tipe_konteks_val or "Publikasi Digital",
             "ticket_number": report.ticket_number,
             "operator_id": report.operator_id or "OP-01",
             "classification_mode": report.classification_mode or "adaptive",

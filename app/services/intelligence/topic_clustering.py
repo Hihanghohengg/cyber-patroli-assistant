@@ -97,10 +97,16 @@ class TopicClusteringService:
 
         title = getattr(content, "title", "") or ""
         body = getattr(content, "caption_text", None) or getattr(content, "caption", "") or ""
+        category = analysis.category if analysis and analysis.category else "Lainnya"
+
+        # Guard: Jangan bentuk atau tautkan klaster isu untuk konten berkategori Non-Isu
+        if category == "Non-Isu":
+            logger.info("Konten %s berkategori Non-Isu. Melewati integrasi ke Radar Trending Topics.", content_id)
+            return None, 0.0, False
+
         keywords = analysis.keywords if analysis and analysis.keywords else self.processor.extract_keywords(f"{title} {body}")
         hashtags = analysis.hashtags if analysis and analysis.hashtags else self.processor.extract_hashtags(body)
         main_topic = analysis.main_topic if analysis and analysis.main_topic else ""
-        category = analysis.category if analysis and analysis.category else "Lainnya"
 
         target_text = self._prepare_corpus_text(
             title=title,
@@ -181,9 +187,22 @@ class TopicClusteringService:
         else:
             # No sufficient match: Create a new IssueCluster
             # Ensure topic title and slug follow high-signal Twitter/Threads trending conventions
+            generic_categories = {"ideologi", "politik", "ekonomi", "sosial", "budaya", "pertahanan", "keamanan", "non-isu", "isu", "lainnya"}
             filler_words = {"saya", "dapur", "kemudian", "oke", "tidak", "bukan", "kamu", "kita", "mereka", "anda", "dia"}
             words_lower = set((main_topic or "").lower().split())
-            if not main_topic or len(main_topic.split()) > 5 or (words_lower & filler_words):
+
+            # Prioritas judul bermakna: Gunakan title postingan jika valid dan informatif
+            raw_title_clean = re.sub(r"^(?:\[BREAKING NEWS\]|\bNEWS\b|Breaking:)\s*", "", title or "", flags=re.IGNORECASE).strip()
+            is_valid_title = (
+                len(raw_title_clean) >= 15
+                and not any(g in raw_title_clean.lower() for g in ["disukai oleh", "relevant people", "follkative", "zgtyriwul", "instagram post", "temuan patroli", "vivanews", "isu am", "isu meet", "isu url"])
+                and raw_title_clean.lower() not in generic_categories
+            )
+
+            if is_valid_title:
+                cluster_title = raw_title_clean[:70].strip()
+                slug = self.processor.to_canonical_slug(cluster_title)
+            elif not main_topic or len(main_topic.split()) > 5 or (words_lower & filler_words) or (main_topic.lower() in generic_categories):
                 trend_title, trend_slug = self.processor.extract_smart_trend_topic(title=title, text=body, hashtags=hashtags)
                 cluster_title = trend_title
                 slug = trend_slug

@@ -55,6 +55,10 @@ def list_trending_topics(
 
     query = db.query(IssueCluster)
 
+    # Filter ketat: Eksklusikan kategori Non-Isu dari Radar Isu Nasional kecuali dicari spesifik
+    if not eff_category or eff_category.upper() != "NON-ISU":
+        query = query.filter(IssueCluster.category != "Non-Isu")
+
     if eff_status != "ALL":
         query = query.filter(IssueCluster.status == eff_status)
 
@@ -73,7 +77,16 @@ def list_trending_topics(
 
     engine = TrendingEngine()
     items: List[TrendingTopicItem] = []
+    junk_patterns = [
+        r"^#?non-?isu", r"^#?(politik|keamanan|sosial|ekonomi|budaya|ideologi|pertahanan)$",
+        r"relevant\s+people", r"disukai\s+oleh", r"follkative", r"zgtyriwul",
+        r"\bvivanews\b", r"\bisu\s+(am|pm|meet|url)\b", r"instagram post [a-z0-9_-]+"
+    ]
+
     for issue in issues:
+        # Filter keluar judul sampah scraping UI
+        if any(re.search(pat, issue.title or "", re.IGNORECASE) for pat in junk_patterns):
+            continue
         try:
             m = engine.calculate_issue_metrics(db, issue.issue_id, window_hours=24)
             dominant_sent = "NETRAL"

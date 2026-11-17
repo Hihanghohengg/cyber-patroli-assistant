@@ -245,6 +245,223 @@ class OllamaService:
             translated = re.sub(pattern, repl, translated, flags=re.IGNORECASE)
         return translated.strip()
 
+    @staticmethod
+    def _build_representative_context(text: str, max_chars: int = 2600) -> str:
+        """Sample representative head, middle, and tail sections on sentence boundaries if text exceeds max_chars."""
+        if not text or len(text) <= max_chars:
+            return (text or "").strip()
+
+        # 1. Head: ~1100 chars on nearest sentence boundary
+        head_target = 1100
+        head_cut = max(
+            text.rfind(".", 0, head_target),
+            text.rfind("!", 0, head_target),
+            text.rfind("?", 0, head_target),
+            text.rfind("\n", 0, head_target),
+        )
+        head = text[:head_cut + 1].strip() if head_cut > 600 else text[:head_target].strip()
+
+        # 2. Tail: ~750 chars on nearest sentence boundary
+        tail_target = 750
+        tail_start_raw = max(0, len(text) - tail_target)
+        valid_tail_cuts = [pos for pos in [text.find(".", tail_start_raw), text.find("\n", tail_start_raw), text.find("!", tail_start_raw)] if pos != -1]
+        tail_cut = min(valid_tail_cuts) if valid_tail_cuts else tail_start_raw
+        tail = text[tail_cut + 1:].strip() if tail_cut < len(text) - 250 else text[tail_start_raw:].strip()
+
+        # 3. Middle: ~750 chars around document center on sentence boundaries
+        mid_center = len(text) // 2
+        mid_start_raw = max(len(head), mid_center - 375)
+        mid_end_raw = min(len(text) - len(tail), mid_center + 375)
+
+        mid_cut_start = max(text.rfind(".", 0, mid_start_raw), text.rfind("\n", 0, mid_start_raw))
+        if mid_cut_start == -1 or mid_cut_start < len(head):
+            mid_cut_start = mid_start_raw
+        else:
+            mid_cut_start += 1
+
+        mid_cut_end = max(text.rfind(".", mid_cut_start, mid_end_raw), text.rfind("\n", mid_cut_start, mid_end_raw))
+        if mid_cut_end == -1 or mid_cut_end <= mid_cut_start:
+            mid_cut_end = mid_end_raw
+        else:
+            mid_cut_end += 1
+
+        middle = text[mid_cut_start:mid_cut_end].strip()
+
+        combined = f"{head}\n\n[...]\n\n{middle}\n\n[...]\n\n{tail}"
+        return combined.strip()
+
+    def _summarize_with_evidence(
+        self,
+        clean_id_text: str,
+        title: Optional[str] = None,
+        source_url: Optional[str] = None,
+        author: str = "Anonim",
+        platform: str = "web",
+    ) -> Dict[str, Any]:
+        """Stage 1: Evidenced fact extraction & claim verification scratchpad."""
+        sampled_context = self._build_representative_context(clean_id_text, max_chars=2600)
+
+        stage1_system = (
+            "Anda adalah Asisten Verifikator Bukti Forensik Siber Nasional (TILIK v5.0).\n"
+            "TUGAS TAHAP 1: EKSTRAKSI BUKTI BERDASARKAN DOKUMEN ASLI.\n"
+            "1. DILARANG MENAMBAH FAKTA ATAU BERASUMSI. Rujuk hanya teks yang diberikan.\n"
+            "2. BAHASA: Seluruh output wajib disajikan dalam BAHASA INDONESIA BAKU.\n"
+            "3. EKSTRAKSI AWAL, TENGAH, AKHIR: Ekstrak 3-4 butir fakta nyata yang mencakup awal, tengah, dan akhir naskah.\n"
+            "4. STATUS KLAIM: Tentukan status klaim secara objektif:\n"
+            "   - 'Fakta Terverifikasi': Jika bersumber dari pernyataan resmi pejabat, konferensi pers, rilis lembaga negara, putusan hukum, atau liputan media terverifikasi.\n"
+            "   - 'Dugaan / Belum Terverifikasi': Jika naskah memuat klaim yang belum dikonfirmasi aparat/pejabat, berbau tuduhan, atau rumor beredar di medsos.\n"
+            "   - 'Opini / Rumor': Jika murni opini perseorangan, spekulasi tanpa bukti dokumen, atau narasi polemik netizen.\n"
+            "5. KUTIPAN BUKTI: Wajib mengutip 1 kalimat persis (verbatim quote) dari teks yang menjadi bukti inti peristiwa.\n"
+            "6. RINGKASAN EKSEKUTIF: Susun 2-3 kalimat padat bahasa Indonesia baku merangkum peristiwa, aktor utama, dampak, dan mitigasi penanganan."
+        )
+
+        user_content = (
+            f"JUDUL: {title or 'N/A'}\n"
+            f"PLATFORM: {platform.upper()}\n"
+            f"SUMBER / URL: {source_url or 'N/A'}\n"
+            f"PENGUNGGAH (AUTHOR): {author}\n\n"
+            f"DOKUMEN TEKS SUMBER (SAMPEL REPRESENTATIF):\n\"\"\"\n{sampled_context}\n\"\"\""
+        )
+
+        schema_stage1 = {
+            "type": "object",
+            "properties": {
+                "tipe_konteks": {"type": "string"},
+                "ekstraksi_awal_tengah_akhir": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                },
+                "status_klaim": {
+                    "type": "string",
+                    "enum": ["Fakta Terverifikasi", "Dugaan / Belum Terverifikasi", "Opini / Rumor"]
+                },
+                "kutipan_bukti": {"type": "string"},
+                "ringkasan_eksekutif": {"type": "string"}
+            },
+            "required": ["tipe_konteks", "ekstraksi_awal_tengah_akhir", "status_klaim", "kutipan_bukti", "ringkasan_eksekutif"]
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": stage1_system},
+                {"role": "user", "content": user_content},
+            ],
+            "format": schema_stage1,
+            "stream": False,
+            "keep_alive": "15m",
+            "options": {
+                "temperature": 0.1,
+                "top_p": 0.9,
+                "num_predict": 450,
+                "num_ctx": 2048,
+            },
+        }
+
+        timeout_obj = httpx.Timeout(max(90.0, float(self.timeout)), connect=10.0)
+        with httpx.Client(timeout=timeout_obj) as client:
+            resp = client.post(f"{self.base_url}/api/chat", json=payload)
+            if resp.status_code != 200:
+                raise RuntimeError(f"Ollama Stage 1 returned HTTP {resp.status_code}: {resp.text}")
+            body = resp.json()
+            raw_content = body.get("message", {}).get("content", "")
+            return self._extract_and_parse_json(raw_content)
+
+    def _analyze_evidenced_summary(
+        self,
+        evidenced_summary: Dict[str, Any],
+        title: Optional[str] = None,
+        author: str = "Anonim",
+        platform: str = "web",
+        few_shot_block: str = "",
+    ) -> Dict[str, Any]:
+        """Stage 2: Strategic threat classification & 5W+1H reasoning constrained by Stage 1 facts."""
+        exec_sum = evidenced_summary.get("ringkasan_eksekutif", "")
+        facts = "\n".join([f"- {f}" for f in evidenced_summary.get("ekstraksi_awal_tengah_akhir", [])])
+        claim_status = evidenced_summary.get("status_klaim", "Fakta Terverifikasi")
+        evidence_quote = evidenced_summary.get("kutipan_bukti", "")
+        context_type = evidenced_summary.get("tipe_konteks", "Berita / Publikasi Digital")
+
+        stage2_system = (
+            "Anda adalah Analis Senior Intelijen Patroli Siber Nasional (TILIK v5.0).\n"
+            "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN STRATEGIS & SINTESIS 5W+1H.\n"
+            "Gunakan HANYA ringkasan dan fakta terverifikasi dari Tahap 1 berikut sebagai batasan mutlak (anti-halusinasi):\n"
+            f"- Status Klaim: {claim_status}\n"
+            f"- Kutipan Bukti: \"{evidence_quote}\"\n"
+            f"- Tipe Konteks: {context_type}\n\n"
+            "ATURAN MUTLAK:\n"
+            "1. BAHASA BAKU: Seluruh isian wajib disajikan dalam BAHASA INDONESIA BAKU.\n"
+            "2. PEMISAHAN ENTITAS: Pada summary_5w1h['who'], bedakan secara tegas Pengunggah Konten (@author) dengan Tokoh/Lembaga yang Diberitakan.\n"
+            "3. KELENGKAPAN WAKTU & TEMPAT: Jika tidak tercantum pada fakta, isi persis 'Tidak disebutkan dalam konten'.\n"
+            "4. TAKSONOMI: Pilih satu kategori dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
+            "5. URGENSI: Skor 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
+            "6. PENALARAN: ai_reasoning WAJIB disusun persis dalam 3 bagian berlabel:\n"
+            "Fakta vs Dugaan Tertulis: [Uraian objektif mengenai apa yang faktual dan apa yang dugaan/belum terbukti]\n\n"
+            "Penalaran Kausal (Karena-Maka): [Alur sebab-akibat dampak terhadap stabilitas nasional atau ketertiban publik]\n\n"
+            "Rekomendasi Verifikasi & Tindak Lanjut: [Langkah verifikasi silang dan tindakan operasional patroli siber]"
+        )
+
+        user_content = (
+            f"JUDUL KONTEN: {title or 'N/A'}\n"
+            f"PLATFORM: {platform.upper()}\n"
+            f"PENGUNGGAH: {author}\n\n"
+            f"RINGKASAN TAHAP 1:\n{exec_sum}\n\n"
+            f"FAKTA-FAKTA TERVERIFIKASI TAHAP 1:\n{facts}\n"
+        )
+        if few_shot_block:
+            user_content = f"{few_shot_block}\n\n{user_content}"
+
+        schema_stage2 = {
+            "type": "object",
+            "properties": {
+                "summary_5w1h": {
+                    "type": "object",
+                    "properties": {
+                        "who": {"type": "string"},
+                        "what": {"type": "string"},
+                        "when": {"type": "string"},
+                        "where": {"type": "string"},
+                        "why": {"type": "string"},
+                        "how": {"type": "string"}
+                    },
+                    "required": ["who", "what", "when", "where", "why", "how"]
+                },
+                "predicted_category": {
+                    "type": "string",
+                    "enum": ["Ideologi", "Politik", "Ekonomi", "Sosial", "Budaya", "Pertahanan", "Keamanan", "Non-Isu"]
+                },
+                "urgency_score": {"type": "integer"},
+                "ai_reasoning": {"type": "string"}
+            },
+            "required": ["summary_5w1h", "predicted_category", "urgency_score", "ai_reasoning"]
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": stage2_system},
+                {"role": "user", "content": user_content},
+            ],
+            "format": schema_stage2,
+            "stream": False,
+            "keep_alive": "15m",
+            "options": {
+                "temperature": 0.1,
+                "top_p": 0.9,
+                "num_predict": 450,
+                "num_ctx": 2048,
+            },
+        }
+
+        timeout_obj = httpx.Timeout(max(90.0, float(self.timeout)), connect=10.0)
+        with httpx.Client(timeout=timeout_obj) as client:
+            resp = client.post(f"{self.base_url}/api/chat", json=payload)
+            if resp.status_code != 200:
+                raise RuntimeError(f"Ollama Stage 2 returned HTTP {resp.status_code}: {resp.text}")
+            body = resp.json()
+            raw_content = body.get("message", {}).get("content", "")
+            return self._extract_and_parse_json(raw_content)
+
     def classify_and_summarize(
         self,
         text: str,
@@ -256,7 +473,7 @@ class OllamaService:
         mode: str = "adaptive",
         db: Optional[Any] = None,
     ) -> Dict[str, Any]:
-        """Execute deterministic 3-stage local LLM inference to produce structured 5W+1H and IPOLEKSOSBUDHANKAM triage.
+        """Execute deterministic 2-stage evidenced local LLM inference to produce structured 5W+1H and IPOLEKSOSBUDHANKAM triage.
 
         Acquires _GPU_INFERENCE_SEMAPHORE to ensure multi-operator LAN requests queue gracefully.
         Falls back to local heuristic intelligence if Ollama daemon is offline.
@@ -281,20 +498,6 @@ class OllamaService:
             except Exception as mem_err:
                 logger.warning("MemPrompt auto-retrieval warning: %s", mem_err)
 
-        system_prompt = (
-            "Anda adalah Asisten Intelijen Patroli Siber Nasional (TILIK v5.0) untuk analisis isu IPOLEKSOSBUDHANKAM.\n"
-            "PRINSIP ANALISIS INTELIJEN MUTLAK:\n"
-            "1. BAHASA BAKU: Seluruh analisis, ringkasan, dan penalaran WAJIB disajikan dalam BAHASA INDONESIA BAKU.\n"
-            "2. PEMISAHAN ENTITAS KETAT: Pada summary_5w1h['who'], wajib membedakan secara tegas antara Sumber/Pengunggah/Akun (author) dengan Tokoh/Institusi yang Diberitakan dalam teks. Dilarang menyamakan tokoh berita sebagai pengunggah konten.\n"
-            "3. KELENGKAPAN WAKTU & TEMPAT: Jika informasi waktu atau lokasi tidak tercantum dalam dokumen, isi persis 'Tidak disebutkan dalam konten' (dilarang menulis template generik seperti 'Waktu publikasi digital').\n"
-            "4. SINTESIS MENYELURUH (DILARANG HANYA PARAGRAF PEMBUKA): Wajib membaca teks dari awal, tengah, hingga akhir secara utuh. Ringkasan eksekutif WAJIB memuat 3-4 kalimat padat yang merangkum: (a) Inti peristiwa & data kuantitatif/angka kunci, (b) Dampak nyata terhadap lingkungan, sosial, atau kesehatan, (c) Aktor/pihak yang terlibat atau dugaan pelanggaran, dan (d) Upaya mitigasi/penanganan oleh instansi/pemerintah.\n"
-            "5. PENALARAN SUBSTANTIF: ai_reasoning WAJIB disusun dalam 3 bagian berlabel persis:\n"
-            "Alasan Penilaian: [Penjelasan kategori dan urgensi]\n\n"
-            "Analisis Dampak & Kerawanan: [Potensi kerawanan dan eskalasi]\n\n"
-            "Rekomendasi Tindak Lanjut: [Langkah penanganan dan pemantauan]\n\n"
-            "DILARANG membuat kunci selain yang ditentukan dalam skema!"
-        )
-
         # Concurrency lock to protect local GPU/RAM
         acquired = _GPU_INFERENCE_SEMAPHORE.acquire(timeout=float(self.timeout))
         try:
@@ -311,46 +514,100 @@ class OllamaService:
             else:
                 indonesian_content = text.strip()
 
-            # TAHAP 3: Triase JSON Terkunci dengan Ollama JSON Schema
-            # Potong maksimal 1500 karakter pertama pada batas kalimat terdekat
-            if len(analysis_text) > 1500:
-                cut_idx = max(analysis_text.rfind(".", 0, 1500), analysis_text.rfind("!", 0, 1500), analysis_text.rfind("?", 0, 1500), analysis_text.rfind("\n", 0, 1500))
-                llm_text = analysis_text[:cut_idx + 1].strip() if cut_idx > 800 else analysis_text[:1500].strip()
-            else:
-                llm_text = analysis_text.strip()
-
-            user_content = f"JUDUL: {title or 'N/A'}\n"
-            user_content += f"PLATFORM: {platform_clean.upper()}\n"
-            user_content += f"SUMBER / URL: {source_url or 'N/A'}\n"
-            user_content += f"PENGUNGGAH / NARATOR (AUTHOR): {author_clean}\n\n"
-            user_content += f"DOKUMEN TEKS UNTUK DIANALISIS:\n\"\"\"\n{llm_text}\n\"\"\"\n"
-
-            if mode == "adaptive" and few_shot_block:
-                user_content = f"{few_shot_block}\n\n{user_content}"
-
-            result_json = self._call_ollama_api(
-                system_prompt=system_prompt,
-                user_content=user_content,
-                text=analysis_text,
+            # TAHAP 3: Eksekusi Two-Stage Evidenced Pipeline (Stage 1: Bukti Fakta -> Stage 2: Klasifikasi Ancaman)
+            stage1_res = self._summarize_with_evidence(
+                clean_id_text=analysis_text,
+                title=title,
+                source_url=source_url,
                 author=author_clean,
                 platform=platform_clean,
-                similar_cases=similar_cases,
-                mode=mode,
             )
+
+            stage2_res = self._analyze_evidenced_summary(
+                evidenced_summary=stage1_res,
+                title=title,
+                author=author_clean,
+                platform=platform_clean,
+                few_shot_block=few_shot_block if mode == "adaptive" else "",
+            )
+
+            # Sanitize category against IPOLEKSOSBUDHANKAM taxonomy (with cross-lingual mapping)
+            cat = str(stage2_res.get("predicted_category", "Non-Isu")).strip()
+            category_mapping = {
+                "politik": "Politik", "politics": "Politik", "political": "Politik",
+                "keamanan": "Keamanan", "security": "Keamanan", "cybercrime": "Keamanan", "wiretapping": "Keamanan", "law": "Keamanan",
+                "ekonomi": "Ekonomi", "economy": "Ekonomi", "economic": "Ekonomi",
+                "sosial": "Sosial", "social": "Sosial",
+                "budaya": "Budaya", "culture": "Budaya", "cultural": "Budaya",
+                "pertahanan": "Pertahanan", "defense": "Pertahanan", "defence": "Pertahanan", "military": "Pertahanan",
+                "ideologi": "Ideologi", "ideology": "Ideologi",
+                "non-isu": "Non-Isu", "non-issue": "Non-Isu", "neutral": "Non-Isu",
+            }
+            matched_cat = "Non-Isu"
+            cat_lower = cat.lower()
+            for eng_k, id_v in category_mapping.items():
+                if eng_k in cat_lower:
+                    matched_cat = id_v
+                    break
+
+            # Urgency score clamping: 1..5
+            urgency_raw = stage2_res.get("urgency_score", 2)
+            try:
+                u_val = float(urgency_raw)
+                if u_val > 5.0:
+                    u_val = u_val / 2.0
+                urgency = max(1, min(5, int(round(u_val))))
+            except Exception:
+                urgency = 2
+
+            exec_summary = (stage1_res.get("ringkasan_eksekutif") or "").strip()
+            summary_5w1h = stage2_res.get("summary_5w1h") or {}
+            who_val = summary_5w1h.get("who") or author_clean
+            what_val = summary_5w1h.get("what") or exec_summary
+            when_val = summary_5w1h.get("when") or "Tidak disebutkan dalam konten"
+            where_val = summary_5w1h.get("where") or "Tidak disebutkan dalam konten"
+            why_val = summary_5w1h.get("why") or f"Berkaitan dengan isu {matched_cat}."
+            how_val = summary_5w1h.get("how") or "Dipublikasikan melalui kanal digital publik."
+
+            reasoning_val = stage2_res.get("ai_reasoning") or ""
+            if not reasoning_val or "Fakta vs Dugaan Tertulis:" not in reasoning_val:
+                reasoning_val = (
+                    f"Fakta vs Dugaan Tertulis: Berdasarkan bukti yang tercatat, status klaim diidentifikasi sebagai {stage1_res.get('status_klaim', 'Fakta Terverifikasi')}. Kutipan pendukung: \"{stage1_res.get('kutipan_bukti', '')}\".\n\n"
+                    f"Penalaran Kausal (Karena-Maka): Karena terindikasi isu dalam ranah {matched_cat} dengan bobot urgensi {urgency}/5, maka diperlukan pemantauan situasi berkala untuk mencegah potensi eskalasi publik.\n\n"
+                    f"Rekomendasi Verifikasi & Tindak Lanjut: Lakukan verifikasi silang bukti dengan instansi terkait dan simpan segel rantai bukti (Chain of Custody) NIST FIPS 198-1."
+                )
+
             llm_latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            result_json["llm_latency_ms"] = llm_latency_ms
-            result_json["latency_ms"] = llm_latency_ms
-            result_json["similar_cases"] = similar_cases
-            result_json["engine_used"] = f"ollama/{self.model}"
-            result_json["classification_mode"] = mode
-            result_json["original_language"] = detected_lang
-            result_json["indonesian_content"] = indonesian_content
-            return result_json
+            return {
+                "ringkasan_eksekutif": exec_summary,
+                "summary_5w1h": {
+                    "who": who_val,
+                    "what": what_val,
+                    "when": when_val,
+                    "where": where_val,
+                    "why": why_val,
+                    "how": how_val,
+                },
+                "summary": exec_summary,
+                "predicted_category": matched_cat,
+                "urgency_score": urgency,
+                "ai_reasoning": reasoning_val,
+                "tipe_konteks": stage1_res.get("tipe_konteks", "Publikasi Digital"),
+                "ekstraksi_awal_tengah_akhir": stage1_res.get("ekstraksi_awal_tengah_akhir", []),
+                "status_klaim": stage1_res.get("status_klaim", "Fakta Terverifikasi"),
+                "kutipan_bukti": stage1_res.get("kutipan_bukti", ""),
+                "llm_latency_ms": llm_latency_ms,
+                "latency_ms": llm_latency_ms,
+                "similar_cases": similar_cases,
+                "engine_used": f"ollama/{self.model}",
+                "classification_mode": mode,
+                "original_language": detected_lang,
+                "indonesian_content": indonesian_content,
+            }
         except Exception as err:
             logger.error(
-                "Ollama inference API/parsing gagal fatal (%s). Traceback: %s. Mengalihkan ke _heuristic_fallback.",
+                "Ollama inference API/parsing gagal (%s). Mengalihkan ke _heuristic_fallback.",
                 err,
-                traceback.format_exc(),
             )
             fallback = self._heuristic_fallback(
                 text=indonesian_content or text,
@@ -844,25 +1101,78 @@ class OllamaService:
 
         how_val = "Dipublikasikan melalui kanal media sosial/digital untuk konsumsi publik."
 
-        # ── 5. REASONING ANALITIS (Mode Offline Heuristic) ──
-        if best_cat == "Non-Isu":
-            reasoning_text = (
-                f"[Mode Offline Heuristic] Konten ini membahas topik edukatif/umum"
-                f"{' terkait ' + extracted_issues[0] if extracted_issues else ''}. "
-                f"Tidak ditemukan indikasi provokasi, konflik SARA, disinformasi, maupun ancaman keamanan nasional. "
-                f"Kata kunci positif terdeteksi: {', '.join(matched_keywords['Non-Isu'][:4]) if matched_keywords['Non-Isu'] else 'konten netral'}."
-            )
+        # ── 4b. STATUS KLAIM, KUTIPAN BUKTI & TIPE KONTEKS ──
+        speculative_patterns = [
+            r"\bdiduga\b", r"\bdugaan\b", r"\bisunya\b", r"\bkatanya\b", r"\brumor\b",
+            r"\bbelum terverifikasi\b", r"\bkabarnya\b", r"\bspekulasi\b", r"\bklaim\b",
+            r"\bviral\b", r"\bbocoran\b"
+        ]
+        opinion_patterns = [
+            r"\bopini\b", r"\bmenurut saya\b", r"\bpengamat\b", r"\bmenilai\b", r"\bpandangan\b", r"\bberharap\b"
+        ]
+        is_speculative = any(re.search(pat, combined, re.IGNORECASE) for pat in speculative_patterns)
+        is_opinion = any(re.search(pat, combined, re.IGNORECASE) for pat in opinion_patterns)
+
+        if is_speculative:
+            status_klaim = "Dugaan / Belum Terverifikasi"
+        elif is_opinion:
+            status_klaim = "Opini / Rumor"
         else:
-            reason_parts = ["[Mode Offline Heuristic]"]
-            reason_parts.append(f"Teridentifikasi potensi isu dalam ranah {best_cat}")
-            if extracted_persons:
-                reason_parts.append(f"melibatkan {extracted_persons[0]}")
-            if extracted_issues:
-                reason_parts.append(f"terkait {', '.join(extracted_issues[:2])}")
-            if detected_severe_kws:
-                reason_parts.append(f"Indikator kritis: {', '.join(detected_severe_kws[:3])}")
-            reason_parts.append(f"Urgensi: {urgency_score}/5. Diperlukan verifikasi mendalam untuk memisahkan fakta resmi penegakan hukum dari rumor atau opini di media sosial.")
-            reasoning_text = ". ".join(reason_parts)
+            status_klaim = "Fakta Terverifikasi"
+
+        # Kutipan bukti verbatim
+        kutipan_bukti = ""
+        if selected_sentences:
+            kutipan_bukti = selected_sentences[0][:200].strip()
+        elif valid_sentences:
+            kutipan_bukti = valid_sentences[0][:200].strip()
+        else:
+            kutipan_bukti = clean_text[:180].strip()
+
+        # Tipe konteks
+        if best_cat == "Non-Isu":
+            tipe_konteks = "Informasi Edukasi / Kegiatan Publik"
+        elif any(k in combined for k in ["presiden", "wapres", "kapolri", "menteri", "pemerintah", "resmi", "bareskrim", "kpk", "kejaksaan"]):
+            tipe_konteks = "Pernyataan Resmi / Berita Penegakan Hukum"
+        elif is_speculative or (platform and platform.lower() in ["x", "twitter", "instagram", "tiktok", "threads"]):
+            tipe_konteks = "Postingan & Percakapan Media Sosial"
+        else:
+            tipe_konteks = "Laporan Jurnalistik Media Massa"
+
+        # ── 5. REASONING ANALITIS TIGA BAGIAN BAKU ──
+        if best_cat == "Non-Isu":
+            fakta_dugaan = (
+                f"Konten teridentifikasi sebagai informasi edukatif, tutorial, atau berita umum yang bersifat netral "
+                f"dengan status klaim {status_klaim}. Tidak ditemukan unsur disinformasi, provokasi politik, maupun ancaman keamanan siber."
+            )
+            penalaran_kausal = (
+                f"Karena narasi berfokus pada kegiatan positif/edukatif ({', '.join(matched_keywords.get('Non-Isu', ['konten umum'])[:3])}), "
+                f"maka tingkat kerawanan dinilai sangat rendah (Urgensi: 1/5) dan tidak berpotensi menimbulkan eskalasi publik."
+            )
+            rekomendasi_tindak = "Pengawasan rutin berkala sesuai SOP intelijen dan arsip dokumentasi digital."
+        else:
+            aktor_str = f" melibatkan {extracted_persons[0]}" if extracted_persons else ""
+            isu_str = f" terkait {', '.join(extracted_issues[:2])}" if extracted_issues else ""
+            fakta_dugaan = (
+                f"Narasi membahas isu strategis pada ranah {best_cat}{aktor_str}{isu_str} dengan status klaim '{status_klaim}'. "
+                f"Kutipan bukti rujukan: \"{kutipan_bukti}\"."
+            )
+            penalaran_kausal = (
+                f"Karena teridentifikasi indikator ancaman ranah {best_cat} dengan tingkat urgensi {urgency_score}/5, "
+                f"maka potensi perbincangan publik dapat memicu eskalasi persepsi atau kerawanan sosial jika tidak segera diklarifikasi atau ditangani."
+            )
+            rekomendasi_tindak = (
+                "Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. "
+                "Pantau perkembangan isu secara intensif serta amankan segel rantai bukti digital (Chain of Custody) NIST FIPS 198-1."
+                if urgency_score >= 4 else
+                "Pantau perkembangan isu secara berkala, lakukan verifikasi silang terhadap fakta primer, dan siapkan laporan berkala jika terdapat eskalasi."
+            )
+
+        reasoning_text = (
+            f"Fakta vs Dugaan Tertulis: {fakta_dugaan}\n\n"
+            f"Penalaran Kausal (Karena-Maka): {penalaran_kausal}\n\n"
+            f"Rekomendasi Verifikasi & Tindak Lanjut: {rekomendasi_tindak}"
+        )
 
         # ── 6. INDIKASI PELANGGARAN (Kontekstual) ──
         if best_cat == "Non-Isu":
@@ -907,6 +1217,10 @@ class OllamaService:
             "predicted_category": best_cat,
             "urgency_score": urgency_score,
             "ai_reasoning": reasoning_text,
+            "tipe_konteks": tipe_konteks,
+            "ekstraksi_awal_tengah_akhir": selected_sentences,
+            "status_klaim": status_klaim,
+            "kutipan_bukti": kutipan_bukti,
             "indikasi_pelanggaran": indikasi,
             "rekomendasi_tindak_lanjut": rekomendasi,
             "matched_keywords": {k: v for k, v in matched_keywords.items() if v},
