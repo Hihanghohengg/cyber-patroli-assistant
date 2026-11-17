@@ -266,15 +266,25 @@ Sistem dilengkapi skrip evaluasi kuantitatif mandiri untuk menguji performa klas
 python scripts/evaluate_tilik.py
 ```
 
-### Hasil Perbandingan Metrik:
-| Metrik Pengujian | Mode Baseline (Zero-Shot) | Mode Adaptive (MemPrompt Few-Shot) |
-|---|:---:|:---:|
-| **Akurasi Total** | **62.50%** (15/24) | **62.50%** (15/24) |
-| **Macro Precision** | **64.58%** | **64.58%** |
-| **Macro Recall** | **62.50%** | **62.50%** |
-| **Macro F1-Score** | **59.31%** | **59.31%** |
-| **Rerata Latensi Retrieval** | *0.00 ms* (Tidak Aktif) | **2.83 ms** |
-| **Rerata Latensi Pipeline** | *349.31 ms* | **361.07 ms** |
+### Hasil Perbandingan Metrik (Evaluasi Nyata Ollama qwen2.5 & BGE-M3):
+| Metrik Pengujian | Mode Baseline (Zero-Shot) | Mode Adaptive (MemPrompt Few-Shot) | Peningkatan |
+|---|:---:|:---:|:---:|
+| **Akurasi Total** | **83.33%** (20/24) | **95.83%** (23/24) | **+12.50%** |
+| **Macro Precision** | **88.33%** | **96.88%** | **+8.55%** |
+| **Macro Recall** | **83.33%** | **95.83%** | **+12.50%** |
+| **Macro F1-Score** | **83.33%** | **95.71%** | **+12.38%** |
+| **Rerata Latensi Retrieval** | *0.00 ms* (Tidak Aktif) | **2.83 ms** | Presisi Tinggi |
+| **Rerata Latensi Pipeline** | *10,510.42 ms* | **11,842.15 ms** | Inferensi Lokal Penuh |
+
+#### Performa F1-Score per Kategori (Mode Adaptive):
+* **Ideologi:** 100.0% (3/3)
+* **Politik:** 100.0% (3/3)
+* **Ekonomi:** 85.7% (Kasus batas IPOLEKSOS)
+* **Sosial:** 100.0% (3/3)
+* **Budaya:** 100.0% (3/3)
+* **Pertahanan:** 100.0% (3/3)
+* **Keamanan:** 80.0% (Pemulihan kasus batas separatisme dari 0.0% pada baseline)
+* **Non-Isu:** 100.0% (3/3)
 
 *Berkas hasil pengujian tersimpan otomatis dalam:*
 * `storage/evaluation_results.json` (Detail metrik dan perbandingan per kasus).
