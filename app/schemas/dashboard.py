@@ -69,6 +69,14 @@ class OverviewStatsResponse(BaseModel):
 # TRENDING TOPIC SCHEMAS
 # ==========================================
 
+class TopicRelatedContent(BaseModel):
+    content_id: UUID
+    title: Optional[str] = None
+    platform: Optional[str] = "web"
+    author_username: Optional[str] = None
+    urgency_score: Optional[float] = 3.0
+
+
 class TrendingTopicItem(BaseModel):
     issue_id: UUID
     title: str
@@ -93,6 +101,7 @@ class TrendingTopicItem(BaseModel):
     issue_type_reason: Optional[str] = None
     rank: Optional[int] = 1
     hashtag: Optional[str] = None
+    related_contents: List[TopicRelatedContent] = []
 
     class Config:
         from_attributes = True

@@ -354,7 +354,44 @@ class TrendingEngine:
             "saja", "pun", "deh", "kok", "sih", "dong", "kan", "nih", "tuh", "kah", "lah",
             "nya", "konten", "membahas", "indikator", "terkait", "kait", "satu", "dua",
             "tiga", "banyak", "orang", "pihak", "hal", "kata", "bila", "karena", "agar",
-            "bukan", "hanya", "bagi", "lalu", "maka", "tanpa", "selalu", "kembali"
+            "bukan", "hanya", "bagi", "lalu", "maka", "tanpa", "selalu", "kembali",
+            # Additional English noise & temporal words
+            "here", "fast", "via", "amid", "says", "say", "will", "one", "two", "three",
+            "first", "last", "year", "years", "month", "months", "day", "days", "week",
+            "weeks", "time", "times", "still", "come", "get", "well", "good", "all"
+        }
+
+        # Canonical entity mapping to consolidate overlapping keywords
+        entity_canonical_map = {
+            "prabowo": "Prabowo Subianto",
+            "subianto": "Prabowo Subianto",
+            "prabowo subianto": "Prabowo Subianto",
+            "presiden prabowo": "Prabowo Subianto",
+            "gibran": "Gibran Rakabuming",
+            "rakabuming": "Gibran Rakabuming",
+            "gibran rakabuming": "Gibran Rakabuming",
+            "wapres gibran": "Gibran Rakabuming",
+            "listyo": "Jenderal Listyo Sigit",
+            "listyo sigit": "Jenderal Listyo Sigit",
+            "sigit prabowo": "Jenderal Listyo Sigit",
+            "suyudi": "Kapolri Suyudi",
+            "suyudi ario": "Kapolri Suyudi",
+            "suyudi ario seto": "Kapolri Suyudi",
+            "kapolri jenderal": "Kapolri Suyudi",
+            "itb": "Institut Teknologi Bandung",
+            "teknologi bandung": "Institut Teknologi Bandung",
+            "kpu": "KPU RI",
+            "pemilihan umum": "KPU RI",
+            "kebakaran hutan": "Kebakaran Hutan",
+            "kebakaran lahan": "Kebakaran Hutan",
+            "hutan lahan": "Kebakaran Hutan",
+            "kabut asap": "Kabut Asap",
+            "asap karhutla": "Kabut Asap",
+            "dugaan penyadapan": "Dugaan Penyadapan",
+            "penyadapan presiden": "Dugaan Penyadapan",
+            "pinjol ilegal": "Pinjol Ilegal",
+            "judi online": "Judi Online",
+            "judol": "Judi Online",
         }
 
         for r in reports:
@@ -391,32 +428,54 @@ class TrendingEngine:
             for tok in tokens:
                 if len(tok) < 3 or tok.lower() in extended_stops:
                     continue
-                kw_counter[tok] += 1
-                kw_cat[tok] = cat
-                if tok not in kw_urg:
-                    kw_urg[tok] = []
-                kw_urg[tok].append(u)
+                # Apply canonical entity consolidation
+                final_term = entity_canonical_map.get(tok.lower(), tok)
+                kw_counter[final_term] += 1
+                kw_cat[final_term] = cat
+                if final_term not in kw_urg:
+                    kw_urg[final_term] = []
+                kw_urg[final_term].append(u)
 
             for i in range(len(tokens) - 1):
                 t1, t2 = tokens[i], tokens[i + 1]
                 if t1.lower() not in extended_stops and t2.lower() not in extended_stops and t1.lower() != t2.lower():
-                    bigram = f"{t1} {t2}"
-                    kw_counter[bigram] += 1
-                    kw_cat[bigram] = cat
-                    if bigram not in kw_urg:
-                        kw_urg[bigram] = []
-                    kw_urg[bigram].append(u)
+                    raw_bg = f"{t1} {t2}"
+                    final_bg = entity_canonical_map.get(raw_bg.lower(), raw_bg)
+                    kw_counter[final_bg] += 1
+                    kw_cat[final_bg] = cat
+                    if final_bg not in kw_urg:
+                        kw_urg[final_bg] = []
+                    kw_urg[final_bg].append(u)
 
-        items = []
-        for word, cnt in kw_counter.most_common(limit):
-            avg_u = round(sum(kw_urg[word]) / max(1, len(kw_urg[word])), 1)
-            items.append({
-                "text": word,
+        # Deduplicate generic unigrams if a specific bigram containing it is already prevalent
+        sorted_candidates = kw_counter.most_common(limit * 2)
+        final_items = []
+        selected_terms = set()
+
+        for term, cnt in sorted_candidates:
+            term_l = term.lower()
+            # If term is a single word and already contained in an existing multi-word term with count >= 2
+            is_subsumed = False
+            if " " not in term:
+                for sel in selected_terms:
+                    if " " in sel and term_l in sel.lower():
+                        is_subsumed = True
+                        break
+            if is_subsumed:
+                continue
+
+            selected_terms.add(term)
+            avg_u = round(sum(kw_urg[term]) / max(1, len(kw_urg[term])), 1)
+            final_items.append({
+                "text": term,
                 "count": cnt,
                 "avg_urgency": avg_u,
-                "category": kw_cat.get(word, "Politik"),
+                "category": kw_cat.get(term, "Politik"),
             })
-        return items
+            if len(final_items) >= limit:
+                break
+
+        return final_items
 
     def extract_hot_actors(self, db: Session, limit: int = 8) -> List[Dict]:
         """Extract top prominent political, governmental, and institutional actors

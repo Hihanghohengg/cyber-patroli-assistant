@@ -16,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.models.intelligence import IssueCluster, IssueContent, TopicSnapshot, ContentAnalysis
-from app.models.report import Content, Account
+from app.models.report import Content, Account, Report
 from app.auth.dependencies import get_current_user
 from app.services.intelligence.trending_engine import TrendingEngine
 from app.schemas.dashboard import (
     TrendingTopicItem,
+    TopicRelatedContent,
     TrendingDetailResponse,
     TopicTimelinePoint,
     KeywordCloudItem,
@@ -65,15 +66,53 @@ def list_trending_topics(
     if eff_category and eff_category.upper() != "ALL":
         query = query.filter(IssueCluster.category == eff_category)
 
-    if eff_search:
-        search_pattern = f"%{eff_search}%"
-        query = query.filter(
-            (IssueCluster.title.ilike(search_pattern)) |
-            (IssueCluster.canonical_name.ilike(search_pattern))
-        )
-
-    # Sort by last_seen_at desc
+    # Sort by last_seen_at desc (ambil kumpulan kandidat aktif)
     issues = query.order_by(desc(IssueCluster.last_seen_at)).limit(eff_limit).all()
+
+    # Batch query for linked contents across the retrieved issues
+    issue_ids = [issue.issue_id for issue in issues]
+    issue_contents_map = {iid: [] for iid in issue_ids}
+    if issue_ids:
+        try:
+            links = (
+                db.query(
+                    IssueContent.issue_id,
+                    Content.content_id,
+                    Content.title,
+                    Content.caption_text,
+                    Content.platform,
+                    Account.username,
+                    Report.ai_risk_level,
+                )
+                .join(Content, IssueContent.content_id == Content.content_id)
+                .outerjoin(Account, Content.account_id == Account.account_id)
+                .outerjoin(Report, Content.content_id == Report.content_id)
+                .filter(IssueContent.issue_id.in_(issue_ids))
+                .order_by(IssueContent.similarity_score.desc())
+                .all()
+            )
+            for row in links:
+                iid = row[0]
+                if len(issue_contents_map[iid]) < 4:
+                    cid = row[1]
+                    if any(rc.content_id == cid for rc in issue_contents_map[iid]):
+                        continue
+                    c_title = row[2] or (row[3][:70] + "..." if row[3] else "Temuan Tanpa Judul")
+                    plat = row[4] or "web"
+                    uname = row[5] or "anon"
+                    risk = row[6] or "SEDANG"
+                    urgency = 4.5 if risk == "TINGGI" else (3.0 if risk == "SEDANG" else 2.0)
+                    issue_contents_map[iid].append(
+                        TopicRelatedContent(
+                            content_id=cid,
+                            title=c_title,
+                            platform=plat,
+                            author_username=uname,
+                            urgency_score=urgency,
+                        )
+                    )
+        except Exception as ex:
+            logger.warning("Gagal memuat related_contents isu: %s", ex)
 
     engine = TrendingEngine()
     items: List[TrendingTopicItem] = []
@@ -128,6 +167,7 @@ def list_trending_topics(
                     issue_type=m.get("issue_type", "AKTUAL"),
                     issue_type_reason=m.get("issue_type_reason"),
                     hashtag=hashtag_val,
+                    related_contents=issue_contents_map.get(issue.issue_id, []),
                 )
             )
         except Exception as ex:
@@ -158,6 +198,7 @@ def list_trending_topics(
                     issue_type="AKTUAL",
                     issue_type_reason="Isu publik umum.",
                     hashtag=fallback_h,
+                    related_contents=issue_contents_map.get(issue.issue_id, []),
                 )
             )
 
@@ -168,7 +209,7 @@ def list_trending_topics(
     for idx, itm in enumerate(items, 1):
         itm.rank = idx
 
-    # Calculate Pilar Totals before filtering by issue_type
+    # Calculate Pilar Totals before filtering by issue_type or search
     total_critical = sum(1 for it in items if it.issue_type == "KRITIKAL")
     total_actual = sum(1 for it in items if it.issue_type == "AKTUAL")
     total_thematic = sum(1 for it in items if it.issue_type == "TEMATIK")
@@ -176,7 +217,19 @@ def list_trending_topics(
     # Filter by issue_type if specified and not 'ALL'
     filtered_items = items
     if eff_issue_type and eff_issue_type.upper() != "ALL":
-        filtered_items = [it for it in items if it.issue_type.upper() == eff_issue_type.upper()]
+        filtered_items = [it for it in filtered_items if it.issue_type.upper() == eff_issue_type.upper()]
+
+    # Filter by search if specified (flexible match across multiple fields)
+    if eff_search:
+        s_low = eff_search.lower().strip()
+        filtered_items = [
+            it for it in filtered_items
+            if s_low in it.title.lower()
+            or s_low in it.canonical_name.lower()
+            or any(s_low in kw.lower() for kw in it.top_keywords)
+            or (it.hashtag and s_low in it.hashtag.lower())
+            or any(s_low in (rc.title or "").lower() for rc in it.related_contents)
+        ]
 
     # Extract dynamic Word Cloud and Hot Actors
     word_cloud_raw = engine.extract_word_cloud(db, limit=28)

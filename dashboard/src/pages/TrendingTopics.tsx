@@ -1,13 +1,12 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
-import { TrendingResponse } from '../types';
+import { TrendingResponse, TrendingTopicItem } from '../types';
 import { ScoreGauge } from '../components/common/Charts';
 import {
   Flame,
   Search,
   ArrowRight,
-  Clock,
   AlertTriangle,
   Layers,
   ShieldAlert,
@@ -17,17 +16,72 @@ import {
   Users,
   X,
   RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
+
+export type ActiveFilterType = 'KEYWORD' | 'ACTOR' | 'SEARCH';
+
+export interface ActiveFilter {
+  type: ActiveFilterType;
+  value: string;
+}
+
+// Extract meaningful search tokens stripping titles/honorifics
+const extractTokens = (str: string): string[] => {
+  if (!str) return [];
+  const rawTokens = str
+    .toLowerCase()
+    .replace(/[^a-z0-9\s#]/g, ' ')
+    .split(/\s+/)
+    .filter((tok) => tok.length >= 2);
+
+  const honorifics = new Set([
+    'jenderal', 'kapolri', 'wakapolri', 'irjen', 'komjen', 'brigjen', 'kombes', 'akbp',
+    'presiden', 'wapres', 'wakil', 'menteri', 'menko',
+    'gubernur', 'wagub', 'walikota', 'bupati', 'ketua',
+    'dr', 'drs', 'prof', 'haji', 'hj', 'kh', 'sh', 'mh', 'si', 'sik'
+  ]);
+
+  const meaningful = rawTokens.filter((tok) => !honorifics.has(tok));
+  return meaningful.length > 0 ? meaningful : rawTokens;
+};
+
+// Flexible token matching against topic metadata
+const matchTopic = (topic: TrendingTopicItem, filter: ActiveFilter): boolean => {
+  const tokens = extractTokens(filter.value);
+  if (tokens.length === 0) return true;
+
+  const titleLow = (topic.title || '').toLowerCase();
+  const canonLow = (topic.canonical_name || '').toLowerCase();
+  const hashtagLow = (topic.hashtag || '').toLowerCase();
+  const keywords = (topic.top_keywords || []).map((k) => k.toLowerCase());
+  const hashtags = (topic.top_hashtags || []).map((h) => h.toLowerCase());
+  const relatedTexts = (topic.related_contents || []).map(
+    (rc) => `${rc.title || ''} ${rc.author_username || ''}`.toLowerCase()
+  );
+
+  return tokens.some((token) => {
+    if (titleLow.includes(token)) return true;
+    if (canonLow.includes(token)) return true;
+    if (hashtagLow.includes(token)) return true;
+    if (keywords.some((kw) => kw.includes(token) || token.includes(kw))) return true;
+    if (hashtags.some((ht) => ht.includes(token))) return true;
+    if (relatedTexts.some((rt) => rt.includes(token))) return true;
+    return false;
+  });
+};
 
 export const TrendingTopicsPage: React.FC = () => {
   const [data, setData] = useState<TrendingResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [search, setSearch] = useState<string>('');
+  // Single active filter state: resets conflicting filters
+  const [activeFilter, setActiveFilter] = useState<ActiveFilter | null>(null);
+  const [searchInput, setSearchInput] = useState<string>('');
+
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedPillar, setSelectedPillar] = useState<'ALL' | 'AKTUAL' | 'KRITIKAL' | 'TEMATIK'>('ALL');
-  const [selectedKeyword, setSelectedKeyword] = useState<string | null>(null);
 
   const categories = [
     { id: 'ALL', label: 'Semua' },
@@ -47,8 +101,6 @@ export const TrendingTopicsPage: React.FC = () => {
       setError(null);
       const params: any = { status: 'ACTIVE' };
       if (selectedCategory !== 'ALL') params.category = selectedCategory;
-      if (selectedPillar !== 'ALL') params.issue_type = selectedPillar;
-      if (search.trim()) params.search = search.trim();
 
       const res = await apiClient.trending.list(params);
       setData(res);
@@ -61,32 +113,59 @@ export const TrendingTopicsPage: React.FC = () => {
 
   useEffect(() => {
     fetchTrendingData();
-  }, [selectedCategory, selectedPillar]);
+  }, [selectedCategory]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchTrendingData();
+    if (searchInput.trim()) {
+      setActiveFilter({ type: 'SEARCH', value: searchInput.trim() });
+    } else {
+      setActiveFilter(null);
+    }
+  };
+
+  const handleSelectKeyword = (wordText: string) => {
+    if (activeFilter?.type === 'KEYWORD' && activeFilter.value === wordText) {
+      setActiveFilter(null);
+    } else {
+      setActiveFilter({ type: 'KEYWORD', value: wordText });
+      setSearchInput('');
+    }
+  };
+
+  const handleSelectActor = (actorName: string) => {
+    if (activeFilter?.type === 'ACTOR' && activeFilter.value === actorName) {
+      setActiveFilter(null);
+    } else {
+      setActiveFilter({ type: 'ACTOR', value: actorName });
+      setSearchInput('');
+    }
   };
 
   const resetAllFilters = () => {
-    setSearch('');
+    setActiveFilter(null);
+    setSearchInput('');
     setSelectedCategory('ALL');
     setSelectedPillar('ALL');
-    setSelectedKeyword(null);
   };
 
+  // Instant client-side filtering without locking or zeroing counters
   const filteredTopics = useMemo(() => {
     if (!data?.topics) return [];
-    if (!selectedKeyword) return data.topics;
-    const kw = selectedKeyword.toLowerCase();
-    return data.topics.filter(
-      (t) =>
-        t.title.toLowerCase().includes(kw) ||
-        t.canonical_name.toLowerCase().includes(kw) ||
-        (t.top_keywords && t.top_keywords.some((k) => k.toLowerCase().includes(kw))) ||
-        (t.hashtag && t.hashtag.toLowerCase().includes(kw))
-    );
-  }, [data?.topics, selectedKeyword]);
+    let list = data.topics;
+
+    // 1. Pillar filter
+    if (selectedPillar !== 'ALL') {
+      list = list.filter((t) => t.issue_type === selectedPillar);
+    }
+
+    // 2. Single active filter (Keyword, Actor, or Search query)
+    if (activeFilter) {
+      list = list.filter((t) => matchTopic(t, activeFilter));
+    }
+
+    return list;
+  }, [data?.topics, selectedPillar, activeFilter]);
 
   const maxActorMentions = useMemo(() => {
     if (!data?.hot_actors || data.hot_actors.length === 0) return 1;
@@ -102,25 +181,32 @@ export const TrendingTopicsPage: React.FC = () => {
     <div className="space-y-5 pb-10">
       {/* ── 1. HEADER RINGKAS & PENCARIAN ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
-        <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-          Radar Isu
-        </h1>
+        <div>
+          <h1 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            Radar Isu
+          </h1>
+          <p className="text-xs text-slate-500 font-mono mt-0.5">
+            Deteksi tren percakapan strategis, tokoh prioritas, dan klasterisasi isu nasional
+          </p>
+        </div>
 
-        <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-64">
+        <form onSubmit={handleSearchSubmit} className="relative w-full sm:w-72">
           <input
             type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Cari isu atau hashtag..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Cari isu, tokoh, atau hashtag..."
             className="w-full pl-8 pr-7 py-1.5 bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono transition-colors"
           />
           <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-          {search && (
+          {searchInput && (
             <button
               type="button"
               onClick={() => {
-                setSearch('');
-                fetchTrendingData();
+                setSearchInput('');
+                if (activeFilter?.type === 'SEARCH') {
+                  setActiveFilter(null);
+                }
               }}
               className="absolute right-2 top-2 text-slate-400 hover:text-slate-200"
             >
@@ -147,7 +233,7 @@ export const TrendingTopicsPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ── 3. INLINE KPI STRIP (4 PILAR ISU) ── */}
+      {/* ── 3. INLINE KPI STRIP (4 PILAR ISU — TOTAL KESELURUHAN PERIODE) ── */}
       <div className="cyber-card rounded-xl border border-slate-200 dark:border-white/[0.06] overflow-hidden">
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-white/[0.06]">
           {/* Isu Aktual */}
@@ -249,23 +335,26 @@ export const TrendingTopicsPage: React.FC = () => {
         {/* Left: Word Cloud (6 Cols) */}
         <div className="lg:col-span-6 cyber-card rounded-xl p-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <Tag className="w-4 h-4 text-blue-500" />
                 <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono">
-                  Radar Kata Kunci Percakapan
+                  Topik & Kata Kunci Ramai
                 </h3>
               </div>
               <span className="text-[10px] font-mono text-slate-400">
                 {data?.word_cloud?.length || 0} Kata
               </span>
             </div>
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono mb-2.5">
+              Klik kata untuk menyaring isu & temuan terkait
+            </p>
 
-            {selectedKeyword && (
-              <div className="mb-2.5 px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/20 flex items-center justify-between text-xs font-mono">
-                <span className="text-blue-400">Filter: "{selectedKeyword}"</span>
+            {activeFilter?.type === 'KEYWORD' && (
+              <div className="mb-2.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-between text-xs font-mono">
+                <span className="text-blue-400">Filter Aktif: "{activeFilter.value}"</span>
                 <button
-                  onClick={() => setSelectedKeyword(null)}
+                  onClick={() => setActiveFilter(null)}
                   className="text-[10px] text-rose-400 hover:underline flex items-center gap-1"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -287,7 +376,7 @@ export const TrendingTopicsPage: React.FC = () => {
                 </div>
               ) : (
                 data.word_cloud.map((item, idx) => {
-                  const isSelected = selectedKeyword === item.text;
+                  const isSelected = activeFilter?.type === 'KEYWORD' && activeFilter.value === item.text;
                   const ratio = item.count / maxWordCount;
 
                   const fontClass =
@@ -298,16 +387,16 @@ export const TrendingTopicsPage: React.FC = () => {
                   const colorClass =
                     item.avg_urgency >= 3.8
                       ? isSelected
-                        ? 'bg-rose-500 text-white border-rose-500'
+                        ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
                         : 'bg-rose-500/10 text-rose-400 border-rose-500/20 hover:bg-rose-500/20'
                       : isSelected
-                      ? 'bg-blue-500 text-white border-blue-500'
+                      ? 'bg-blue-500 text-white border-blue-500 shadow-sm'
                       : 'bg-white dark:bg-white/[0.03] text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/[0.08] hover:border-slate-400';
 
                   return (
                     <button
                       key={idx}
-                      onClick={() => setSelectedKeyword(isSelected ? null : item.text)}
+                      onClick={() => handleSelectKeyword(item.text)}
                       className={`rounded border transition-colors inline-flex items-center gap-1 font-mono ${fontClass} ${colorClass}`}
                       title={`Frekuensi: ${item.count} | Urgensi: ${item.avg_urgency.toFixed(1)}/5`}
                     >
@@ -321,7 +410,7 @@ export const TrendingTopicsPage: React.FC = () => {
           </div>
 
           <div className="pt-2.5 mt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-400">
-            <span>Klik kata untuk memfilter isu</span>
+            <span>Klik kata untuk menyaring isu</span>
             <span>Stopwords ID & EN Filtered</span>
           </div>
         </div>
@@ -329,15 +418,31 @@ export const TrendingTopicsPage: React.FC = () => {
         {/* Right: Hot Actors (6 Cols) */}
         <div className="lg:col-span-6 cyber-card rounded-xl p-4 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-500" />
                 <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono">
-                  Tokoh & Institusi Terpantau
+                  Tokoh & Institusi Disorot
                 </h3>
               </div>
               <span className="text-[10px] font-mono text-slate-400">Top 8</span>
             </div>
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono mb-2.5">
+              Klik nama untuk melihat temuan yang menyebut tokoh/lembaga
+            </p>
+
+            {activeFilter?.type === 'ACTOR' && (
+              <div className="mb-2.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs font-mono">
+                <span className="text-emerald-400">Tokoh Aktif: "{activeFilter.value}"</span>
+                <button
+                  onClick={() => setActiveFilter(null)}
+                  className="text-[10px] text-rose-400 hover:underline flex items-center gap-1"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Batal
+                </button>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               {loading ? (
@@ -352,15 +457,26 @@ export const TrendingTopicsPage: React.FC = () => {
                 </div>
               ) : (
                 data.hot_actors.map((actor, idx) => {
+                  const isSelected = activeFilter?.type === 'ACTOR' && activeFilter.value === actor.name;
                   const percent = Math.min(100, Math.round((actor.mentions / maxActorMentions) * 100));
                   return (
                     <button
                       key={idx}
-                      onClick={() => setSearch(actor.name)}
-                      className="w-full text-left p-1.5 px-2 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] hover:border-emerald-500/40 transition-colors group"
+                      onClick={() => handleSelectActor(actor.name)}
+                      className={`w-full text-left p-1.5 px-2 rounded-lg border transition-colors group ${
+                        isSelected
+                          ? 'bg-emerald-500/10 border-emerald-500'
+                          : 'bg-slate-50 dark:bg-[#0A0D14] border-slate-200 dark:border-white/[0.06] hover:border-emerald-500/40'
+                      }`}
                     >
                       <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="font-semibold text-slate-800 dark:text-slate-200 group-hover:text-emerald-400 transition-colors line-clamp-1">
+                        <span
+                          className={`font-semibold transition-colors line-clamp-1 ${
+                            isSelected
+                              ? 'text-emerald-400'
+                              : 'text-slate-800 dark:text-slate-200 group-hover:text-emerald-400'
+                          }`}
+                        >
                           {actor.name}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0 font-mono">
@@ -386,36 +502,64 @@ export const TrendingTopicsPage: React.FC = () => {
           </div>
 
           <div className="pt-2.5 mt-2 border-t border-slate-100 dark:border-white/[0.06] flex items-center justify-between text-[10px] font-mono text-slate-400">
-            <span>Klik tokoh untuk cari postingan</span>
+            <span>Klik tokoh untuk menyaring temuan</span>
             <span>NER Regex Engine</span>
           </div>
         </div>
       </div>
 
-      {/* ── 5. DAFTAR PERINGKAT ISU (HORIZONTAL LINEAR CARDS) ── */}
+      {/* ── 5. DAFTAR ISU & TEMUAN TERKAIT ── */}
       <div className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-blue-500" />
-            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono">
-              Daftar Isu Terpantau ({filteredTopics.length})
-            </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <Layers className="w-4 h-4 text-blue-500" />
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono">
+                Daftar Isu & Temuan Terkait ({filteredTopics.length})
+              </h3>
+            </div>
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">
+              Klaster isu hasil analisis intelijen dan tautan temuan barang bukti digital
+            </p>
           </div>
-          {(selectedKeyword || selectedCategory !== 'ALL' || selectedPillar !== 'ALL' || search) && (
-            <button
-              onClick={resetAllFilters}
-              className="text-xs text-blue-500 hover:underline flex items-center gap-1 font-mono"
-            >
-              <RotateCcw className="w-3 h-3" />
-              Reset Semua Filter
-            </button>
-          )}
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {activeFilter && (
+              <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs font-mono text-blue-400">
+                <span>
+                  {activeFilter.type === 'ACTOR'
+                    ? 'Tokoh: '
+                    : activeFilter.type === 'KEYWORD'
+                    ? 'Kata: '
+                    : 'Cari: '}
+                  <strong>"{activeFilter.value}"</strong>
+                </span>
+                <button
+                  onClick={() => setActiveFilter(null)}
+                  className="text-slate-400 hover:text-rose-400 transition-colors"
+                  title="Hapus filter ini"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {(activeFilter || selectedCategory !== 'ALL' || selectedPillar !== 'ALL') && (
+              <button
+                onClick={resetAllFilters}
+                className="text-xs text-blue-500 hover:underline flex items-center gap-1 font-mono"
+              >
+                <RotateCcw className="w-3 h-3" />
+                Reset Semua Filter
+              </button>
+            )}
+          </div>
         </div>
 
         {loading ? (
           <div className="space-y-2.5">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="cyber-card p-4 rounded-xl h-20 skeleton-shimmer" />
+              <div key={i} className="cyber-card p-4 rounded-xl h-24 skeleton-shimmer" />
             ))}
           </div>
         ) : error ? (
@@ -428,7 +572,7 @@ export const TrendingTopicsPage: React.FC = () => {
             Tidak ada isu yang sesuai filter saat ini.
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {filteredTopics.map((topic, index) => {
               const displayRank = String(topic.rank ?? index + 1).padStart(2, '0');
               const isCritical = topic.issue_type === 'KRITIKAL';
@@ -437,95 +581,125 @@ export const TrendingTopicsPage: React.FC = () => {
               return (
                 <div
                   key={topic.issue_id}
-                  className="cyber-card rounded-xl p-3.5 sm:p-4 hover:border-slate-300 dark:hover:border-white/[0.12] transition-colors flex flex-col md:flex-row md:items-center justify-between gap-3"
+                  className="cyber-card rounded-xl p-3.5 sm:p-4 hover:border-slate-300 dark:hover:border-white/[0.12] transition-colors"
                 >
-                  {/* Left: Rank & Title */}
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                      #{displayRank}
-                    </span>
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    {/* Left: Rank & Title */}
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <span className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-white/[0.06] text-slate-700 dark:text-slate-300 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                        #{displayRank}
+                      </span>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                        <span
-                          className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${
-                            isCritical
-                              ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                              : isActual
-                              ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                              : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                          }`}
-                        >
-                          {topic.issue_type || 'AKTUAL'}
-                        </span>
-
-                        <span className="text-[9.5px] px-1.5 py-0.2 rounded font-mono bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.06]">
-                          {topic.category}
-                        </span>
-
-                        {topic.hashtag && (
-                          <span className="text-[10px] font-mono font-semibold text-blue-500">
-                            {topic.hashtag}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                          <span
+                            className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-bold uppercase ${
+                              isCritical
+                                ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                                : isActual
+                                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                            }`}
+                          >
+                            {topic.issue_type || 'AKTUAL'}
                           </span>
-                        )}
+
+                          <span className="text-[9.5px] px-1.5 py-0.2 rounded font-mono bg-slate-100 dark:bg-white/[0.04] text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/[0.06]">
+                            {topic.category}
+                          </span>
+
+                          {topic.hashtag && (
+                            <span className="text-[10px] font-mono font-semibold text-blue-500">
+                              {topic.hashtag}
+                            </span>
+                          )}
+                        </div>
+
+                        <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
+                          {topic.title}
+                        </h3>
+
+                        {/* Keywords Chips */}
+                        <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                          {topic.top_keywords?.slice(0, 4).map((kw, i) => (
+                            <span
+                              key={i}
+                              className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-white/[0.03] text-slate-500 dark:text-slate-400"
+                            >
+                              {kw}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right: Metrics & Link */}
+                    <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-white/[0.04]">
+                      <div className="flex items-center gap-3 font-mono text-center">
+                        <div>
+                          <div className="text-[9px] text-slate-400 uppercase">Kanal</div>
+                          <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                            {topic.platform_count || 1}/5
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-slate-400 uppercase">Temuan</div>
+                          <div className="text-xs font-semibold text-emerald-500">
+                            {topic.recent_count_24h ?? topic.content_count ?? 0}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[9px] text-slate-400 uppercase">Urgensi</div>
+                          <div className="text-xs font-semibold text-indigo-400">
+                            {(topic.avg_urgency || 2.5).toFixed(1)}/5
+                          </div>
+                        </div>
                       </div>
 
-                      <h3 className="text-xs font-semibold text-slate-800 dark:text-slate-100 truncate">
-                        {topic.title}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-center">
+                          <ScoreGauge score={topic.trending_score} size={46} />
+                          <span className="text-[8px] font-mono text-slate-400">HotScore</span>
+                        </div>
 
-                      {/* Keywords Chips */}
-                      <div className="flex items-center gap-1 mt-1.5 flex-wrap">
-                        {topic.top_keywords?.slice(0, 4).map((kw, i) => (
-                          <span
-                            key={i}
-                            className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-slate-100 dark:bg-white/[0.03] text-slate-500 dark:text-slate-400"
+                        <Link
+                          to={`/trending/${topic.issue_id}`}
+                          className="px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500 hover:text-white transition-colors text-xs font-semibold flex items-center gap-1 font-mono"
+                        >
+                          <span>Buka</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Direct Post Links (Tautan Langsung ke Temuan Barang Bukti) */}
+                  {topic.related_contents && topic.related_contents.length > 0 && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-white/[0.06]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
+                        <ExternalLink className="w-3 h-3 text-blue-400" />
+                        <span>Temuan Terkait ({topic.related_contents.length}):</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {topic.related_contents.map((rc) => (
+                          <Link
+                            key={rc.content_id}
+                            to={`/contents/${rc.content_id}`}
+                            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-100 hover:bg-blue-500/10 dark:bg-white/[0.03] dark:hover:bg-blue-500/20 border border-slate-200 dark:border-white/[0.06] hover:border-blue-500/30 text-[11px] text-slate-700 dark:text-slate-300 hover:text-blue-500 dark:hover:text-blue-400 transition-colors font-mono max-w-[280px]"
+                            title={rc.title || 'Buka rincian temuan'}
                           >
-                            {kw}
-                          </span>
+                            <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-slate-200 dark:bg-white/[0.08] text-slate-600 dark:text-slate-300 shrink-0">
+                              {rc.platform || 'web'}
+                            </span>
+                            <span className="truncate">
+                              {rc.title || `@${rc.author_username || 'anon'}`}
+                            </span>
+                            <ArrowRight className="w-2.5 h-2.5 opacity-60 shrink-0" />
+                          </Link>
                         ))}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Right: Metrics & Link */}
-                  <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-white/[0.04]">
-                    <div className="flex items-center gap-3 font-mono text-center">
-                      <div>
-                        <div className="text-[9px] text-slate-400 uppercase">Kanal</div>
-                        <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                          {topic.platform_count || 1}/5
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] text-slate-400 uppercase">Temuan</div>
-                        <div className="text-xs font-semibold text-emerald-500">
-                          {topic.recent_count_24h ?? topic.content_count ?? 0}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[9px] text-slate-400 uppercase">Urgensi</div>
-                        <div className="text-xs font-semibold text-indigo-400">
-                          {(topic.avg_urgency || 2.5).toFixed(1)}/5
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="flex flex-col items-center">
-                        <ScoreGauge score={topic.trending_score} size={46} />
-                        <span className="text-[8px] font-mono text-slate-400">HotScore</span>
-                      </div>
-
-                      <Link
-                        to={`/trending/${topic.issue_id}`}
-                        className="px-2.5 py-1.5 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500 hover:text-white transition-colors text-xs font-semibold flex items-center gap-1 font-mono"
-                      >
-                        <span>Buka</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}

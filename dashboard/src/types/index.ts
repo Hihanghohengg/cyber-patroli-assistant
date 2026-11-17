@@ -23,6 +23,14 @@ export interface CategoryStat {
   count: number;
 }
 
+export interface TopicRelatedContent {
+  content_id: string;
+  title?: string;
+  platform?: string;
+  author_username?: string;
+  urgency_score?: number;
+}
+
 export interface TrendingTopicItem {
   issue_id: string;
   title: string;
@@ -47,6 +55,7 @@ export interface TrendingTopicItem {
   issue_type_reason?: string;
   rank?: number;
   hashtag?: string;
+  related_contents?: TopicRelatedContent[];
 }
 
 export interface WordCloudItem {

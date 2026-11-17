@@ -74,8 +74,10 @@ STOPWORDS_ID_EN: Set[str] = set(INDONESIAN_STOPWORDS) | {
     "against", "this", "these", "those", "also", "you", "can", "now", "new", "more", "most",
     "other", "such", "only", "own", "same", "than", "too", "very", "will", "just", "its", "it",
     "they", "them", "what", "who", "when", "where", "why", "how", "all", "any", "both", "each",
-    "out", "some", "up", "down", "in", "on", "off", "by", "as", "at", "to", "of", "via", "says",
+    "out", "some", "up", "down", "in", "on", "off", "by", "as", "at", "to", "of", "via", "says", "say",
     "told", "reported", "arrives", "summit", "session", "statement", "may", "today", "yesterday",
+    "here", "fast", "amid", "amidst", "among", "since", "while", "one", "two", "three", "first", "last",
+    "year", "years", "month", "months", "week", "weeks", "day", "days", "time", "times", "still",
     # Indonesian Conjunctions & Noise
     "konten", "membahas", "indikator", "kait", "serta", "hingga", "sampai", "atas", "bawah", "luar",
     "lebih", "saat", "mengenai", "tentang", "yakni", "yaitu", "saja", "pun", "deh", "kok", "sih",
