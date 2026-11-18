@@ -2,12 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { ContentItem } from '../types';
-import { PlatformBadge, RiskBadge, SentimentBadge, StatusBadge } from '../components/common/Badge';
+import { PlatformBadge, RiskBadge, SentimentBadge, StatusBadge, DalkontenBadge } from '../components/common/Badge';
 import {
   Search,
   Filter,
   ArrowRight,
   AlertCircle,
+  FileDown,
+  Download,
+  Send,
+  RotateCcw,
 } from 'lucide-react';
 
 export const ContentExplorerPage: React.FC = () => {
@@ -20,8 +24,11 @@ export const ContentExplorerPage: React.FC = () => {
   const [platform, setPlatform] = useState<string>('');
   const [category, setCategory] = useState<string>('');
   const [sentiment, setSentiment] = useState<string>('');
+  const [riskLevel, setRiskLevel] = useState<string>('');
   const [status, setStatus] = useState<string>('');
+  const [dalkontenStatus, setDalkontenStatus] = useState<string>('');
   const [search, setSearch] = useState<string>('');
+  const [exporting, setExporting] = useState<boolean>(false);
 
   const fetchContents = async () => {
     try {
@@ -30,7 +37,9 @@ export const ContentExplorerPage: React.FC = () => {
       if (platform) params.platform = platform;
       if (category) params.category = category;
       if (sentiment) params.sentiment = sentiment;
+      if (riskLevel) params.risk_level = riskLevel;
       if (status) params.status = status;
+      if (dalkontenStatus) params.dalkonten_status = dalkontenStatus;
       if (search.trim()) params.search = search.trim();
 
       const data = await apiClient.contents.list(params);
@@ -44,16 +53,48 @@ export const ContentExplorerPage: React.FC = () => {
 
   useEffect(() => {
     fetchContents();
-  }, [platform, category, sentiment, status]);
+  }, [platform, category, sentiment, riskLevel, status, dalkontenStatus]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     fetchContents();
   };
 
+  const handleExportLhm = async (format: 'md' | 'pdf') => {
+    try {
+      setExporting(true);
+      await apiClient.reports.weeklyLhmExportBlob({ format });
+    } catch (err) {
+      alert('Gagal mengekspor Laporan Mingguan LHM');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportDalkonten = async (format: 'md' | 'pdf') => {
+    try {
+      setExporting(true);
+      await apiClient.reports.dalkontenPackageExportBlob(format);
+    } catch (err) {
+      alert('Gagal mengekspor Paket Dalkonten');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const resetAllFilters = () => {
+    setSearch('');
+    setPlatform('');
+    setCategory('');
+    setSentiment('');
+    setRiskLevel('');
+    setStatus('');
+    setDalkontenStatus('');
+  };
+
   return (
     <div className="space-y-4 pb-10">
-      {/* ── 1. HEADER RINGKAS ── */}
+      {/* ── 1. HEADER RINGKAS & EKSPOR LHM / DALKONTEN ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/[0.06] pb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -62,19 +103,64 @@ export const ContentExplorerPage: React.FC = () => {
             </span>
             <span className="text-[10px] text-slate-300 dark:text-slate-700 font-mono">•</span>
             <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500 uppercase">
-              RANTAI BUKTI DIGITAL
+              RANTAI BUKTI DIGITAL (NIST FIPS 198-1)
             </span>
           </div>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
             Arsip Temuan Patroli
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Daftar seluruh barang bukti digital, hasil triase, dan rekam audit berstandar NIST FIPS 198-1
+            Daftar seluruh barang bukti digital, 6 topik operasional LHM, dan alur terintegrasi Tim Dalkonten
           </p>
+        </div>
+
+        {/* Quick Export Actions */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-white/[0.08] p-0.5 bg-white dark:bg-[#0E131F]">
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={() => handleExportLhm('md')}
+              className="px-2.5 py-1 text-[11px] font-mono font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-white/[0.04] rounded transition-colors"
+              title="Unduh Rekap LHM (Markdown)"
+            >
+              Rekap LHM (.md)
+            </button>
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={() => handleExportLhm('pdf')}
+              className="px-2.5 py-1 text-[11px] font-mono font-medium text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-white/[0.04] rounded transition-colors border-l border-slate-200 dark:border-white/[0.08]"
+              title="Unduh Rekap LHM (PDF)"
+            >
+              Rekap LHM (.pdf)
+            </button>
+          </div>
+
+          <div className="inline-flex rounded-lg border border-amber-500/30 p-0.5 bg-amber-500/5">
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={() => handleExportDalkonten('md')}
+              className="px-2.5 py-1 text-[11px] font-mono font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 rounded transition-colors flex items-center gap-1"
+              title="Unduh Paket Berkas Siap Takedown Dalkonten (.md)"
+            >
+              <Send className="w-3 h-3" /> Paket Dalkonten (.md)
+            </button>
+            <button
+              type="button"
+              disabled={exporting}
+              onClick={() => handleExportDalkonten('pdf')}
+              className="px-2.5 py-1 text-[11px] font-mono font-medium text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 rounded transition-colors border-l border-amber-500/20"
+              title="Unduh Paket Berkas Siap Takedown Dalkonten (.pdf)"
+            >
+              .pdf
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* ── 2. FILTER BAR RINGKAS ── */}
+      {/* ── 2. FILTER BAR RINGKAS & DINAMIS ── */}
       <div className="cyber-card rounded-xl p-3 space-y-2 border border-slate-200 dark:border-white/[0.06]">
         <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
@@ -96,19 +182,19 @@ export const ContentExplorerPage: React.FC = () => {
           </button>
         </form>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-0.5">
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value)}
             className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
             <option value="">Semua Platform</option>
-            <option value="youtube">YouTube</option>
-            <option value="tiktok">TikTok</option>
-            <option value="instagram">Instagram</option>
             <option value="threads">Threads</option>
+            <option value="instagram">Instagram</option>
             <option value="x">X (Twitter)</option>
             <option value="facebook">Facebook</option>
+            <option value="youtube">YouTube</option>
+            <option value="tiktok">TikTok</option>
             <option value="web">Web / Media</option>
           </select>
 
@@ -117,12 +203,49 @@ export const ContentExplorerPage: React.FC = () => {
             onChange={(e) => setCategory(e.target.value)}
             className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
           >
-            <option value="">Semua Kategori</option>
-            <option value="Kejahatan Finansial">Kejahatan Finansial</option>
-            <option value="Perjudian Daring">Perjudian Daring</option>
-            <option value="Disinformasi Politik & Kebijakan Publik">Disinformasi Politik</option>
-            <option value="Hoaks Kesehatan & Pangan">Hoaks Kesehatan</option>
-            <option value="Klarifikasi & Edukasi Resmi">Klarifikasi Resmi</option>
+            <option value="">Semua Topik LHM</option>
+            <option value="Pornografi">Pornografi</option>
+            <option value="COP">COP (Eksploitasi Anak)</option>
+            <option value="Violent Extremism">Violent Extremism</option>
+            <option value="Migrant and Human Trafficking">Migrant & Trafficking</option>
+            <option value="Judi Online">Judi Online</option>
+            <option value="Narkotika">Narkotika</option>
+            <option value="Umum / Di Luar Topik">Umum / Di Luar Topik</option>
+          </select>
+
+          <select
+            value={riskLevel}
+            onChange={(e) => setRiskLevel(e.target.value)}
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+          >
+            <option value="">Semua Urgensi</option>
+            <option value="TINGGI">Tinggi (Skor 4-5)</option>
+            <option value="SEDANG">Sedang (Skor 3)</option>
+            <option value="RENDAH">Rendah (Skor 2)</option>
+            <option value="NETRAL">Netral (Skor 1)</option>
+          </select>
+
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+          >
+            <option value="">Semua Validasi</option>
+            <option value="WAITING_VALIDATION">Menunggu Validasi</option>
+            <option value="VALIDATED">Tervalidasi</option>
+            <option value="MODIFIED">Koreksi Analis</option>
+            <option value="REJECTED">Bukan Pelanggaran</option>
+          </select>
+
+          <select
+            value={dalkontenStatus}
+            onChange={(e) => setDalkontenStatus(e.target.value)}
+            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
+          >
+            <option value="">Semua Dalkonten</option>
+            <option value="BELUM DITERUSKAN">Belum Diteruskan</option>
+            <option value="SIAP DITERUSKAN KE DALKONTEN">Siap ke Dalkonten</option>
+            <option value="SUDAH DITERUSKAN">Sudah Diteruskan</option>
           </select>
 
           <select
@@ -135,18 +258,6 @@ export const ContentExplorerPage: React.FC = () => {
             <option value="NEGATIF">Negatif</option>
             <option value="NETRAL">Netral</option>
             <option value="CAMPURAN">Campuran</option>
-          </select>
-
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1 px-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
-          >
-            <option value="">Semua Status</option>
-            <option value="WAITING_VALIDATION">Menunggu Validasi</option>
-            <option value="VALIDATED">Tervalidasi</option>
-            <option value="MODIFIED">Koreksi Analis</option>
-            <option value="REJECTED">Bukan Pelanggaran</option>
           </select>
         </div>
       </div>
@@ -183,18 +294,13 @@ export const ContentExplorerPage: React.FC = () => {
                 : 'Seluruh tangkapan layar, teks ekstraksi OCR, dan segel kriptografi NIST FIPS 198-1 HMAC-SHA256 akan otomatis tersimpan rapi di sini setelah akuisisi patroli.'}
             </p>
           </div>
-          {(search || platform || category || sentiment || status) && (
+          {(search || platform || category || sentiment || riskLevel || status || dalkontenStatus) && (
             <button
               type="button"
-              onClick={() => {
-                setSearch('');
-                setPlatform('');
-                setCategory('');
-                setSentiment('');
-                setStatus('');
-              }}
+              onClick={resetAllFilters}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
             >
+              <RotateCcw className="w-3 h-3" />
               <span>Reset Seluruh Filter</span>
             </button>
           )}
@@ -207,10 +313,11 @@ export const ContentExplorerPage: React.FC = () => {
                 <tr>
                   <th className="py-2.5 px-3.5">Platform & Judul</th>
                   <th className="py-2.5 px-3.5">Akun Sumber</th>
-                  <th className="py-2.5 px-3.5">Kategori</th>
+                  <th className="py-2.5 px-3.5">Topik LHM</th>
                   <th className="py-2.5 px-3.5 text-center">Sentimen</th>
-                  <th className="py-2.5 px-3.5 text-center">Risiko</th>
-                  <th className="py-2.5 px-3.5 text-center">Status</th>
+                  <th className="py-2.5 px-3.5 text-center">Urgensi</th>
+                  <th className="py-2.5 px-3.5 text-center">Validasi</th>
+                  <th className="py-2.5 px-3.5 text-center">Dalkonten</th>
                   <th className="py-2.5 px-3.5 text-right">Aksi</th>
                 </tr>
               </thead>
@@ -247,7 +354,7 @@ export const ContentExplorerPage: React.FC = () => {
                     </td>
 
                     <td className="py-2.5 px-3.5">
-                      <div className="text-slate-700 dark:text-slate-200 font-medium">{item.category || 'Lainnya'}</div>
+                      <div className="text-slate-700 dark:text-slate-200 font-medium">{item.category || 'Umum'}</div>
                       {item.issue_title && (
                         <div className="text-[10px] text-blue-500 line-clamp-1 font-mono">
                           {item.issue_title}
@@ -265,6 +372,10 @@ export const ContentExplorerPage: React.FC = () => {
 
                     <td className="py-2.5 px-3.5 text-center">
                       <StatusBadge status={item.status} />
+                    </td>
+
+                    <td className="py-2.5 px-3.5 text-center">
+                      <DalkontenBadge status={item.dalkonten_status} />
                     </td>
 
                     <td className="py-2.5 px-3.5 text-right font-mono">

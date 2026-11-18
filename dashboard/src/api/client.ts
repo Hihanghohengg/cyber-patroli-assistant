@@ -99,6 +99,7 @@ export const apiClient = {
       sentiment?: string;
       risk_level?: string;
       status?: string;
+      dalkonten_status?: string;
       search?: string;
       skip?: number;
       limit?: number;
@@ -345,6 +346,51 @@ export const apiClient = {
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `Laporan_Harian_Patroli_${date || new Date().toISOString().slice(0, 10)}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
+    updateDalkontenStatus: async (reportId: string, status: string, operatorId?: string) => {
+      const res = await apiV1.post(`/reports/${reportId}/dalkonten-status`, {
+        status,
+        operator_id: operatorId,
+      });
+      return res.data;
+    },
+    weeklyLhmExportBlob: async (params?: { start_date?: string; end_date?: string; format?: 'md' | 'pdf' }) => {
+      const format = params?.format || 'md';
+      const res = await apiV1.get('/reports/weekly-lhm-export', {
+        params,
+        responseType: 'blob',
+      });
+      const mimeType = format === 'pdf' ? 'application/pdf' : 'text/markdown;charset=utf-8;';
+      const ext = format === 'pdf' ? 'pdf' : 'md';
+      const blob = new Blob([res.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const s = params?.start_date || '7d';
+      const e = params?.end_date || new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `Laporan_Mingguan_LHM_${s}_${e}.${ext}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    },
+    dalkontenPackageExportBlob: async (format: 'md' | 'pdf' = 'md') => {
+      const res = await apiV1.get('/reports/dalkonten-package-export', {
+        params: { format },
+        responseType: 'blob',
+      });
+      const mimeType = format === 'pdf' ? 'application/pdf' : 'text/markdown;charset=utf-8;';
+      const ext = format === 'pdf' ? 'pdf' : 'md';
+      const blob = new Blob([res.data], { type: mimeType });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      link.setAttribute('download', `Paket_Dossier_Dalkonten_${today}.${ext}`);
       document.body.appendChild(link);
       link.click();
       link.remove();

@@ -207,6 +207,7 @@ class ContentListItem(BaseModel):
     created_at: datetime
     screenshot_url: Optional[str] = None
     issue_title: Optional[str] = None
+    dalkonten_status: Optional[str] = "BELUM DITERUSKAN"
 
 
 class ContentDetailResponse(BaseModel):

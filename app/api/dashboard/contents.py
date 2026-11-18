@@ -30,6 +30,7 @@ def list_contents(
     sentiment: Optional[str] = Query(None, description="POSITIF, NEGATIF, NETRAL, CAMPURAN"),
     risk_level: Optional[str] = Query(None, description="RENDAH, SEDANG, TINGGI"),
     status: Optional[str] = Query(None, description="WAITING_VALIDATION, VALIDATED, REJECTED, etc."),
+    dalkonten_status: Optional[str] = Query(None, description="BELUM DITERUSKAN, SIAP DITERUSKAN KE DALKONTEN, SUDAH DITERUSKAN"),
     search: Optional[str] = Query(None, description="Search keyword in title, caption, or URL"),
     skip: int = Query(0, ge=0),
     limit: int = Query(25, ge=1, le=100),
@@ -61,6 +62,8 @@ def list_contents(
         if status and report and report.status != status:
             continue
         if risk_level and report and report.ai_risk_level != risk_level:
+            continue
+        if dalkonten_status and report and (report.dalkonten_status or "BELUM DITERUSKAN") != dalkonten_status:
             continue
 
         # Check ContentAnalysis
@@ -100,6 +103,7 @@ def list_contents(
                 created_at=c.created_at,
                 screenshot_url=f"/api/dashboard/contents/{c.content_id}/screenshot",
                 issue_title=issue_link[1].title if issue_link else None,
+                dalkonten_status=report.dalkonten_status if report else "BELUM DITERUSKAN",
             )
         )
 
@@ -244,6 +248,9 @@ def get_content_detail(
             "final_risk": report.final_risk,
             "correction_notes": report.correction_notes,
             "validated_at": report.validated_at.isoformat() if report.validated_at else None,
+            "dalkonten_status": report.dalkonten_status or "BELUM DITERUSKAN",
+            "dalkonten_forwarded_at": report.dalkonten_forwarded_at.isoformat() if report.dalkonten_forwarded_at else None,
+            "dalkonten_forwarded_by": report.dalkonten_forwarded_by,
         }
 
     # Extract transcript if present

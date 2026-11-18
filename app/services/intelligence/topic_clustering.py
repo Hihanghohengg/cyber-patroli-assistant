@@ -29,8 +29,8 @@ except ImportError:
     logger.warning("scikit-learn not available. Falling back to Jaccard similarity.")
 
 # Thresholds
-DEFAULT_SIMILARITY_THRESHOLD = 0.30
-HIGH_CONFIDENCE_THRESHOLD = 0.55
+DEFAULT_SIMILARITY_THRESHOLD = 0.82
+HIGH_CONFIDENCE_THRESHOLD = 0.88
 
 
 class TopicClusteringService:

@@ -173,6 +173,7 @@ export interface ContentItem {
   created_at: string;
   screenshot_url?: string;
   issue_title?: string;
+  dalkonten_status?: string;
 }
 
 export interface ContentDetail {
@@ -230,6 +231,9 @@ export interface ContentDetail {
     final_risk?: string;
     correction_notes?: string;
     validated_at?: string;
+    dalkonten_status?: string;
+    dalkonten_forwarded_at?: string;
+    dalkonten_forwarded_by?: string;
   };
   analysis_5w1h?: Analysis5W1H;
   evidences: Array<{

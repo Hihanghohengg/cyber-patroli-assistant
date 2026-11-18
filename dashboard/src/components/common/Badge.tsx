@@ -159,3 +159,29 @@ export const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     </span>
   );
 };
+
+export const DalkontenBadge: React.FC<{ status?: string | null }> = ({ status }) => {
+  const norm = (status || 'BELUM DITERUSKAN').toUpperCase();
+  if (norm === 'SUDAH DITERUSKAN') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 border font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        SUDAH DITERUSKAN
+      </span>
+    );
+  }
+  if (norm === 'SIAP DITERUSKAN KE DALKONTEN' || norm === 'SIAP DITERUSKAN') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 border font-mono">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+        SIAP KE DALKONTEN
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 border font-mono">
+      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+      BELUM DITERUSKAN
+    </span>
+  );
+};

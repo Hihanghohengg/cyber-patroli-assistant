@@ -50,6 +50,12 @@
         "*://127.0.0.1/*"
       ],
       "js": [
+        "extractors/threads.js",
+        "extractors/instagram.js",
+        "extractors/twitter_x.js",
+        "extractors/facebook.js",
+        "extractors/youtube.js",
+        "extractors/news_portal.js",
         "content.js"
       ],
       "css": [

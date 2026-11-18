@@ -971,6 +971,27 @@
       title = userSelection.length > 80 ? (userSelection.slice(0, 80) + "...") : userSelection;
     }
 
+    // ── PRIORITAS 1: MODULAR EXTRACTORS DISPATCHER (Fase 1) ──
+    const extractors = window.TilikExtractors || {};
+    let modularExtractor = null;
+    if (platform === "threads") modularExtractor = extractors.threads;
+    else if (platform === "instagram") modularExtractor = extractors.instagram;
+    else if (platform === "x") modularExtractor = extractors.x;
+    else if (platform === "facebook") modularExtractor = extractors.facebook;
+    else if (platform === "youtube") modularExtractor = extractors.youtube;
+    else if (platform === "news_web") modularExtractor = extractors.news_portal;
+
+    if (modularExtractor && typeof modularExtractor.extract === "function" && extractionMethod !== "user_highlight") {
+      try {
+        const modRes = modularExtractor.extract();
+        if (modRes && (modRes.dom_text || modRes.has_media || modRes.source_url)) {
+          return modRes;
+        }
+      } catch (modErr) {
+        console.warn("[TILIK Modular Extractor] Dispatch exception:", modErr);
+      }
+    }
+
     // ── DOMAIN-AWARE ROUTING: SOCIAL MEDIA vs NEWS / YOUTUBE ──
     const isSocialMedia = ["x", "instagram", "facebook", "threads", "tiktok"].includes(platform);
     let postContainer = null;

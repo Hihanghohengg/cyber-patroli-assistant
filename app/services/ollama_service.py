@@ -436,32 +436,30 @@ class OllamaService:
 
         stage2_system = (
             "Anda adalah Analis Senior Intelijen dan Ruang Siber (TILIK).\n"
-            "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN STRATEGIS IPOLEKSOSBUDHANKAM & SINTESIS BLUF DOSSIER INTELIJEN.\n"
+            "TUGAS TAHAP 2: KLASIFIKASI ANCAMAN OPERASIONAL LHM & SINTESIS BLUF DOSSIER INTELIJEN.\n"
             "Gunakan HANYA ringkasan dan fakta terverifikasi dari Tahap 1 berikut sebagai batasan mutlak (anti-halusinasi):\n"
             f"- Status Klaim: {claim_status}\n"
             f"- Kutipan Bukti: \"{evidence_quote}\"\n"
             f"- Tipe Konteks: {context_type}\n\n"
-            "PANDUAN RUBRIK KLASIFIKASI 8 KELAS (BATAS SALING EKSKLUSIF & TEGAS):\n"
-            "1. Ideologi: Penolakan konsensus dasar negara Pancasila, seruan mengganti sistem negara dengan khilafah/komunisme/marxisme, penolakan keabsahan UUD 1945, makar ideologis.\n"
-            "2. Politik: Pemilu/Pilkada, fitnah integritas server KPU/MK/Bawaslu, intrik perpecahan kabinet/partai politik, gratifikasi politik kekuasaan, hoaks pejabat publik.\n"
-            "3. Ekonomi: Krisis moneter perbankan, ajakan rush money bank BUMN, penipuan investasi trading ilegal/skema ponzi massal non-siber, spekulasi kelangkaan pangan pokok/sembako, inflasi komoditas.\n"
-            "4. Sosial: Kerusuhan komunal antarwarga, bentrokan pemuda/tawuran jalanan bersenjata tajam, hoaks penculikan anak, ujaran kebencian berbasis sentimen SARA horizontal.\n"
-            "5. Budaya: Klaim sepihak kepemilikan warisan budaya nusantara (reog, batik) oleh pihak luar, penodaan upacara/ritual adat sakral, perusakan situs cagar budaya candi bersejarah.\n"
-            "6. Pertahanan: Ancaman militer eksternal negara lain, pembocoran rahasia koordinat radar/alutsista tempur militer TNI, provokasi kapal perang asing melanggar batas laut/ZEE terluar.\n"
-            "7. Keamanan: Kejahatan siber (cybercrime teknis: ransomware, peretasan database/server institusi hukum/negara, kebocoran data, malware trojan APK perbankan, sniffing OTP), ancaman terorisme/peledakan bom di fasilitas publik/transportasi massa, peredaran narkotika, judi online/slot.\n"
-            "   *ATURAN WAJIB KEAMANAN:* Serangan siber/ransomware ke server kejaksaan/data center, malware APK pembobol rekening, dan ancaman bom stasiun publik WAJIB diklasifikasikan sebagai 'Keamanan' (BUKAN Pertahanan, BUKAN Ekonomi, BUKAN Sosial)!\n"
-            "8. Non-Isu: Resep makanan/kuliner, review gadget/kamera smartphone, tips hobi dan perawatan hewan piaraan, tutorial umum yang tidak memuat ancaman hukum atau ketertiban publik.\n\n"
+            "PANDUAN RUBRIK KLASIFIKASI 6 TOPIK OPERASIONAL LHM (+ 1 KELAS UMUM):\n"
+            "1. Pornografi: Konten asusila eksplisit, ketelanjangan vulgar, materi pornografi digital, video/foto seks komersial tanpa izin, perdagangan materi syur.\n"
+            "2. COP: Child Online Protection / Eksploitasi Anak (CSAM / materi pelecehan seksual anak di bawah umur, pedofilia, predator anak daring, grooming anak, kekerasan fisik/seksual terhadap anak).\n"
+            "3. Violent Extremism: Ekstremisme & Terorisme Kekerasan (propaganda kelompok teror bersenjata, ajakan jihadis radikal kekerasan, ancaman peledakan bom, tutorial pembuatan bahan peledak/senjata api rakitan, seruan makar bersenjata).\n"
+            "4. Migrant and Human Trafficking: TPPO / Perdagangan Orang (rekrutmen scamming online/judi kamboja-myanmar berselubung lowongan kerja luar negeri, perdagangan organ/ginjal, penyelundupan manusia/pekerja migran ilegal via jalur tikus).\n"
+            "5. Judi Online: Perjudian Daring / Slot (tautan situs slot gacor, promosi live streaming judi online, bandar togel/kasino digital, kode referral deposit judi, endorsement akun influencer untuk judi).\n"
+            "6. Narkotika: Peredaran Narkoba & Obat Terlarang (penawaran/transaksi sabu, ganja, tembakau sintetis, pil ekstasi, obat penenang tramadol/hexymer ilegal via media sosial atau kurir ekspedisi).\n"
+            "7. Umum / Di Luar Topik: Diskusi politik umum, isu ekonomi, kritik sosial wajar, kebudayaan, informasi umum, berita non-kriminal, tips teknologi, resep kuliner, atau konten tanpa indikasi 6 kejahatan siber LHM di atas.\n\n"
             "PROSEDUR CHAIN-OF-THOUGHT & FORMAT BLUF (BOTTOM LINE UP FRONT):\n"
             "1. Wajib isi 'analisis_indikator' dan 'eliminasi_kategori' TERLEBIH DAHULU sebelum menetapkan 'predicted_category'.\n"
             "2. Pada 'eliminasi_kategori', telaah mengapa kategori yang bersinggungan gugur dan mengapa kategori terpilih paling tepat.\n"
-            "3. 'predicted_category' WAJIB dipilih persis satu dari: Ideologi, Politik, Ekonomi, Sosial, Budaya, Pertahanan, Keamanan, Non-Isu.\n"
-            "4. 'urgency_score': 1 (sangat rendah/non-isu), 2 (rendah), 3 (sedang/pantau), 4 (tinggi/eskalasi), 5 (kritis/darurat).\n"
+            "3. 'predicted_category' WAJIB dipilih persis satu dari: Pornografi, COP, Violent Extremism, Migrant and Human Trafficking, Judi Online, Narkotika, Umum / Di Luar Topik.\n"
+            "4. 'urgency_score': 1 (Netral - tidak ada ancaman/edukasi), 2 (Rendah - indikasi pasif/diskusi), 3 (Sedang - promosi terselubung/keresahan publik), 4-5 (Tinggi - bukti materiil eksplisit/transaksi aktif/teror nyata).\n"
             "5. 'bluf_dossier' WAJIB memuat 5 pilar taktis intelijen:\n"
             "   - 'intisari_bluf': Kesimpulan eksekutif 2-3 kalimat langsung pada pokok persoalan, aktor kunci, dan signifikansi ancaman.\n"
             "   - 'fakta_vs_klaim': Pemisahan tegas Fakta Teramati pada bukti dengan Klaim / Narasi Sepihak.\n"
-            "   - 'analisis_dampak': Evaluasi potensi eskalasi stabilitas IPOLEKSOSBUDHANKAM dan justifikasi skor urgensi.\n"
+            "   - 'analisis_dampak': Evaluasi potensi eskalasi stabilitas dan justifikasi skor urgensi.\n"
             "   - 'aktor_dan_modus': Identitas aktor/pengunggah, kanal penyebaran, dan modus operandi narasi.\n"
-            "   - 'rekomendasi_tindak_lanjut': Langkah operasional konkret tim patroli siber/satuan tugas.\n"
+            "   - 'rekomendasi_tindak_lanjut': Langkah operasional konkret tim patroli siber / satuan tugas (misal: rekomendasi takedown Dalkonten, pelaporan aparat penegak hukum).\n"
             "6. 'summary_5w1h': who, what, when, where, why, how (disintesis selaras untuk kompatibilitas sistem).\n"
             "7. 'ai_reasoning': Narasi 3 bagian berlabel (Fakta vs Dugaan Tertulis, Penalaran Kausal, Rekomendasi Verifikasi & Tindak Lanjut)."
         )
@@ -483,7 +481,15 @@ class OllamaService:
                 "eliminasi_kategori": {"type": "string"},
                 "predicted_category": {
                     "type": "string",
-                    "enum": ["Ideologi", "Politik", "Ekonomi", "Sosial", "Budaya", "Pertahanan", "Keamanan", "Non-Isu"]
+                    "enum": [
+                        "Pornografi",
+                        "COP",
+                        "Violent Extremism",
+                        "Migrant and Human Trafficking",
+                        "Judi Online",
+                        "Narkotika",
+                        "Umum / Di Luar Topik",
+                    ]
                 },
                 "urgency_score": {"type": "integer"},
                 "bluf_dossier": {
@@ -620,26 +626,45 @@ class OllamaService:
                 few_shot_block=few_shot_block if mode == "adaptive" else "",
             )
 
-            # Sanitize category against IPOLEKSOSBUDHANKAM taxonomy (with cross-lingual mapping)
-            cat = str(stage2_res.get("predicted_category", "Non-Isu")).strip()
+            # Sanitize category against 6 LHM operational topics (+ 1 fallback class)
+            cat = str(stage2_res.get("predicted_category", "Umum / Di Luar Topik")).strip()
             category_mapping = {
-                "politik": "Politik", "politics": "Politik", "political": "Politik",
-                "keamanan": "Keamanan", "security": "Keamanan", "cybercrime": "Keamanan", "wiretapping": "Keamanan", "law": "Keamanan",
-                "ekonomi": "Ekonomi", "economy": "Ekonomi", "economic": "Ekonomi",
-                "sosial": "Sosial", "social": "Sosial",
-                "budaya": "Budaya", "culture": "Budaya", "cultural": "Budaya",
-                "pertahanan": "Pertahanan", "defense": "Pertahanan", "defence": "Pertahanan", "military": "Pertahanan",
-                "ideologi": "Ideologi", "ideology": "Ideologi",
-                "non-isu": "Non-Isu", "non-issue": "Non-Isu", "neutral": "Non-Isu",
+                # 1. Pornografi
+                "pornografi": "Pornografi", "pornography": "Pornografi", "porno": "Pornografi", "porn": "Pornografi",
+                "dewasa": "Pornografi", "adult": "Pornografi", "vulgar": "Pornografi", "asusila": "Pornografi",
+                # 2. COP (Child Online Protection)
+                "cop": "COP", "child online protection": "COP", "child exploitation": "COP", "eksploitasi anak": "COP",
+                "pedofil": "COP", "pedofilia": "COP", "pedophile": "COP", "csam": "COP", "kekerasan anak": "COP",
+                # 3. Violent Extremism
+                "violent extremism": "Violent Extremism", "extremism": "Violent Extremism", "ekstremisme": "Violent Extremism",
+                "terorisme": "Violent Extremism", "teror": "Violent Extremism", "terrorism": "Violent Extremism",
+                "radikalisme": "Violent Extremism", "bom": "Violent Extremism", "isis": "Violent Extremism",
+                # 4. Migrant and Human Trafficking
+                "migrant and human trafficking": "Migrant and Human Trafficking", "human trafficking": "Migrant and Human Trafficking",
+                "trafficking": "Migrant and Human Trafficking", "tppo": "Migrant and Human Trafficking",
+                "perdagangan orang": "Migrant and Human Trafficking", "penyelundupan manusia": "Migrant and Human Trafficking",
+                "pekerja migran ilegal": "Migrant and Human Trafficking",
+                # 5. Judi Online
+                "judi online": "Judi Online", "judi": "Judi Online", "judol": "Judi Online", "gambling": "Judi Online",
+                "slot": "Judi Online", "slot gacor": "Judi Online", "taruhan": "Judi Online", "betting": "Judi Online", "casino": "Judi Online",
+                # 6. Narkotika
+                "narkotika": "Narkotika", "narkoba": "Narkotika", "narcotics": "Narkotika", "drugs": "Narkotika",
+                "sabu": "Narkotika", "ganja": "Narkotika", "ekstasi": "Narkotika", "obat terlarang": "Narkotika", "tramadol": "Narkotika",
+                # 7. Umum / Di Luar Topik
+                "umum / di luar topik": "Umum / Di Luar Topik", "umum": "Umum / Di Luar Topik", "di luar topik": "Umum / Di Luar Topik",
+                "non-isu": "Umum / Di Luar Topik", "non-issue": "Umum / Di Luar Topik", "neutral": "Umum / Di Luar Topik",
+                "politik": "Umum / Di Luar Topik", "keamanan": "Umum / Di Luar Topik", "ekonomi": "Umum / Di Luar Topik",
+                "sosial": "Umum / Di Luar Topik", "budaya": "Umum / Di Luar Topik", "pertahanan": "Umum / Di Luar Topik",
+                "ideologi": "Umum / Di Luar Topik",
             }
-            matched_cat = "Non-Isu"
+            matched_cat = "Umum / Di Luar Topik"
             cat_lower = cat.lower()
             for eng_k, id_v in category_mapping.items():
                 if eng_k in cat_lower:
                     matched_cat = id_v
                     break
 
-            # Urgency score clamping: 1..5
+            # Urgency score clamping: 1..5 & Sumbu 2 mapping (Netral: 1, Rendah: 2, Sedang: 3, Tinggi: 4-5)
             urgency_raw = stage2_res.get("urgency_score", 2)
             try:
                 u_val = float(urgency_raw)
@@ -648,6 +673,8 @@ class OllamaService:
                 urgency = max(1, min(5, int(round(u_val))))
             except Exception:
                 urgency = 2
+
+            urgency_level = "Tinggi" if urgency >= 4 else ("Sedang" if urgency == 3 else ("Rendah" if urgency == 2 else "Netral"))
 
             exec_summary = deduplicate_sentences(stage1_res.get("ringkasan_eksekutif") or "").strip()
             summary_5w1h = stage2_res.get("summary_5w1h") or {}
@@ -717,6 +744,7 @@ class OllamaService:
                 "summary": exec_summary,
                 "predicted_category": matched_cat,
                 "urgency_score": urgency,
+                "urgency_level": urgency_level,
                 "ai_reasoning": reasoning_val,
                 "tipe_konteks": stage1_res.get("tipe_konteks", "Publikasi Digital"),
                 "ekstraksi_awal_tengah_akhir": stage1_res.get("ekstraksi_awal_tengah_akhir", []),
@@ -836,7 +864,15 @@ class OllamaService:
                 "ai_reasoning": {"type": "string"},
                 "predicted_category": {
                     "type": "string",
-                    "enum": ["Ideologi", "Politik", "Ekonomi", "Sosial", "Budaya", "Pertahanan", "Keamanan", "Non-Isu"]
+                    "enum": [
+                        "Pornografi",
+                        "COP",
+                        "Violent Extremism",
+                        "Migrant and Human Trafficking",
+                        "Judi Online",
+                        "Narkotika",
+                        "Umum / Di Luar Topik",
+                    ]
                 },
                 "urgency_score": {"type": "integer"}
             },
@@ -986,107 +1022,86 @@ class OllamaService:
 
         combined = f"{title or ''} {clean_text}".lower()
 
-        # 1. Taksonomi IPOLEKSOSBUDHANKAM Presisi dengan Word Boundary (\b)
+        # 1. Taksonomi 6 Topik Operasional LHM (+ 1 Kelas Fallback Umum)
         keywords_map = {
-            "Ideologi": [
-                "pancasila", "komunisme", "marxisme", "leninisme", "pki", "khilafah",
-                "separatis", "separatisme", "makar", "radikalisme", "anti pancasila",
-                "terorisme ideologis", "khilafatul", "marxist-leninist", "comrades", "bourgeois", "caliphate"
+            "Pornografi": [
+                "pornografi", "porn", "porno", "video syur", "bokep", "adegan ranjang", "tanpa busana",
+                "open bo", "vcs", "asusila", "link pemersatu", "doodstream", "terabox", "onlyfans",
+                "konten vulgar", "foto syur", "skandal video", "adegan seks", "eksplisit dewasa"
             ],
-            "Politik": [
-                "presiden", "wapres", "gibran", "prabowo", "ganjar", "ganjar pranowo", "menteri", "dpr", "mpr",
-                "kpu", "bawaslu", "pemilu", "pilkada", "partai", "koalisi", "kabinet",
-                "reshuffle", "oposisi", "kebijakan pemerintah", "ruu", "perppu",
-                "pemakzulan", "mundur dari jabatan", "resignation letter", "senayan",
-                "phantom voters", "voter registry", "steal the election", "electoral commission",
-                "bencana nasional", "refocusing anggaran", "darurat bencana", "kebijakan publik",
-                "pejabat terkait", "pemerintah pusat", "pemerintah daerah", "karhutla", "kabut asap"
+            "COP": [
+                "csam", "pedofil", "pedofilia", "child abuse", "eksploitasi anak", "pelecehan anak",
+                "predator anak", "kekerasan seksual anak", "konten pornografi anak", "balita dianiaya",
+                "anak di bawah umur", "pencabulan anak", "grooming", "perkosaan anak"
             ],
-            "Ekonomi": [
-                "inflasi", "rupiah", "suku bunga", "bunga bank", "ihsg", "pasar modal",
-                "phk masal", "bansos", "pajak penghasilan", "utang negara", "apbn",
-                "defisit anggaran", "daya beli", "kemiskinan", "krisis moneter", "bea cukai",
-                "kelangkaan bbm", "subsidi tepat", "sembako mahal", "bank run", "liquidity crisis",
-                "uang palsu", "investasi bodong", "skema ponzi", "penimbunan beras", "refocusing anggaran"
+            "Violent Extremism": [
+                "terorisme", "teror bom", "bom bunuh diri", "radikalisme", "isis", "jamaah islamiyah",
+                "khilafatul", "jihadis", "serangan bersenjata", "makar bersenjata", "kombatan",
+                "ekstremis", "alat peledak", "senjata rakitan", "bom molotov", "provokasi teror"
             ],
-            "Sosial": [
-                "sara", "konflik suku", "penistaan agama", "tawuran warga", "kerusuhan massal",
-                "ujaran kebencian", "provokasi massa", "hoaks sara", "diskriminasi",
-                "persekusi", "bentrokan ormas", "kriminalitas jalanan", "ethnic boycott",
-                "mob gathering", "serbu kampung", "molotov", "expulsion",
-                "karhutla", "kabut asap", "kebakaran hutan", "bencana alam", "bencana nasional",
-                "darurat bencana", "krisis kemanusiaan", "pengungsi", "terdampak bencana"
+            "Migrant and Human Trafficking": [
+                "tppo", "perdagangan orang", "trafficking", "scamming kamboja", "scamming myanmar",
+                "pekerja migran ilegal", "penyelundupan manusia", "penjualan organ", "jual ginjal",
+                "pemberangkatan nonprosedural", "disandera di kamboja", "disiksa di myanmar",
+                "lowongan kerja palsu luar negeri", "sindikat tppo", "calo pmi"
             ],
-            "Budaya": [
-                "adat istiadat", "kebudayaan daerah", "tradisi leluhur", "cagar budaya",
-                "moral bangsa", "etika budaya", "warisan budaya", "budayawan",
-                "degradasi moral", "pelecehan adat", "vandalisme", "candi", "kemusyrikan",
-                "berhala", "patung batu", "unesco", "sedekah bumi"
+            "Judi Online": [
+                "judi online", "judol", "slot gacor", "maxwin", "pragmatic play", "zeus slot",
+                "bandar slot", "kasino online", "togel online", "taruhan bola online", "deposit pulsa tanpa potongan",
+                "link gacor", "situs judi", "bonus new member", "freebet", "turnover judi"
             ],
-            "Pertahanan": [
-                "tni", "militer ri", "alutsista", "kedaulatan ri", "laut natuna",
-                "perbatasan negara", "ancaman perang", "invasi militer", "kapal perang",
-                "pesawat tempur", "pertahanan siber militer", "panglima tni", "surveillance aircraft",
-                "sovereign airspace", "airspace", "blueprint koordinat", "pangkalan tni", "kapal selam"
+            "Narkotika": [
+                "narkoba", "narkotika", "sabu", "ganja", "tembakau sintetis", "sinte", "pil ekstasi",
+                "inex", "tramadol", "hexymer", "obat keras", "pengedar narkoba", "kurir sabu",
+                "bandar narkoba", "paket ganja", "shabu-shabu", "psikotropika"
             ],
-            "Keamanan": [
-                "polri", "kapolri", "bareskrim", "polda", "kejahatan siber", "judi online",
-                "judol", "phishing", "narkoba", "pengedar narkotika", "pembunuhan",
-                "teror bom", "begal", "pencucian uang", "kpk", "korupsi", "tangkap tangan",
-                "tersangka", "tindak pidana", "ilegal akses", "illegal access", "ancaman bom",
-                "c-4", "hacked database", "breach forums", "biometric records", "senjata api", "dark web"
-            ],
-            "Non-Isu": [
-                "beasiswa", "erasmus", "emjm", "kuliah", "kampus", "mahasiswa", "pelajar",
-                "sekolah", "pendidikan", "workshop", "webinar", "seminar", "lomba",
-                "komunitas", "gdgoc", "developer", "rekrutmen", "lowongan kerja", "magang",
-                "karir", "alumni", "tutorial", "tips teknologi", "musik", "konser",
-                "film", "olahraga", "sepakbola", "wisata", "kuliner", "inovasi mahasiswa",
-                "core team", "organisasi kampus", "rendang", "resep", "python", "raja ampat",
-                "manta rays", "olahraga kardio", "kesehatan jantung", "gula darah"
+            "Umum / Di Luar Topik": [
+                "presiden", "wapres", "menteri", "dpr", "mpr", "kpu", "bawaslu", "pemilu", "pilkada",
+                "partai", "kabinet", "inflasi", "rupiah", "apbn", "beasiswa", "erasmus", "kuliah",
+                "kampus", "mahasiswa", "workshop", "seminar", "teknologi", "tutorial", "kuliner",
+                "resep", "wisata", "sepakbola", "olahraga", "kesehatan", "tips"
             ],
         }
 
         # Kata kunci pembobot severity tinggi (menaikkan urgency)
         severity_keywords = {
-            5: ["makar", "teror bom", "separatisme", "khilafah", "invasi militer", "ancaman perang"],
-            4: ["tersangka", "tindak pidana", "korupsi", "narkoba", "pembunuhan", "pencucian uang",
-                "tangkap tangan", "ilegal akses", "illegal access", "kejahatan siber", "pengedar narkotika"],
-            3: ["judi online", "judol", "phishing", "begal", "ujaran kebencian", "provokasi massa",
-                "hoaks sara", "diskriminasi", "persekusi", "bencana nasional", "darurat bencana", "karhutla", "kabut asap"],
+            5: ["teror bom", "bom bunuh diri", "csam", "perdagangan organ", "jual ginjal", "makar bersenjata", "isis"],
+            4: ["bandar narkoba", "kurir sabu", "sabu", "eksploitasi anak", "pedofil", "scamming kamboja", "tppo",
+                "slot gacor", "maxwin", "video syur", "bokep", "open bo", "judi online", "judol"],
+            3: ["tramadol", "obat keras", "pekerja migran ilegal", "lowongan kerja palsu luar negeri",
+                "tautan slot", "deposit pulsa", "link gacor", "konten vulgar"],
         }
 
         cat_scores = {cat: 0 for cat in keywords_map}
         matched_keywords = {cat: [] for cat in keywords_map}
 
-        # 1. Periksa isu strategis nasional terlebih dahulu (IPOLEKSOSBUDHANKAM)
+        # 1. Periksa 6 topik prioritas kejahatan siber LHM terlebih dahulu
         for cat, kws in keywords_map.items():
-            if cat == "Non-Isu":
+            if cat == "Umum / Di Luar Topik":
                 continue
             for kw in kws:
                 if re.search(r"\b" + re.escape(kw) + r"\b", combined, re.IGNORECASE):
                     cat_scores[cat] += 3
                     matched_keywords[cat].append(kw)
 
-        # 2. Periksa kata kunci non-isu (edukatif/hiburan)
-        has_national_issues = any(cat_scores[c] >= 3 for c in cat_scores if c != "Non-Isu")
-        for kw in keywords_map["Non-Isu"]:
+        # 2. Periksa kata kunci umum / di luar topik
+        has_lhm_issues = any(cat_scores[c] >= 3 for c in cat_scores if c != "Umum / Di Luar Topik")
+        for kw in keywords_map["Umum / Di Luar Topik"]:
             if re.search(r"\b" + re.escape(kw) + r"\b", combined, re.IGNORECASE):
-                # Jika sudah terindikasi isu strategis nasional (politik/bencana/keamanan), jangan biarkan non-isu menenggelamkan
-                score_weight = 1 if has_national_issues else 3
-                cat_scores["Non-Isu"] += score_weight
-                matched_keywords["Non-Isu"].append(kw)
+                score_weight = 1 if has_lhm_issues else 3
+                cat_scores["Umum / Di Luar Topik"] += score_weight
+                matched_keywords["Umum / Di Luar Topik"].append(kw)
 
         best_cat = max(cat_scores, key=cat_scores.get)
         if cat_scores[best_cat] == 0:
-            best_cat = "Non-Isu"
+            best_cat = "Umum / Di Luar Topik"
 
-        # Tentukan urgensi KONTEKSTUAL berdasarkan severity keywords
-        if best_cat == "Non-Isu":
+        # Tentukan urgensi KONTEKSTUAL berdasarkan severity keywords & Sumbu 2
+        if best_cat == "Umum / Di Luar Topik":
             urgency_score = 1
-        elif best_cat in ["Pertahanan", "Ideologi"]:
+        elif best_cat in ["COP", "Violent Extremism"]:
             urgency_score = 4
-        elif best_cat in ["Politik", "Keamanan", "Sosial"]:
+        elif best_cat in ["Judi Online", "Narkotika", "Migrant and Human Trafficking", "Pornografi"]:
             urgency_score = 3
         else:
             urgency_score = 2
@@ -1271,32 +1286,33 @@ class OllamaService:
             tipe_konteks = "Laporan Jurnalistik Media Massa"
 
         # ── 5. REASONING ANALITIS TIGA BAGIAN BAKU ──
-        if best_cat == "Non-Isu":
+        urgency_level_str = "Tinggi" if urgency_score >= 4 else ("Sedang" if urgency_score == 3 else ("Rendah" if urgency_score == 2 else "Netral"))
+        if best_cat == "Umum / Di Luar Topik":
             fakta_dugaan = (
-                f"Konten teridentifikasi sebagai informasi edukatif, tutorial, atau berita umum yang bersifat netral "
-                f"dengan status klaim {status_klaim}. Tidak ditemukan unsur disinformasi, provokasi politik, maupun ancaman keamanan siber."
+                f"Konten teridentifikasi sebagai informasi umum, edukatif, opini wajar, atau tutorial yang bersifat netral "
+                f"dengan status klaim {status_klaim}. Tidak ditemukan indikasi 6 topik pelanggaran prioritas LHM."
             )
             penalaran_kausal = (
-                f"Karena narasi berfokus pada kegiatan positif/edukatif ({', '.join(matched_keywords.get('Non-Isu', ['konten umum'])[:3])}), "
-                f"maka tingkat kerawanan dinilai sangat rendah (Urgensi: 1/5) dan tidak berpotensi menimbulkan eskalasi publik."
+                f"Karena narasi berfokus pada konten umum non-prioritas LHM ({', '.join(matched_keywords.get('Umum / Di Luar Topik', ['konten umum'])[:3])}), "
+                f"maka tingkat urgensi operasional dinilai {urgency_level_str} (Skor: {urgency_score}/5) dan tidak memerlukan tindakan represif siber."
             )
-            rekomendasi_tindak = "Pengawasan rutin berkala sesuai SOP intelijen dan arsip dokumentasi digital."
+            rekomendasi_tindak = "Pengawasan rutin berkala sesuai SOP dan arsip dokumentasi intelijen."
         else:
             aktor_str = f" melibatkan {extracted_persons[0]}" if extracted_persons else ""
             isu_str = f" terkait {', '.join(extracted_issues[:2])}" if extracted_issues else ""
             fakta_dugaan = (
-                f"Narasi membahas isu strategis pada ranah {best_cat}{aktor_str}{isu_str} dengan status klaim '{status_klaim}'. "
+                f"Narasi membahas temuan operasional ranah {best_cat}{aktor_str}{isu_str} dengan status klaim '{status_klaim}'. "
                 f"Kutipan bukti rujukan: \"{kutipan_bukti}\"."
             )
             penalaran_kausal = (
-                f"Karena teridentifikasi indikator ancaman ranah {best_cat} dengan tingkat urgensi {urgency_score}/5, "
-                f"maka potensi perbincangan publik dapat memicu eskalasi persepsi atau kerawanan sosial jika tidak segera diklarifikasi atau ditangani."
+                f"Karena teridentifikasi indikator pelanggaran prioritas LHM ranah {best_cat} dengan tingkat urgensi {urgency_level_str} ({urgency_score}/5), "
+                f"maka potensi perbincangan publik dan dampak korban memerlukan penanganan serta verifikasi rantai bukti digital."
             )
             rekomendasi_tindak = (
-                "Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. "
+                "Lakukan penandaan siap diteruskan ke Tim Dalkonten untuk proses pemblokiran/takedown. "
                 "Pantau perkembangan isu secara intensif serta amankan segel rantai bukti digital (Chain of Custody) NIST FIPS 198-1."
                 if urgency_score >= 4 else
-                "Pantau perkembangan isu secara berkala, lakukan verifikasi silang terhadap fakta primer, dan siapkan laporan berkala jika terdapat eskalasi."
+                "Pantau perkembangan isu secara berkala, verifikasi fakta primer, dan siapkan berkas penerusan jika terjadi eskalasi."
             )
 
         reasoning_text = (
@@ -1306,20 +1322,20 @@ class OllamaService:
         )
 
         # ── 6. INDIKASI PELANGGARAN (Kontekstual) ──
-        if best_cat == "Non-Isu":
-            indikasi = "Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum."
+        if best_cat == "Umum / Di Luar Topik":
+            indikasi = "Tidak ditemukan indikasi pelanggaran prioritas LHM; narasi bersifat umum, edukatif, atau opini biasa."
         elif detected_severe_kws:
-            indikasi = f"Terdeteksi indikator: {', '.join(detected_severe_kws[:4])}. Tingkat urgensi {urgency_score}/5."
+            indikasi = f"Terdeteksi indikator: {', '.join(detected_severe_kws[:4])}. Tingkat urgensi {urgency_level_str} ({urgency_score}/5)."
         elif matched_keywords.get(best_cat):
-            indikasi = f"Indikasi isu {best_cat} berdasarkan kata kunci: {', '.join(matched_keywords[best_cat][:3])}. Tingkat urgensi {urgency_score}/5."
+            indikasi = f"Indikasi isu {best_cat} berdasarkan kata kunci: {', '.join(matched_keywords[best_cat][:3])}. Tingkat urgensi {urgency_level_str} ({urgency_score}/5)."
         else:
-            indikasi = f"Indikasi isu {best_cat} dengan tingkat urgensi {urgency_score}/5."
+            indikasi = f"Indikasi isu {best_cat} dengan tingkat urgensi {urgency_level_str} ({urgency_score}/5)."
 
         # ── 7. REKOMENDASI TINDAK LANJUT (Sesuai severity) ──
-        if best_cat == "Non-Isu":
-            rekomendasi = "Pengawasan berkala sesuai SOP (arsip konten edukatif/positif)."
+        if best_cat == "Umum / Di Luar Topik":
+            rekomendasi = "Pengawasan berkala sesuai SOP (arsip konten umum)."
         elif urgency_score >= 4:
-            rekomendasi = "Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. Monitoring intensif dan dokumentasi bukti digital."
+            rekomendasi = "Tandai siap diteruskan ke Tim Dalkonten untuk takedown. Monitoring intensif dan amankan rantai bukti."
         elif urgency_score == 3:
             rekomendasi = "Pantau perkembangan isu secara berkala. Siapkan laporan situasi jika terdapat eskalasi."
         else:
@@ -1361,6 +1377,7 @@ class OllamaService:
             "summary": summary_clean,
             "predicted_category": best_cat,
             "urgency_score": urgency_score,
+            "urgency_level": urgency_level_str,
             "ai_reasoning": reasoning_text,
             "tipe_konteks": tipe_konteks,
             "ekstraksi_awal_tengah_akhir": selected_sentences,

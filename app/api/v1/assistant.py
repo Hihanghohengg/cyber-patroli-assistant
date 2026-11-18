@@ -33,6 +33,7 @@ from app.services.ocr_service import OCRService
 from app.services.memory_service import MemoryService
 from app.services.ollama_service import OllamaService
 from app.services.intelligence.hitl_harness import HITLHarnessService
+from app.services.extractors import ExtractorRegistry, ExtractedPost
 
 logger = logging.getLogger(__name__)
 
@@ -480,21 +481,16 @@ def _detect_author_username(url: str, username_param: Optional[str] = None, capt
 @router.post("/analyze")
 async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Accept patrol intake from any client channel (Browser Extension, WhatsApp, Web, etc.)."""
-    # 0. Pembersihan URL Pelacak & Ekstraksi Identitas Kanonik
-    clean_url = _clean_url_tracking(payload.url)
-    try:
-        platform_key, canonical_post_id = _extract_post_identity(clean_url)
-        platform = platform_key if platform_key != "twitter" else "x"
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Platform tidak didukung atau URL tidak valid: {str(e)}")
-
-    # Penjagaan mutlak Threads: Samakan platform dengan IG/FB/X jika petunjuk atau domain terdeteksi
-    if getattr(payload, "platform_hint", None) == "threads" or any(d in clean_url.lower() for d in ["threads.net", "threads.com"]):
-        platform = "threads"
-        if not canonical_post_id:
-            th_post_m = re.search(r"/(?:post|t)/([A-Za-z0-9_-]+)", clean_url)
-            if th_post_m:
-                canonical_post_id = th_post_m.group(1)
+    # 0. Pembersihan URL Pelacak & Ekstraksi Identitas Kanonik via Modular ExtractorRegistry
+    payload_dict = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    extracted_post: ExtractedPost = ExtractorRegistry.resolve(
+        raw_url=payload.url,
+        platform_hint=payload.platform_hint,
+        payload_data=payload_dict,
+    )
+    clean_url = extracted_post.canonical_url
+    platform = extracted_post.platform
+    canonical_post_id = extracted_post.post_id
 
     ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     active_operator_id = (payload.operator_id or payload.reporter_identifier or "OP-01").strip()
@@ -672,7 +668,11 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     # otomatis lengkapi menggunakan backend scraper engine (yt-dlp, Playwright)
     try:
         scraper = None
-        if platform == "youtube":
+        if not extracted_post.should_crawl_server:
+            # Platform seperti Threads, Instagram, X, Facebook, atau web dengan konten DOM klien lengkap dibypass
+            logger.info(f"Extractor {platform} menetapkan should_crawl_server=False. Melewati server-side Playwright crawl.")
+            crawl_res = None
+        elif platform == "youtube":
             from app.services.scraper.youtube import YouTubeScraper
             scraper = YouTubeScraper(storage_dir=settings.EVIDENCE_DIR)
         elif platform == "instagram":
@@ -682,24 +682,12 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             from app.services.scraper.tiktok import TikTokScraper
             scraper = TikTokScraper(storage_dir=settings.EVIDENCE_DIR)
         elif platform == "web":
-            # Direct Link Triage untuk Media Nasional & Web Terbuka
-            # Pastikan domain Threads TIDAK PERNAH masuk ke server-side crawler Playwright
-            if any(d in clean_url.lower() for d in ["threads.net", "threads.com"]):
+            from app.services.crawler_service import CrawlerService
+            try:
+                crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
+            except Exception as crawl_err:
+                logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
                 crawl_res = None
-            else:
-                # Optimalisasi: Jika dikirim dari Browser Extension dan teks/screenshot sudah diekstrak dari DOM klien,
-                # lewati crawl Playwright server-side agar triase instan (mencegah timeout 60s)
-                has_client_content = bool(payload.caption and len(payload.caption.strip()) >= 30)
-                if payload.source_channel == "BROWSER_EXTENSION" and (has_client_content or payload.screenshot_base64):
-                    logger.info(f"Browser Extension telah mengekstrak konten web ({len(payload.caption or '')} karakter) & screenshot. Melewati server-side Playwright crawl.")
-                    crawl_res = None
-                else:
-                    from app.services.crawler_service import CrawlerService
-                    try:
-                        crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
-                    except Exception as crawl_err:
-                        logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
-                        crawl_res = None
 
             if crawl_res:
                 cr_title = crawl_res.get("title")
@@ -1050,7 +1038,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         db.flush()
 
         # Konsolidasi Hasil AI: 100% Ollama Local Engine
-        pred_cat = ollama_res.get("predicted_category") or "Non-Isu"
+        pred_cat = ollama_res.get("predicted_category") or "Umum / Di Luar Topik"
         urgency_val = ollama_res.get("urgency_score", 2)
         summary_text = (
             ollama_res.get("ringkasan_eksekutif")
@@ -1060,7 +1048,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         w5h1_dict = ollama_res.get("summary_5w1h", {})
 
         # Status keamanan dan risiko yang realistis sesuai kategori + urgensi
-        if pred_cat == "Non-Isu":
+        if pred_cat in ("Non-Isu", "Umum / Di Luar Topik"):
             calc_ai_status = "AMAN"
             calc_risk_level = "RENDAH"
             urgency_val = min(urgency_val, 2)
@@ -1101,12 +1089,12 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             "aktor_dan_modus": bluf_dossier.get("aktor_dan_modus", ""),
             "indikasi_pelanggaran": (
                 ollama_indikasi
-                or ("Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum." if pred_cat == "Non-Isu" else (f"Indikasi isu {pred_cat} dengan tingkat urgensi {urgency_val}/5." if urgency_val >= 3 else ""))
+                or ("Tidak ditemukan indikasi pelanggaran; narasi bersifat positif, edukatif, atau informasi umum." if pred_cat in ("Non-Isu", "Umum / Di Luar Topik") else (f"Indikasi isu {pred_cat} dengan tingkat urgensi {urgency_val}/5." if urgency_val >= 3 else ""))
             ),
             "rekomendasi_tindak_lanjut": (
                 ollama_rekomendasi
                 or bluf_dossier.get("rekomendasi_tindak_lanjut", "")
-                or ("Pengawasan berkala sesuai SOP (arsip konten edukatif/positif)." if pred_cat == "Non-Isu" else ("Lakukan eskalasi dan koordinasi segera dengan satuan tugas terkait. Monitoring intensif dan dokumentasi bukti digital." if urgency_val >= 4 else ("Pantau perkembangan isu secara berkala. Siapkan laporan situasi jika terdapat eskalasi." if urgency_val == 3 else "Pengawasan rutin sesuai SOP.")))
+                or ("Pengawasan berkala sesuai SOP (arsip konten umum)." if pred_cat in ("Non-Isu", "Umum / Di Luar Topik") else ("Tandai siap diteruskan ke Tim Dalkonten untuk takedown dan koordinasi penegakan hukum." if urgency_val >= 4 else ("Pantau perkembangan isu secara berkala. Siapkan laporan situasi jika terdapat eskalasi." if urgency_val == 3 else "Pengawasan rutin sesuai SOP.")))
             ),
         }
 
@@ -1160,7 +1148,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             hashtags=[],
             named_entities=[account_username] if account_username else [],
             category=pred_cat,
-            sentiment="NETRAL" if pred_cat == "Non-Isu" else "NEGATIF",
+            sentiment="NETRAL" if pred_cat in ("Non-Isu", "Umum / Di Luar Topik") else "NEGATIF",
             tone="Informatif",
             relevance_score=0.88,
             urgency_score=float(urgency_val) / 5.0,

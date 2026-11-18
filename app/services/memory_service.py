@@ -38,163 +38,161 @@ class MemoryService:
 
     # 24 Curated High-Fidelity Anchor Precedents (3 per category, spanning 8 IPOLEKSOSBUDHANKAM classes)
     CURATED_ANCHOR_PRECEDENTS: List[Dict[str, Any]] = [
-        # 1. Ideologi
+        # 1. Pornografi
         {
-            "content_text": "Seruan terbuka kelompok ekstremis bawah tanah untuk merombak konsensus kebangsaan dan mengganti Pancasila dengan ideologi khilafah secara revolusioner tanpa kompromi.",
-            "validated_category": "Ideologi",
-            "analyst_rationale": "Pelanggaran serius terhadap konsensus dasar negara Pancasila dan konstitusi.",
-            "urgency_score": 5,
-        },
-        {
-            "content_text": "Penyebaran pamflet propaganda marxisme-leninisme yang mendoktrin mahasiswa untuk menolak fondasi ketuhanan dan menghidupkan kembali ajaran komunis terlarang.",
-            "validated_category": "Ideologi",
-            "analyst_rationale": "Penyebaran paham komunisme/marxisme yang dilarang tegas oleh hukum positif di Indonesia.",
-            "urgency_score": 5,
-        },
-        {
-            "content_text": "Deklarasi pembangkangan sipil yang menyatakan piagam negara tidak sah dan menolak tunduk pada Undang-Undang Dasar 1945.",
-            "validated_category": "Ideologi",
-            "analyst_rationale": "Penolakan terhadap keabsahan UUD 1945 dan pembangkangan terhadap tatanan hukum konstitusi negara.",
-            "urgency_score": 5,
-        },
-
-        # 2. Politik
-        {
-            "content_text": "Video disinformasi rekayasa deepfake yang memfitnah sistem penghitungan suara KPU dimanipulasi pihak luar untuk memenangkan paslon tertentu dalam pemilu.",
-            "validated_category": "Politik",
-            "analyst_rationale": "Hoaks elektoral yang menyerang integritas dan legitimasi lembaga penyelenggara pemilu.",
+            "content_text": "Akun media sosial memperjualbelikan akses folder penyimpanan cloud berisi video asusila dan rekaman pornografi ilegal berbayar via e-wallet.",
+            "validated_category": "Pornografi",
+            "analyst_rationale": "Penyebaran dan komersialisasi konten pornografi dewasa tanpa izin yang melanggar UU Pornografi dan ITE.",
             "urgency_score": 4,
         },
         {
-            "content_text": "Tuduhan tanpa bukti yang menyatakan pimpinan Mahkamah Konstitusi menerima suap puluhan miliar untuk meloloskan calon gubernur tertentu.",
-            "validated_category": "Politik",
-            "analyst_rationale": "Fitnah terhadap integritas lembaga peradilan konstitusi dalam sengketa politik pilkada.",
-            "urgency_score": 4,
-        },
-        {
-            "content_text": "Beredar dokumen rekayasa daftar susunan menteri baru palsu untuk memecah belah soliditas koalisi partai politik pemerintah.",
-            "validated_category": "Politik",
-            "analyst_rationale": "Disinformasi politik manuver kekuasaan yang berpotensi mengadu domba antar aktor pemerintahan.",
-            "urgency_score": 3,
-        },
-
-        # 3. Ekonomi
-        {
-            "content_text": "Penipuan skema ponzi trading forex ilegal tanpa izin OJK yang menjanjikan keuntungan pasti 40 persen per bulan kepada ribuan nasabah.",
-            "validated_category": "Ekonomi",
-            "analyst_rationale": "Kejahatan finansial massal non-siber yang merugikan aset ekonomi masyarakat luas.",
-            "urgency_score": 4,
-        },
-        {
-            "content_text": "Pesan berantai bernada provokasi mengajak penarikan massal uang tunai (rush money) di bank BUMN terbesar karena diklaim sedang gagal bayar.",
-            "validated_category": "Ekonomi",
-            "analyst_rationale": "Isu ekonomi perbankan yang mengancam stabilitas likuiditas moneter dan kepanikan finansial publik.",
-            "urgency_score": 5,
-        },
-        {
-            "content_text": "Spekulan menyebarkan kepanikan kelangkaan stok beras dan minyak goreng nasional demi menaikkan harga komoditas pokok di pasar induk.",
-            "validated_category": "Ekonomi",
-            "analyst_rationale": "Manipulasi informasi komoditas pangan pokok yang berdampak langsung pada inflasi dan daya beli masyarakat.",
-            "urgency_score": 4,
-        },
-
-        # 4. Sosial
-        {
-            "content_text": "Ujaran kebencian berbasis sentimen suku, agama, dan kedaerahan yang memicu bentrokan fisik warga dan pembakaran fasilitas umum.",
-            "validated_category": "Sosial",
-            "analyst_rationale": "Polarisasi sosial horizontal dan provokasi konflik komunal antarwarga di ruang publik.",
-            "urgency_score": 5,
-        },
-        {
-            "content_text": "Kabar burung disertai foto rekayasa tentang sindikat mobil misterius penculik anak untuk organ tubuh yang memicu histeria orang tua siswa.",
-            "validated_category": "Sosial",
-            "analyst_rationale": "Disinformasi keresahan publik dan kepanikan sosial yang berpotensi memicu aksi main hakim sendiri.",
-            "urgency_score": 4,
-        },
-        {
-            "content_text": "Siaran langsung media sosial menantang kelompok pemuda lain untuk tawuran malam hari menggunakan senjata tajam celurit dan bom molotov.",
-            "validated_category": "Sosial",
-            "analyst_rationale": "Anarki antarkelompok remaja bersenjata tajam yang mengganggu ketertiban umum dan keselamatan warga.",
-            "urgency_score": 4,
-        },
-
-        # 5. Budaya
-        {
-            "content_text": "Video provokatif yang mengeklaim sepihak bahwa kesenian reog Ponorogo, tari piring, dan motif batik tradisional bukan milik nusantara.",
-            "validated_category": "Budaya",
-            "analyst_rationale": "Klaim kepemilikan dan pelecehan terhadap identitas warisan budaya takbenda Indonesia.",
+            "content_text": "Unggahan video vulgar live streaming tanpa busana dengan meminta gift koin bernilai uang tunai kepada penonton media sosial.",
+            "validated_category": "Pornografi",
+            "analyst_rationale": "Eksibisionisme dan siaran asusila eksplisit di ruang siber publik.",
             "urgency_score": 3,
         },
         {
-            "content_text": "Konten kreator asing membuat parodi vulgar terhadap upacara keagamaan adat dan tarian sakral di pura tanpa menghormati kearifan lokal.",
-            "validated_category": "Budaya",
-            "analyst_rationale": "Penodaan dan pelecehan terhadap kesakralan ritual adat tradisi masyarakat nusantara.",
-            "urgency_score": 3,
-        },
-        {
-            "content_text": "Aksi vandalisme dan coretan pilox pada batu relief peninggalan situs cagar budaya candi bersejarah oleh pengunjung tak bertanggung jawab.",
-            "validated_category": "Budaya",
-            "analyst_rationale": "Perusakan fisik terhadap situs cagar budaya bernilai sejarah peradaban bangsa.",
-            "urgency_score": 3,
-        },
-
-        # 6. Pertahanan
-        {
-            "content_text": "Unggahan anonim di forum gelap membagikan dokumen koordinat dan spektrum frekuensi alat deteksi radar pangkalan militer pertahanan udara terluar Natuna.",
-            "validated_category": "Pertahanan",
-            "analyst_rationale": "Pembocoran rahasia intelijen militer pertahanan kedaulatan negara dari ancaman agresi eksternal.",
-            "urgency_score": 5,
-        },
-        {
-            "content_text": "Video disinformasi mengeklaim armada kapal perang negara asing telah mengepung pangkalan laut ZEE Indonesia tanpa ada respon militer.",
-            "validated_category": "Pertahanan",
-            "analyst_rationale": "Isu integritas wilayah batas teritorial laut dan kesiapan postur pertahanan militer nasional.",
-            "urgency_score": 4,
-        },
-        {
-            "content_text": "Tudingan tanpa dasar bahwa pembelian alutsista pesawat tempur generasi terbaru mengalami cacat struktur dan rawan jatuh saat operasi tempur udara.",
-            "validated_category": "Pertahanan",
-            "analyst_rationale": "Kampanye provokasi terhadap kapabilitas alutsista dan kesiapan armada tempur TNI.",
+            "content_text": "Penyebaran tautan link invite grup chat privat yang menyediakan ribuan video pornografi komersial lokal dan mancanegara.",
+            "validated_category": "Pornografi",
+            "analyst_rationale": "Distribusi masif materi pornografi terorganisir melalui kanal percakapan digital.",
             "urgency_score": 4,
         },
 
-        # 7. Keamanan
+        # 2. COP (Child Online Protection)
         {
-            "content_text": "Aktivitas peretasan siber di mana sindikat hacker ransomware mengunci server pusat data perkara kejaksaan dan menuntut uang tebusan.",
-            "validated_category": "Keamanan",
-            "analyst_rationale": "Kejahatan siber (cybercrime) ransomware berat yang menyerang infrastruktur digital lembaga penegak hukum.",
+            "content_text": "Kanal anonim memperdagangkan materi eksploitasi seksual anak di bawah umur (CSAM) dan pelecehan visual anak secara terenkripsi.",
+            "validated_category": "COP",
+            "analyst_rationale": "Kejahatan berat eksploitasi seksual anak daring (Child Online Protection) ancaman keselamatan generasi muda.",
             "urgency_score": 5,
         },
         {
-            "content_text": "Pesan ancaman terorisme terorganisir yang menyatakan telah menaruh bahan peledak bom di tiga stasiun transportasi massal ibu kota.",
-            "validated_category": "Keamanan",
-            "analyst_rationale": "Ancaman keamanan publik langsung dari tindak pidana terorisme terhadap nyawa warga di fasilitas umum.",
+            "content_text": "Akun predator daring mendekati siswa sekolah dasar untuk meminta foto tidak senonoh (child grooming) dengan imbalan voucher game online.",
+            "validated_category": "COP",
+            "analyst_rationale": "Pola bujuk rayu seksual daring (online grooming) terhadap anak di bawah umur.",
             "urgency_score": 5,
         },
         {
-            "content_text": "Penyebaran berkas malware trojan undangan pernikahan palsu berekstensi APK yang menyadap SMS OTP dan menguras saldo rekening korban.",
-            "validated_category": "Keamanan",
-            "analyst_rationale": "Kejahatan siber teknis (malware/sniffing) penipuan digital yang menyerang keamanan data dan rekening warga.",
+            "content_text": "Penyebaran foto dan video pelecehan seksual siswi madrasah di forum publik yang merusak masa depan dan psikologis korban anak.",
+            "validated_category": "COP",
+            "analyst_rationale": "Pelanggaran privasi dan penyebaran konten asusila yang melibatkan anak di bawah umur.",
             "urgency_score": 5,
         },
 
-        # 8. Non-Isu
+        # 3. Violent Extremism
         {
-            "content_text": "Resep dan panduan memasak rendang daging sapi tradisional yang empuk dengan rempah kelapa sangrai dan santan kental khas Padang.",
-            "validated_category": "Non-Isu",
-            "analyst_rationale": "Konten edukasi kuliner wajar tanpa ada unsur ancaman keamanan maupun pelanggaran hukum.",
+            "content_text": "Seruan terbuka kelompok teroris bawah tanah untuk merakit bom pipa dan menyerang kantor kepolisian serta rumah ibadah demi makar ideologis.",
+            "validated_category": "Violent Extremism",
+            "analyst_rationale": "Propaganda ekstremisme berbasis kekerasan dan ancaman aksi terorisme terhadap aparat serta fasilitas publik.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Penyebaran video baiat kelompok radikal bersenjata yang mengajak pengikutnya melakukan aksi bom bunuh diri di pusat keramaian ibu kota.",
+            "validated_category": "Violent Extremism",
+            "analyst_rationale": "Indoktrinasi ekstremisme kekerasan dan ajakan aksi terorisme pembunuhan massal.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Buku petunjuk digital (manual PDF) berisi panduan meracik racun kimia mematikan dan taktik penyerangan gerilya perkotaan.",
+            "validated_category": "Violent Extremism",
+            "analyst_rationale": "Penyebaran materi taktik milisi bersenjata terorisme perkotaan.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Ajakan pembangkangan bersenjata dan penyerangan fisik terhadap kelompok minoritas atas nama penegakan syariat kekerasan.",
+            "validated_category": "Violent Extremism",
+            "analyst_rationale": "Radikalisme kekerasan intoleran yang memicu konflik komunal antargolongan bersenjata.",
+            "urgency_score": 4,
+        },
+
+        # 4. Migrant and Human Trafficking
+        {
+            "content_text": "Sindikat penipuan lowongan kerja luar negeri fiktif di Kamboja menyekap puluhan warga Indonesia dan memaksa mereka bekerja sebagai operator scammer siber.",
+            "validated_category": "Migrant and Human Trafficking",
+            "analyst_rationale": "Tindak Pidana Perdagangan Orang (TPPO) modus rekrutmen kerja ilegal dengan penyekapan di luar negeri.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Iklan media sosial menawarkan adopsi bayi ilegal dengan tarif puluhan juta rupiah dan jalur penyelundupan antarprovinsi tanpa dokumen sah.",
+            "validated_category": "Migrant and Human Trafficking",
+            "analyst_rationale": "Praktek perdagangan anak dan bayi (human trafficking) melalui media sosial berkedok adopsi.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Penyelundup migran mempromosikan jasa penyeberangan perahu cepat ilegal ke negara tetangga tanpa paspor yang mempertaruhkan nyawa penumpang di laut lepas.",
+            "validated_category": "Migrant and Human Trafficking",
+            "analyst_rationale": "Penyelundupan manusia (people smuggling) lintas perbatasan tanpa prosedur keimigrasian resmi.",
+            "urgency_score": 4,
+        },
+
+        # 5. Judi Online
+        {
+            "content_text": "Promosi situs judi slot gacor depo 10 ribu bonus 100 persen dengan membagikan tautan link gacor deposit pulsa dan e-wallet.",
+            "validated_category": "Judi Online",
+            "analyst_rationale": "Promosi aktif dan fasilitasi perjudian daring ilegal yang merusak finansial masyarakat.",
+            "urgency_score": 3,
+        },
+        {
+            "content_text": "Influencer media sosial mengiklankan aplikasi judi kasino online berkedok game simulasi strategi berhadiah uang asli.",
+            "validated_category": "Judi Online",
+            "analyst_rationale": "Endorsement publik figur terhadap platform judi daring ilegal berskala nasional.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Peretasan deface pada situs resmi instansi pemerintah (.go.id) disusupi halaman landing page judi slot online dan togel gelap.",
+            "validated_category": "Judi Online",
+            "analyst_rationale": "Penyalahgunaan domain resmi pemerintah untuk promosi situs judi daring ilegal.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Spam tautan wa otomatis menyebarkan link bandar taruhan bola online dan mesin slot ke grup-grup diskusi warga.",
+            "validated_category": "Judi Online",
+            "analyst_rationale": "Kampanye spam masif distribusi link perjudian daring.",
+            "urgency_score": 3,
+        },
+
+        # 6. Narkotika
+        {
+            "content_text": "Akun penjual tembakau sintetis gorilla dan cairan vape narkotika liquid ekstasi menawarkan sistem COD dan pengiriman ekspedisi rahasia.",
+            "validated_category": "Narkotika",
+            "analyst_rationale": "Peredaran dan transaksi narkotika sintetis ilegal secara daring.",
+            "urgency_score": 5,
+        },
+        {
+            "content_text": "Iklan obat penenang keras psikotropika daftar G tanpa resep dokter dijual bebas via lapak media sosial kepada remaja.",
+            "validated_category": "Narkotika",
+            "analyst_rationale": "Penyalahgunaan dan penjualan obat keras psikotropika tanpa izin edar medis.",
+            "urgency_score": 4,
+        },
+        {
+            "content_text": "Jaringan kurir sabu-sabu membagikan kode peta titik tempel paket narkoba di tiang listrik trotoar jalan untuk diambil pembeli.",
+            "validated_category": "Narkotika",
+            "analyst_rationale": "Modus operandi peredaran narkotika terorganisir sistem tempel.",
+            "urgency_score": 5,
+        },
+
+        # 7. Umum / Di Luar Topik
+        {
+            "content_text": "Kementerian Komunikasi dan Digital menggelar lokakarya literasi digital nasional untuk mengedukasi masyarakat tentang bahaya hoaks dan etika bermedia sosial.",
+            "validated_category": "Umum / Di Luar Topik",
+            "analyst_rationale": "Informasi resmi edukasi literasi digital pemerintah yang bernilai positif tanpa indikasi pelanggaran.",
+            "urgency_score": 1,
+        },
+        {
+            "content_text": "Badan Meteorologi Klimatologi dan Geofisika (BMKG) merilis peringatan dini potensi gelombang tinggi dan hujan lebat di pesisir selatan Jawa.",
+            "validated_category": "Umum / Di Luar Topik",
+            "analyst_rationale": "Informasi cuaca faktual resmi untuk mitigasi bencana alam masyarakat luas.",
             "urgency_score": 1,
         },
         {
             "content_text": "Ulasan performa sensor kamera smartphone flagship 200 megapixel dalam pencahayaan malam hari dan daya tahan baterai untuk penggunaan harian.",
-            "validated_category": "Non-Isu",
-            "analyst_rationale": "Review produk teknologi konsumen umum yang informatif dan edukatif tanpa potensi ancaman.",
+            "validated_category": "Umum / Di Luar Topik",
+            "analyst_rationale": "Review produk teknologi konsumen umum yang informatif dan edukatif.",
             "urgency_score": 1,
         },
         {
-            "content_text": "Panduan memilih makanan berprotein tinggi dan vitamin minyak ikan agar bulu kucing anggora peliharaan tidak mudah rontok.",
-            "validated_category": "Non-Isu",
-            "analyst_rationale": "Konten gaya hidup dan hobi hewan piaraan yang aman tanpa korelasi terhadap isu ruang siber.",
+            "content_text": "Resep dan panduan memasak rendang daging sapi tradisional yang empuk dengan rempah kelapa sangrai dan santan kental khas Padang.",
+            "validated_category": "Umum / Di Luar Topik",
+            "analyst_rationale": "Konten edukasi kuliner wajar tanpa ada unsur pelanggaran hukum siber.",
             "urgency_score": 1,
         },
     ]

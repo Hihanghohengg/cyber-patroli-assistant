@@ -316,22 +316,21 @@ export const OverviewPage: React.FC = () => {
 
           <div>
             <label className="block text-[10px] font-mono font-semibold uppercase text-slate-500 dark:text-slate-400 mb-1">
-              Kategori
+              Topik LHM
             </label>
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             >
-              <option value="Semua">Semua Kategori</option>
-              <option value="Ideologi">Ideologi</option>
-              <option value="Politik">Politik</option>
-              <option value="Ekonomi">Ekonomi</option>
-              <option value="Sosial">Sosial</option>
-              <option value="Budaya">Budaya</option>
-              <option value="Pertahanan">Pertahanan</option>
-              <option value="Keamanan">Keamanan</option>
-              <option value="Non-Isu">Non-Isu</option>
+              <option value="Semua">Semua Topik LHM</option>
+              <option value="Pornografi">Pornografi</option>
+              <option value="COP">COP (Eksploitasi Anak)</option>
+              <option value="Violent Extremism">Violent Extremism</option>
+              <option value="Migrant and Human Trafficking">Migrant & Trafficking</option>
+              <option value="Judi Online">Judi Online</option>
+              <option value="Narkotika">Narkotika</option>
+              <option value="Umum / Di Luar Topik">Umum / Di Luar Topik</option>
             </select>
           </div>
 
@@ -906,16 +905,38 @@ export const OverviewPage: React.FC = () => {
                   onChange={(e) => setPdfCategory(e.target.value)}
                   className="w-full bg-slate-50 dark:bg-[#070A11] border border-slate-200 dark:border-white/[0.08] rounded-lg px-3 py-1.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500 font-mono"
                 >
-                  <option value="Semua Kategori">Semua Kategori</option>
-                  <option value="Politik">Politik</option>
-                  <option value="Keamanan">Keamanan</option>
-                  <option value="Sosial">Sosial</option>
-                  <option value="Ekonomi">Ekonomi</option>
-                  <option value="Ideologi">Ideologi</option>
-                  <option value="Pertahanan">Pertahanan</option>
-                  <option value="Budaya">Budaya</option>
-                  <option value="Non-Isu">Non-Isu</option>
+                  <option value="Semua Kategori">Semua Topik LHM</option>
+                  <option value="Pornografi">Pornografi</option>
+                  <option value="COP">COP (Eksploitasi Anak)</option>
+                  <option value="Violent Extremism">Violent Extremism</option>
+                  <option value="Migrant and Human Trafficking">Migrant & Trafficking</option>
+                  <option value="Judi Online">Judi Online</option>
+                  <option value="Narkotika">Narkotika</option>
+                  <option value="Umum / Di Luar Topik">Umum / Di Luar Topik</option>
                 </select>
+              </div>
+
+              {/* Quick Export Shortcuts */}
+              <div className="pt-2 border-t border-slate-100 dark:border-white/[0.08] space-y-2">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block font-semibold">
+                  Ekspor Cepat Terstruktur (LHM & Dalkonten)
+                </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => apiClient.reports.weeklyLhmExportBlob({ format: 'pdf' })}
+                    className="py-1.5 px-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-mono text-[11px] font-medium border border-blue-500/20 text-center transition-colors"
+                  >
+                    Rekap LHM (.pdf)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => apiClient.reports.dalkontenPackageExportBlob('pdf')}
+                    className="py-1.5 px-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 font-mono text-[11px] font-medium border border-amber-500/20 text-center transition-colors"
+                  >
+                    Paket Dalkonten (.pdf)
+                  </button>
+                </div>
               </div>
             </div>
 

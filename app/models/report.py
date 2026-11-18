@@ -128,6 +128,12 @@ class Report(Base):
     analyst_notes = Column(Text, nullable=True)  # Mandatory note for Ubah / Bukan Pelanggaran
     validated_at = Column(DateTime, nullable=True)
 
+    # --- Dalkonten Forwarding Workflow (Fase 3) ---
+    dalkonten_status = Column(String(50), default="BELUM DITERUSKAN", index=True, nullable=True)
+    # Statuses: BELUM DITERUSKAN, SIAP DITERUSKAN KE DALKONTEN, SUDAH DITERUSKAN
+    dalkonten_forwarded_at = Column(DateTime, nullable=True)
+    dalkonten_forwarded_by = Column(String(100), nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     content = relationship("Content", back_populates="reports")
     evidences = relationship("Evidence", back_populates="report")

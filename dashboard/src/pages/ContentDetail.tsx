@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { apiClient } from '../api/client';
 import { ContentDetail } from '../types';
-import { PlatformBadge, RiskBadge, StatusBadge } from '../components/common/Badge';
+import { PlatformBadge, RiskBadge, StatusBadge, DalkontenBadge } from '../components/common/Badge';
 import {
   ArrowLeft,
   ExternalLink,
@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Lock,
   Eye,
+  Send,
   ThumbsUp,
   MessageSquare,
   Share2,
@@ -158,6 +159,10 @@ export const ContentDetailPage: React.FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitSuccessMsg, setSubmitSuccessMsg] = useState<string | null>(null);
 
+  // Tim Dalkonten Forwarding State
+  const [updatingDalkonten, setUpdatingDalkonten] = useState<boolean>(false);
+  const [dalkontenMsg, setDalkontenMsg] = useState<string | null>(null);
+
   const fetchDetail = async () => {
     if (!id) return;
     try {
@@ -216,6 +221,23 @@ export const ContentDetailPage: React.FC = () => {
       alert('Gagal menyimpan validasi: ' + (err.response?.data?.detail || err.message));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleDalkontenStatus = async (targetStatus: string) => {
+    const reportIdentifier = detail?.report_id || detail?.content_id || id;
+    if (!reportIdentifier) return;
+
+    setUpdatingDalkonten(true);
+    setDalkontenMsg(null);
+    try {
+      await apiClient.reports.updateDalkontenStatus(reportIdentifier, targetStatus);
+      setDalkontenMsg(`Status Dalkonten berhasil diubah: ${targetStatus}`);
+      fetchDetail();
+    } catch (err: any) {
+      alert('Gagal memperbarui status Dalkonten: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setUpdatingDalkonten(false);
     }
   };
 
@@ -841,16 +863,13 @@ export const ContentDetailPage: React.FC = () => {
                       onChange={(e) => setCategoryOverride(e.target.value)}
                       className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1.5 px-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:border-blue-500"
                     >
-                      <option value="Politik">Politik</option>
-                      <option value="Keamanan">Keamanan</option>
-                      <option value="Sosial">Sosial</option>
-                      <option value="Ekonomi">Ekonomi</option>
-                      <option value="Ideologi">Ideologi</option>
-                      <option value="Pertahanan">Pertahanan</option>
-                      <option value="Budaya">Budaya</option>
-                      <option value="Non-Isu">Non-Isu</option>
-                      <option value="HOAKS">HOAKS</option>
-                      <option value="UJARAN_KEBENCIAN">UJARAN KEBENCIAN</option>
+                      <option value="Pornografi">Pornografi</option>
+                      <option value="COP">COP (Child Online Protection)</option>
+                      <option value="Violent Extremism">Violent Extremism</option>
+                      <option value="Migrant and Human Trafficking">Migrant and Human Trafficking</option>
+                      <option value="Judi Online">Judi Online</option>
+                      <option value="Narkotika">Narkotika</option>
+                      <option value="Umum / Di Luar Topik">Umum / Di Luar Topik</option>
                     </select>
                   </div>
                 </div>
@@ -882,6 +901,79 @@ export const ContentDetailPage: React.FC = () => {
                 {submitting ? 'Menyimpan...' : 'Simpan Keputusan'}
               </button>
             </form>
+          </div>
+
+          {/* Card: Penerusan ke Tim Dalkonten */}
+          <div className="cyber-card rounded-xl p-4 sm:p-5 space-y-3.5 border border-amber-500/20">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/[0.06] pb-2.5">
+              <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider font-mono flex items-center gap-1.5">
+                <Send className="w-4 h-4 text-amber-500" />
+                Penerusan ke Tim Dalkonten
+              </h3>
+              <DalkontenBadge status={ai_patrol?.dalkonten_status} />
+            </div>
+
+            {dalkontenMsg && (
+              <p className="text-[11px] font-mono text-emerald-500 bg-emerald-500/10 p-2 rounded border border-emerald-500/20">
+                {dalkontenMsg}
+              </p>
+            )}
+
+            <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1.5 bg-slate-50 dark:bg-[#0A0D14] p-3 rounded-lg border border-slate-200 dark:border-white/[0.06]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-mono text-slate-400 uppercase">Status Alur:</span>
+                <span className="font-mono font-semibold text-xs text-slate-800 dark:text-slate-200">
+                  {ai_patrol?.dalkonten_status || 'BELUM DITERUSKAN'}
+                </span>
+              </div>
+              {ai_patrol?.dalkonten_forwarded_by && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-mono text-slate-400 uppercase">Operator Pengaju:</span>
+                  <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+                    {ai_patrol.dalkonten_forwarded_by}
+                  </span>
+                </div>
+              )}
+              {ai_patrol?.dalkonten_forwarded_at && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-mono text-slate-400 uppercase">Waktu Pengajuan:</span>
+                  <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                    {new Date(ai_patrol.dalkonten_forwarded_at).toLocaleString('id-ID')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                disabled={updatingDalkonten}
+                onClick={() => handleDalkontenStatus('SIAP DITERUSKAN KE DALKONTEN')}
+                className="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs font-mono shadow-sm transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                {updatingDalkonten ? 'Memproses...' : 'Tandai Siap Diteruskan ke Dalkonten'}
+              </button>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  disabled={updatingDalkonten}
+                  onClick={() => handleDalkontenStatus('SUDAH DITERUSKAN')}
+                  className="py-1.5 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] font-mono shadow-sm transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Konfirmasi Terkirim
+                </button>
+                <button
+                  type="button"
+                  disabled={updatingDalkonten}
+                  onClick={() => handleDalkontenStatus('BELUM DITERUSKAN')}
+                  className="py-1.5 px-2.5 rounded-lg bg-slate-200 dark:bg-white/[0.08] hover:bg-slate-300 dark:hover:bg-white/[0.12] text-slate-700 dark:text-slate-300 font-semibold text-[11px] font-mono shadow-sm transition-colors flex items-center justify-center gap-1 disabled:opacity-50"
+                >
+                  <XCircle className="w-3.5 h-3.5" /> Reset Status
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

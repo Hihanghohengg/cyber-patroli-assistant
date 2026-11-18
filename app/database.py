@@ -135,6 +135,9 @@ def apply_schema_migrations(bind_engine):
             ("reports", "execution_latencies", "TEXT DEFAULT '{}'"),
             ("reports", "original_language", "VARCHAR(10) DEFAULT 'id'"),
             ("reports", "indonesian_content", "TEXT DEFAULT ''"),
+            ("reports", "dalkonten_status", "VARCHAR(50) DEFAULT 'BELUM DITERUSKAN'"),
+            ("reports", "dalkonten_forwarded_at", "DATETIME"),
+            ("reports", "dalkonten_forwarded_by", "VARCHAR(100)"),
         ]
 
         with bind_engine.connect() as conn:
