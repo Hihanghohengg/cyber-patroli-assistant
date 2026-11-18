@@ -55,6 +55,8 @@ export interface TrendingTopicItem {
   issue_type_reason?: string;
   rank?: number;
   hashtag?: string;
+  named_entities?: string[];
+  actors?: string[];
   related_contents?: TopicRelatedContent[];
 }
 

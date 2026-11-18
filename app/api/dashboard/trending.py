@@ -5,9 +5,9 @@ keyword clouds, associated social contents, and accounts.
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Set, Dict, Any
 from uuid import UUID
-from collections import Counter
+from collections import Counter, defaultdict
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -72,6 +72,24 @@ def list_trending_topics(
     # Batch query for linked contents across the retrieved issues
     issue_ids = [issue.issue_id for issue in issues]
     issue_contents_map = {iid: [] for iid in issue_ids}
+    issue_actors_map: Dict[Any, Set[str]] = defaultdict(set)
+
+    prominent_actors_dict = {
+        "Presiden Prabowo Subianto": [r"\bprabowo\b", r"\bprabowo subianto\b", r"\bpresiden prabowo\b"],
+        "Gibran Rakabuming Raka": [r"\bgibran\b", r"\bgibran rakabuming\b", r"\bwapres gibran\b"],
+        "Jenderal Listyo Sigit Prabowo": [r"\blistyo\b", r"\blistyo sigit\b"],
+        "Kapolri Jenderal Suyudi Ario Seto": [r"\bsuyudi\b", r"\bsuyudi ario seto\b"],
+        "Ganjar Pranowo": [r"\bganjar\b", r"\bganjar pranowo\b"],
+        "Institut Teknologi Bandung (ITB)": [r"\bitb\b", r"\binstitut teknologi bandung\b"],
+        "Komisi Pemilihan Umum (KPU)": [r"\bkpu\b", r"\bkomisi pemilihan umum\b"],
+        "Bareskrim Polri": [r"\bbareskrim\b", r"\bbareskrim polri\b"],
+        "BNPB Indonesia": [r"\bbnpb\b", r"\bbadan nasional penanggulangan bencana\b"],
+        "Paspampres RI": [r"\bpaspampres\b"],
+        "Kementerian Lingkungan Hidup": [r"\bklhk\b", r"\bkementerian lingkungan hidup\b"],
+        "Google Developer Groups (GDGoC)": [r"\bgdgoc\b", r"\bgoogle developer groups\b"],
+        "Kementerian Luar Negeri RI": [r"\bkemlu\b", r"\bkementerian luar negeri\b"],
+    }
+
     if issue_ids:
         try:
             links = (
@@ -93,6 +111,14 @@ def list_trending_topics(
             )
             for row in links:
                 iid = row[0]
+                # Deteksi tokoh terkait dari teks judul/narasi konten
+                c_title_raw = row[2] or ""
+                c_caption_raw = row[3] or ""
+                combined_txt = f"{c_title_raw} {c_caption_raw}".lower()
+                for act_name, pats in prominent_actors_dict.items():
+                    if any(re.search(pat, combined_txt, re.IGNORECASE) for pat in pats):
+                        issue_actors_map[iid].add(act_name)
+
                 if len(issue_contents_map[iid]) < 4:
                     cid = row[1]
                     if any(rc.content_id == cid for rc in issue_contents_map[iid]):
@@ -143,6 +169,9 @@ def list_trending_topics(
                 cat_clean = re.sub(r"[^\w]", "", issue.category or "Isu")
                 hashtag_val = f"#{cat_clean}"
 
+            detected_actors = sorted(list(issue_actors_map.get(issue.issue_id, set())))
+            cluster_entities = sorted(list(set((issue.named_entities or []) + detected_actors)))
+
             items.append(
                 TrendingTopicItem(
                     issue_id=issue.issue_id,
@@ -167,6 +196,8 @@ def list_trending_topics(
                     issue_type=m.get("issue_type", "AKTUAL"),
                     issue_type_reason=m.get("issue_type_reason"),
                     hashtag=hashtag_val,
+                    named_entities=cluster_entities,
+                    actors=detected_actors,
                     related_contents=issue_contents_map.get(issue.issue_id, []),
                 )
             )
@@ -174,6 +205,8 @@ def list_trending_topics(
             logger.warning("Gagal menghitung HotScore isu %s: %s", issue.issue_id, ex)
             cat_tag = re.sub(r'[^a-zA-Z0-9_]', '', issue.category or 'Isu')
             fallback_h = f"#{cat_tag}"
+            detected_actors_fb = sorted(list(issue_actors_map.get(issue.issue_id, set())))
+            cluster_entities_fb = sorted(list(set((issue.named_entities or []) + detected_actors_fb)))
             items.append(
                 TrendingTopicItem(
                     issue_id=issue.issue_id,
@@ -198,6 +231,8 @@ def list_trending_topics(
                     issue_type="AKTUAL",
                     issue_type_reason="Isu publik umum.",
                     hashtag=fallback_h,
+                    named_entities=cluster_entities_fb,
+                    actors=detected_actors_fb,
                     related_contents=issue_contents_map.get(issue.issue_id, []),
                 )
             )

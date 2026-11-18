@@ -453,6 +453,7 @@ def _detect_author_username(url: str, username_param: Optional[str] = None, capt
 
 
 @router.post("/intake")
+@router.post("/analyze")
 async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Depends(get_db)) -> Dict[str, Any]:
     """Accept patrol intake from any client channel (Browser Extension, WhatsApp, Web, etc.)."""
     # 0. Pembersihan URL Pelacak & Ekstraksi Identitas Kanonik
@@ -807,14 +808,20 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
 
     if payload.screenshot_base64:
         try:
-            raw_b64 = payload.screenshot_base64
+            raw_b64 = str(payload.screenshot_base64).strip()
             if "," in raw_b64:
-                raw_b64 = raw_b64.split(",", 1)[1]
+                raw_b64 = raw_b64.split(",", 1)[1].strip()
+            raw_b64 = re.sub(r"\s+", "", raw_b64)
+            missing_padding = len(raw_b64) % 4
+            if missing_padding:
+                raw_b64 += "=" * (4 - missing_padding)
             img_bytes = base64.b64decode(raw_b64)
-            with open(target_path, "wb") as f:
-                f.write(img_bytes)
-            evidence_storage_path = target_path
-            evidence_sha256 = hashlib.sha256(img_bytes).hexdigest()
+            if img_bytes and len(img_bytes) > 100:
+                with open(target_path, "wb") as f:
+                    f.write(img_bytes)
+                evidence_storage_path = target_path
+                evidence_sha256 = hashlib.sha256(img_bytes).hexdigest()
+                logger.info(f"Berhasil menyimpan tangkapan layar bukti digital asli ({len(img_bytes)} bytes): {target_path}")
         except Exception as ex:
             logger.warning(f"Gagal memproses screenshot_base64: {ex}")
 

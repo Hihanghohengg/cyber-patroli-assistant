@@ -5,6 +5,18 @@
 // Deterministic Anti-Noise Extraction, Viewport Isolation, and NIST FIPS 198-1 Integrity Binding
 
 (function() {
+  // Jangan pernah injeksikan floating badge ke Web Dashboard TILIK
+  const currentHost = (window.location.hostname || "").toLowerCase();
+  const currentPath = (window.location.pathname || "").toLowerCase();
+  if (
+    currentHost === "localhost" ||
+    currentHost === "127.0.0.1" ||
+    window.location.port === "8000" ||
+    currentPath.startsWith("/dashboard")
+  ) {
+    return;
+  }
+
   if (document.getElementById("cyber-patrol-floating-badge")) return;
 
   // Track hovered or focused cards on feed-based social media
@@ -1114,14 +1126,14 @@
       }
     };
 
-    // Kirim via Background Service Worker (dengan batas waktu 240s untuk inferensi AI lokal)
+    // Kirim via Background Service Worker (dengan batas waktu 300s untuk inferensi AI lokal)
     let messageDispatched = false;
     try {
       if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
         messageDispatched = true;
         const submitTimer = setTimeout(() => {
-          handleResult(false, null, "Permintaan triase melampaui batas waktu (timeout 240s). Pastikan server backend sedang aktif.");
-        }, 240000);
+          handleResult(false, null, "Permintaan triase melampaui batas waktu (timeout 300s). Pastikan server backend sedang aktif.");
+        }, 300000);
 
         chrome.runtime.sendMessage({ action: "submit_intake", payload }, (bgRes) => {
           clearTimeout(submitTimer);

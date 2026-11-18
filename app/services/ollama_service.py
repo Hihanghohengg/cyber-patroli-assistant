@@ -405,7 +405,7 @@ class OllamaService:
                 "repeat_penalty": 1.18,
                 "repeat_last_n": 128,
                 "num_thread": 8,
-                "num_predict": 450,
+                "num_predict": 350,
                 "num_ctx": 2048,
             },
         }
@@ -537,7 +537,7 @@ class OllamaService:
                 "repeat_penalty": 1.18,
                 "repeat_last_n": 128,
                 "num_thread": 8,
-                "num_predict": 750,
+                "num_predict": 450,
                 "num_ctx": 2048,
             },
         }

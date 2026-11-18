@@ -101,6 +101,8 @@ class TrendingTopicItem(BaseModel):
     issue_type_reason: Optional[str] = None
     rank: Optional[int] = 1
     hashtag: Optional[str] = None
+    named_entities: List[str] = []
+    actors: List[str] = []
     related_contents: List[TopicRelatedContent] = []
 
     class Config:

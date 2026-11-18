@@ -48,6 +48,16 @@ const extractTokens = (str: string): string[] => {
 
 // Flexible token matching against topic metadata
 const matchTopic = (topic: TrendingTopicItem, filter: ActiveFilter): boolean => {
+  const filterValLow = (filter.value || '').toLowerCase().trim();
+  const actors = (topic.actors || []).map((a) => a.toLowerCase());
+  const entities = (topic.named_entities || []).map((e) => e.toLowerCase());
+
+  // Prioritas 1: Pencocokan langsung aktor/entitas (termasuk substring nama tokoh)
+  if (filter.type === 'ACTOR') {
+    if (actors.some((a) => a.includes(filterValLow) || filterValLow.includes(a))) return true;
+    if (entities.some((e) => e.includes(filterValLow) || filterValLow.includes(e))) return true;
+  }
+
   const tokens = extractTokens(filter.value);
   if (tokens.length === 0) return true;
 
@@ -67,6 +77,8 @@ const matchTopic = (topic: TrendingTopicItem, filter: ActiveFilter): boolean => 
     if (keywords.some((kw) => kw.includes(token) || token.includes(kw))) return true;
     if (hashtags.some((ht) => ht.includes(token))) return true;
     if (relatedTexts.some((rt) => rt.includes(token))) return true;
+    if (actors.some((a) => a.includes(token) || token.includes(a))) return true;
+    if (entities.some((e) => e.includes(token) || token.includes(e))) return true;
     return false;
   });
 };
