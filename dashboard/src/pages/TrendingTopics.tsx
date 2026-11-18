@@ -605,10 +605,14 @@ export const TrendingTopicsPage: React.FC = () => {
               {activeFilter && (
                 <Link
                   to={`/contents?search=${encodeURIComponent(activeFilter.value)}`}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-mono font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-sm"
                 >
                   <Search className="w-3.5 h-3.5" />
-                  <span>Buka Temuan "{activeFilter.value}" di Arsip Temuan →</span>
+                  <span>
+                    {activeFilter.type === 'ACTOR'
+                      ? `Buka Seluruh Temuan "${activeFilter.value}" di Arsip Temuan ↗`
+                      : `Buka Temuan "${activeFilter.value}" di Arsip Temuan ↗`}
+                  </span>
                 </Link>
               )}
 

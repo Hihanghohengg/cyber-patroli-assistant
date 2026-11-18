@@ -8,11 +8,14 @@
   // Jangan pernah injeksikan floating badge ke Web Dashboard TILIK
   const currentHost = (window.location.hostname || "").toLowerCase();
   const currentPath = (window.location.pathname || "").toLowerCase();
+  const currentHref = (window.location.href || "").toLowerCase();
   if (
     currentHost === "localhost" ||
     currentHost === "127.0.0.1" ||
     window.location.port === "8000" ||
-    currentPath.startsWith("/dashboard")
+    currentPath.startsWith("/dashboard") ||
+    currentHref.includes("/dashboard") ||
+    currentHref.includes(":8000")
   ) {
     return;
   }
@@ -156,6 +159,224 @@
       lower.includes("lihat lainnya dari threads") ||
       lower.includes("see more from threads")
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // DEDICATED THREADS SPA POST EXTRACTOR (ANTI-STALE DOM & VIEWPORT AWARE)
+  // ─────────────────────────────────────────────────────────────
+  function isElementVisibleInViewport(el) {
+    if (!el) return false;
+    if (el.offsetParent === null) return false;
+    if (el.getAttribute("aria-hidden") === "true") return false;
+    try {
+      const style = window.getComputedStyle(el);
+      if (style.display === "none" || style.visibility === "hidden" || parseFloat(style.opacity) === 0) return false;
+    } catch (_) {}
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    // Elemen harus berada dalam area vertikal viewport yang terlihat
+    return rect.bottom > 50 && rect.top < (window.innerHeight - 30);
+  }
+
+  function extractThreadsPost() {
+    const pathname = window.location.pathname;
+    const urlPostMatch = pathname.match(/\/@([a-zA-Z0-9_\.]+)\/post\/([A-Za-z0-9_-]+)/i);
+    const postOnlyMatch = pathname.match(/\/post\/([A-Za-z0-9_-]+)/i);
+    const authorFromUrl = urlPostMatch ? urlPostMatch[1] : null;
+    const postIdFromUrl = urlPostMatch ? urlPostMatch[2] : (postOnlyMatch ? postOnlyMatch[1] : null);
+
+    const mainEl = document.querySelector("[role='main']") || document.querySelector("main") || document.body;
+    let container = null;
+
+    // Skenario A: Halaman Detail Postingan (/@username/post/<id>)
+    if (postIdFromUrl) {
+      // 1. Cari kontainer postingan utama yang memuat anchor username dari URL
+      if (authorFromUrl) {
+        const userAnchors = mainEl.querySelectorAll(`a[href*="/@${authorFromUrl}"]`);
+        for (const ua of userAnchors) {
+          if (!isElementVisibleInViewport(ua)) continue;
+          const cardCandidate = ua.closest("div[data-pressable-container='true']") ||
+                                ua.closest("article") ||
+                                ua.closest("div[role='article']") ||
+                                ua.closest(".x1y1aw1k") ||
+                                ua.parentElement?.parentElement?.parentElement;
+          if (cardCandidate && isElementVisibleInViewport(cardCandidate) && !cardCandidate.closest("aside, nav, header, [role='navigation']")) {
+            container = cardCandidate;
+            break;
+          }
+        }
+      }
+
+      // 2. Jika belum ketemu, cari anchor yang mengarah ke /post/<id>
+      if (!container) {
+        const postAnchor = mainEl.querySelector(`a[href*="/post/${postIdFromUrl}"]`);
+        if (postAnchor && isElementVisibleInViewport(postAnchor)) {
+          container = postAnchor.closest("div[data-pressable-container='true']") ||
+                      postAnchor.closest("article") ||
+                      postAnchor.closest("div[role='article']");
+        }
+      }
+
+      // 3. Fallback Halaman Detail: Kartu pertama yang tampil di main yang bukan nav/header
+      if (!container) {
+        const candidateDivs = mainEl.querySelectorAll("div[data-pressable-container='true'], article, div[role='article']");
+        for (const cd of candidateDivs) {
+          if (isElementVisibleInViewport(cd) && !cd.closest("aside, nav, header, [role='navigation']")) {
+            container = cd;
+            break;
+          }
+        }
+      }
+    }
+
+    // Skenario B: Feed / Beranda / Profil Threads (Banyak postingan)
+    if (!container) {
+      if (lastHoveredCard && isElementVisibleInViewport(lastHoveredCard) && !lastHoveredCard.closest("aside, nav, header")) {
+        container = lastHoveredCard.closest("div[data-pressable-container='true']") || lastHoveredCard;
+      }
+    }
+
+    if (!container) {
+      // Cari kartu yang paling dekat dengan bagian tengah viewport
+      const allCards = mainEl.querySelectorAll("div[data-pressable-container='true'], article, div[role='article']");
+      const visibleCards = [];
+      for (const card of allCards) {
+        if (isElementVisibleInViewport(card) && !card.closest("aside, nav, header, [role='navigation']")) {
+          visibleCards.push(card);
+        }
+      }
+
+      if (visibleCards.length > 0) {
+        const viewportCenter = window.innerHeight / 2;
+        let closestCard = visibleCards[0];
+        let minDistance = Infinity;
+        for (const card of visibleCards) {
+          const rect = card.getBoundingClientRect();
+          const cardCenter = rect.top + rect.height / 2;
+          const dist = Math.abs(cardCenter - viewportCenter);
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestCard = card;
+          }
+        }
+        container = closestCard;
+      }
+    }
+
+    if (!container) return null;
+
+    // Auto-click "Show more" / "Selengkapnya" pada Threads jika narasi panjang
+    try {
+      const moreButtons = container.querySelectorAll("span[role='button'], div[role='button'], button");
+      for (const b of moreButtons) {
+        const txt = (b.textContent || "").trim().toLowerCase();
+        if (txt === "more" || txt === "selengkapnya" || txt.includes("more") || txt.includes("selengkapnya")) {
+          b.click();
+          break;
+        }
+      }
+    } catch (_) {}
+
+    // Ekstraksi Username & Nama Pengunggah
+    let authorHandle = authorFromUrl || "";
+    let authorName = authorHandle ? `@${authorHandle}` : "";
+
+    const userAnchors = container.querySelectorAll("a[href*='/@']");
+    for (const ua of userAnchors) {
+      const href = ua.getAttribute("href") || "";
+      const m = href.match(/@([a-zA-Z0-9_\.]+)/);
+      if (m && !["post", "activity", "search"].includes(m[1].toLowerCase())) {
+        authorHandle = m[1];
+        let cleanDisp = (ua.textContent || "").trim();
+        cleanDisp = cleanDisp.replace(/\s*[·•\s]+\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)$/i, "").trim();
+        cleanDisp = cleanDisp.replace(/\b(?:Verified|Threads)\b/gi, "").trim();
+        authorName = cleanDisp || `@${m[1]}`;
+        break;
+      }
+    }
+
+    // Ekstraksi Naskah Teks Postingan (Presisi Anti-Comment & Anti-Button)
+    const textNodes = container.querySelectorAll('span[dir="auto"], div[dir="auto"], p');
+    const textParts = [];
+    const seenTexts = new Set();
+
+    for (const node of textNodes) {
+      if (node.closest("button, [role='button'], nav, header, footer, a[role='link'], form")) continue;
+      if (node.querySelector("a[href*='/@']")) continue;
+
+      const clone = node.cloneNode(true);
+      clone.querySelectorAll("button, time, svg, a[role='link']").forEach(el => el.remove());
+      const raw = (clone.innerText || clone.textContent || "").trim();
+
+      // Saring label UI Threads, angka metrik, tombol, cap waktu, dan login wall
+      if (
+        raw.length >= 3 &&
+        !isBoilerplateLoginText(raw) &&
+        !/^(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Ikuti|Follow|Mengikuti|Following|Terjemahkan|Translate|Komentar|Comment|Quotes|See more|Thread)$/i.test(raw) &&
+        !/^\d+[\d\.,]*\s*(?:suka|likes|balasan|replies|reposts|shares|tayangan|views|quotes)?$/i.test(raw) &&
+        !/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)$/i.test(raw) &&
+        !seenTexts.has(raw)
+      ) {
+        let isSub = false;
+        for (const st of seenTexts) {
+          if (st.includes(raw)) { isSub = true; break; }
+        }
+        if (!isSub) {
+          seenTexts.add(raw);
+          textParts.push(raw);
+        }
+      }
+    }
+
+    let cleanText = textParts.join("\n\n").trim();
+
+    // Pembersihan artefak lanjutan
+    if (cleanText) {
+      cleanText = cleanText.replace(/^(?:Ikuti|Mengikuti|Follow|Following)\s*/i, "").trim();
+      if (authorHandle) {
+        cleanText = cleanText.replace(new RegExp(`^@?${authorHandle}\\s*`, "i"), "").trim();
+      }
+      cleanText = cleanText.replace(/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)\s*/i, "").trim();
+      cleanText = cleanText.replace(/\b(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share)\b.*$/gi, "").trim();
+      cleanText = cleanText.replace(/[ \t]+/g, " ");
+      cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+    }
+
+    // Deteksi Media Gambar/Video (Pemicu Multimodal OCR)
+    const hasMedia = Boolean(container.querySelector("img[srcset], img[src*='threads'], img[src*='cdninstagram'], video"));
+
+    // Deteksi Likes Count
+    let likesCount = 0;
+    const allText = container.textContent || "";
+    const likesMatch = allText.match(/([\d\.,]+)\s*(?:rb|k|ribu|jt|m)?\s*(?:suka|likes)/i);
+    if (likesMatch) {
+      likesCount = parseMetricNumber(likesMatch[1]);
+    }
+
+    // Canonical URL deterministik (JANGAN pakai og:url yang stale di SPA)
+    let permalink = window.location.href.split("?")[0].replace(/\/+$/, "");
+    if (authorHandle && postIdFromUrl) {
+      permalink = `https://www.threads.net/@${authorHandle}/post/${postIdFromUrl}`;
+    }
+
+    const firstSentence = cleanText.split(/[.!?\n]/)[0].trim().replace(/^\d+\.\s*/, "");
+    const title = firstSentence && firstSentence.length >= 15 && firstSentence.length <= 90
+      ? firstSentence
+      : (cleanText.slice(0, 77).trim() + (cleanText.length > 77 ? "..." : "") || "Postingan Threads");
+
+    return {
+      platform: "threads",
+      source_url: permalink,
+      title: title,
+      dom_text: cleanText,
+      extraction_method: "threads_spa_post",
+      username: authorHandle || undefined,
+      display_name: authorName || undefined,
+      posted_at: new Date().toISOString(),
+      likes_count: likesCount,
+      has_media: hasMedia,
+      container: container,
+    };
   }
 
   function extractSemanticArticleContainer() {
@@ -754,7 +975,21 @@
     const isSocialMedia = ["x", "instagram", "facebook", "threads", "tiktok"].includes(platform);
     let postContainer = null;
 
-    if (isSocialMedia && extractionMethod !== "user_highlight") {
+    if (platform === "threads" && extractionMethod !== "user_highlight") {
+      // ── JALUR KHUSUS THREADS (SPA Anti-Stale Viewport Extractor) ──
+      const thData = extractThreadsPost();
+      if (thData) {
+        postContainer = thData.container || null;
+        extractionMethod = "threads_spa_post";
+        domText = thData.dom_text || "";
+        title = thData.title || title;
+        if (thData.source_url) targetUrl = thData.source_url;
+        if (thData.username) username = thData.username;
+        if (thData.display_name) displayName = thData.display_name;
+        if (thData.likes_count) likesCount = thData.likes_count;
+        if (thData.has_media) hasMedia = true;
+      }
+    } else if (isSocialMedia && extractionMethod !== "user_highlight") {
       // ── LAYER 2 (Primary for Social): Semantic <article> Container ──
       const articleData = extractSemanticArticleContainer();
       if (articleData && articleData.clean_text && articleData.clean_text.length >= 15) {
@@ -841,11 +1076,16 @@
 
     // ── FALLBACK IF DOM TEXT STILL EMPTY ──
     if (!domText || domText.length < 5 || isBoilerplateLoginText(domText)) {
-      const ogLd = extractOpenGraphAndJsonLd();
-      const rawDesc = ogLd.description && !isBoilerplateLoginText(ogLd.description) ? ogLd.description : "";
-      domText = rawDesc || document.title || "Tangkapan bukti digital TILIK.";
-      title = (ogLd.title && !isBoilerplateLoginText(ogLd.title) ? ogLd.title : document.title);
-      extractionMethod = "fallback_dom";
+      if (platform !== "threads") {
+        const ogLd = extractOpenGraphAndJsonLd();
+        const rawDesc = ogLd.description && !isBoilerplateLoginText(ogLd.description) ? ogLd.description : "";
+        domText = rawDesc || document.title || "Tangkapan bukti digital TILIK.";
+        title = (ogLd.title && !isBoilerplateLoginText(ogLd.title) ? ogLd.title : document.title);
+        extractionMethod = "fallback_dom";
+      } else {
+        domText = domText || "Tangkapan bukti digital Threads.";
+        hasMedia = true; // Picu Selective OCR untuk membaca teks gambar/poster
+      }
     }
 
     // Bersihkan suffix modal/dialog Instagram (e.g. /liked_by, /comments)
@@ -854,6 +1094,8 @@
       if (igMatch) {
         targetUrl = igMatch[1] + "/";
       }
+    } else if (targetUrl && (platform === "threads" || targetUrl.includes("threads."))) {
+      targetUrl = targetUrl.split("?")[0].replace(/\/+$/, "");
     }
 
     return {

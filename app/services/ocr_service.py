@@ -71,8 +71,8 @@ class OCRService:
         if any(marker in clean_lower and len(clean) < 60 for marker in noise_markers):
             return True
 
-        # Instagram with visual media poster
-        if platform and "instagram" in platform.lower() and has_media:
+        # Instagram or Threads with visual media poster / infographic
+        if platform and any(p in platform.lower() for p in ["instagram", "threads"]) and has_media:
             return True
 
         return False

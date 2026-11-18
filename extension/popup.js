@@ -234,7 +234,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const host = window.location.hostname.toLowerCase();
             const isSocial = url.includes("twitter.com") || url.includes("x.com") ||
                              url.includes("instagram.com") || url.includes("facebook.com") ||
-                             url.includes("threads.net") || url.includes("tiktok.com");
+                             url.includes("threads.net") || url.includes("threads.com") ||
+                             url.includes("tiktok.com");
 
             if (isSocial) {
               // Layer 2: Viewport Center Semantic Article Container
@@ -267,6 +268,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                   clean = container.querySelector('[data-e2e="browse-video-desc"], [data-e2e="user-post-item-desc"]')?.textContent?.trim() || "";
                 } else if (host.includes("facebook.com")) {
                   clean = container.querySelector('div[data-ad-preview="message"]')?.textContent?.trim() || "";
+                } else if (host.includes("threads.net") || host.includes("threads.com")) {
+                  const thSpans = container.querySelectorAll('span[dir="auto"], div[dir="auto"], p');
+                  const thTexts = [];
+                  for (const s of thSpans) {
+                    if (s.closest("button, [role='button'], nav, header, footer, a[role='link']")) continue;
+                    const st = (s.innerText || s.textContent || "").trim();
+                    if (
+                      st.length >= 3 &&
+                      !/^(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Ikuti|Follow|Mengikuti|Following|Terjemahkan|Translate)$/i.test(st) &&
+                      !/^\d+[\d\.,]*\s*(?:suka|likes|balasan|replies|reposts|shares|tayangan|views)?$/i.test(st)
+                    ) {
+                      if (!thTexts.some(x => x.includes(st))) thTexts.push(st);
+                    }
+                  }
+                  if (thTexts.length > 0) clean = thTexts.join("\n\n");
                 }
 
                 // Fallback: Clone node dan buang komentar
@@ -357,7 +373,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const domText = inPageMeta.dom_text || notes || targetUrl;
     const method = inPageMeta.extraction_method || "fallback_dom";
 
-    let targetCleanUrl = inPageMeta.source_url || targetUrl;
+    let targetCleanUrl = targetUrl;
+    if (currentPlatform === "threads" || targetCleanUrl.includes("threads.net") || targetCleanUrl.includes("threads.com")) {
+      targetCleanUrl = targetCleanUrl.split("?")[0].replace(/\/+$/, "");
+    } else if (inPageMeta.source_url) {
+      targetCleanUrl = inPageMeta.source_url;
+    }
+
     if (targetCleanUrl.includes("instagram.com")) {
       const igMatch = targetCleanUrl.match(/(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+)/i);
       if (igMatch) {

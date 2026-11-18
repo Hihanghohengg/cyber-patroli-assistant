@@ -400,9 +400,9 @@ def _extract_post_identity(url: str) -> Tuple[str, Optional[str]]:
         return ("youtube", m.group(1)) if m else ("youtube", None)
 
     if any(d in netloc for d in ["threads.net", "threads.com"]):
-        if path in ["", "/", "/home"]:
+        if path in ["", "/", "/home", "/for_you", "/following"]:
             return ("threads", None)
-        m = re.search(r"/post/([A-Za-z0-9_-]+)", clean_url)
+        m = re.search(r"/(?:post|t)/([A-Za-z0-9_-]+)", clean_url)
         return ("threads", m.group(1)) if m else ("threads", None)
 
     # Web umum
@@ -487,6 +487,14 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         platform = platform_key if platform_key != "twitter" else "x"
     except ValueError as e:
         raise HTTPException(status_code=400, detail=f"Platform tidak didukung atau URL tidak valid: {str(e)}")
+
+    # Penjagaan mutlak Threads: Samakan platform dengan IG/FB/X jika petunjuk atau domain terdeteksi
+    if getattr(payload, "platform_hint", None) == "threads" or any(d in clean_url.lower() for d in ["threads.net", "threads.com"]):
+        platform = "threads"
+        if not canonical_post_id:
+            th_post_m = re.search(r"/(?:post|t)/([A-Za-z0-9_-]+)", clean_url)
+            if th_post_m:
+                canonical_post_id = th_post_m.group(1)
 
     ticket_number = f"PS-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:4].upper()}"
     active_operator_id = (payload.operator_id or payload.reporter_identifier or "OP-01").strip()
@@ -675,19 +683,23 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             scraper = TikTokScraper(storage_dir=settings.EVIDENCE_DIR)
         elif platform == "web":
             # Direct Link Triage untuk Media Nasional & Web Terbuka
-            # Optimalisasi: Jika dikirim dari Browser Extension dan teks/screenshot sudah diekstrak dari DOM klien,
-            # lewati crawl Playwright server-side agar triase instan (mencegah timeout 60s)
-            has_client_content = bool(payload.caption and len(payload.caption.strip()) >= 30)
-            if payload.source_channel == "BROWSER_EXTENSION" and (has_client_content or payload.screenshot_base64):
-                logger.info(f"Browser Extension telah mengekstrak konten web ({len(payload.caption or '')} karakter) & screenshot. Melewati server-side Playwright crawl.")
+            # Pastikan domain Threads TIDAK PERNAH masuk ke server-side crawler Playwright
+            if any(d in clean_url.lower() for d in ["threads.net", "threads.com"]):
                 crawl_res = None
             else:
-                from app.services.crawler_service import CrawlerService
-                try:
-                    crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
-                except Exception as crawl_err:
-                    logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
+                # Optimalisasi: Jika dikirim dari Browser Extension dan teks/screenshot sudah diekstrak dari DOM klien,
+                # lewati crawl Playwright server-side agar triase instan (mencegah timeout 60s)
+                has_client_content = bool(payload.caption and len(payload.caption.strip()) >= 30)
+                if payload.source_channel == "BROWSER_EXTENSION" and (has_client_content or payload.screenshot_base64):
+                    logger.info(f"Browser Extension telah mengekstrak konten web ({len(payload.caption or '')} karakter) & screenshot. Melewati server-side Playwright crawl.")
                     crawl_res = None
+                else:
+                    from app.services.crawler_service import CrawlerService
+                    try:
+                        crawl_res = await CrawlerService.crawl_article(payload.url, ticket_number=ticket_number)
+                    except Exception as crawl_err:
+                        logger.warning(f"Crawler article failed for {payload.url}: {crawl_err}")
+                        crawl_res = None
 
             if crawl_res:
                 cr_title = crawl_res.get("title")
@@ -755,7 +767,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     detected_user = payload.username
 
     # Abaikan jika username berupa nama domain platform atau ekstensi domain
-    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com"}
+    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com", "threads.net", "threads.com"}
     if detected_user and (any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames):
         detected_user = None
 
@@ -770,6 +782,12 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             ig_match = re.search(r"instagram\.com/([a-zA-Z0-9_\.]{1,30})/(?:p|reel|reels)/", payload.url, re.IGNORECASE)
             if ig_match and ig_match.group(1).lower() not in ["p", "reel", "reels", "stories", "explore", "direct"]:
                 detected_user = ig_match.group(1)
+
+        # Pola 2b: Threads URL -> https://threads.net/@akun/post/...
+        if not detected_user:
+            th_match = re.search(r"threads\.(?:net|com)/@?([a-zA-Z0-9_\.]+)", payload.url, re.IGNORECASE)
+            if th_match and th_match.group(1).lower() not in ["post", "search", "activity", "t"]:
+                detected_user = th_match.group(1)
 
         # Pola 3: TikTok URL -> https://tiktok.com/@username
         if not detected_user:
