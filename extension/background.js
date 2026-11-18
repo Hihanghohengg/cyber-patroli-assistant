@@ -68,6 +68,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     const targetUrl = info.linkUrl || info.pageUrl;
     if (!targetUrl) return;
 
+    let screenshotBase64 = undefined;
+    const winId = typeof tab?.windowId === "number" ? tab.windowId : null;
+    try {
+      screenshotBase64 = await new Promise((resolve) => {
+        chrome.tabs.captureVisibleTab(winId, { format: "jpeg", quality: 85 }, (dataUrl) => {
+          if (!chrome.runtime.lastError && dataUrl) {
+            resolve(dataUrl);
+          } else {
+            chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 85 }, (dataUrl2) => {
+              resolve((!chrome.runtime.lastError && dataUrl2) ? dataUrl2 : undefined);
+            });
+          }
+        });
+      });
+    } catch (_) {}
+
     chrome.storage.local.get(["operator_id"], async (res) => {
       const operatorId = (res.operator_id || "op_d23_01").trim();
       const capturedAtUtc = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -82,6 +98,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             reporter_identifier: operatorId,
             operator_id: operatorId,
             captured_at_utc: capturedAtUtc,
+            screenshot_base64: screenshotBase64,
             notes: "Pelaporan cepat via klik kanan (Context Menu)"
           })
         });
@@ -150,30 +167,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const options = { format: "jpeg", quality: 85 };
     const winId = typeof sender?.tab?.windowId === "number" ? sender.tab.windowId : null;
 
-    // Prioritas 1: Capture current active window (null)
-    chrome.tabs.captureVisibleTab(null, options, (dataUrl) => {
-      if (!chrome.runtime.lastError && dataUrl) {
-        sendResponse({ ok: true, dataUrl: dataUrl });
-        return;
-      }
+    const tryCapture = (targetWinId, fallback) => {
+      chrome.tabs.captureVisibleTab(targetWinId, options, (dataUrl) => {
+        if (!chrome.runtime.lastError && dataUrl) {
+          sendResponse({ ok: true, dataUrl: dataUrl });
+        } else if (fallback) {
+          fallback();
+        } else {
+          const err = chrome.runtime.lastError?.message || "Capture visible tab failed";
+          console.warn("[TILIK Service Worker] Capture error:", err);
+          sendResponse({ ok: false, error: err });
+        }
+      });
+    };
 
-      // Prioritas 2: Fallback ke windowId tab jika null gagal
-      if (typeof winId === "number") {
-        chrome.tabs.captureVisibleTab(winId, options, (dataUrl2) => {
-          if (!chrome.runtime.lastError && dataUrl2) {
-            sendResponse({ ok: true, dataUrl: dataUrl2 });
-          } else {
-            const err = chrome.runtime.lastError?.message || "Capture with winId failed";
-            console.warn("[TILIK Service Worker] Capture fallback warning:", err);
-            sendResponse({ ok: false, error: err });
-          }
-        });
-      } else {
-        const err = chrome.runtime.lastError?.message || "Capture active window failed";
-        console.warn("[TILIK Service Worker] Capture active window warning:", err);
-        sendResponse({ ok: false, error: err });
-      }
-    });
+    // Prioritas 1: Gunakan windowId tab pengirim jika tersedia, lalu fallback ke active window (null)
+    if (typeof winId === "number") {
+      tryCapture(winId, () => tryCapture(null, null));
+    } else {
+      tryCapture(null, null);
+    }
     return true; // Keep asynchronous message channel open
   }
 });

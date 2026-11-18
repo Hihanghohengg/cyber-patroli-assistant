@@ -146,56 +146,6 @@
     );
   }
 
-  async function cropScreenshotToElement(dataUrl, element) {
-    return new Promise((resolve) => {
-      try {
-        if (!element || typeof element.getBoundingClientRect !== "function") {
-          return resolve(null);
-        }
-        const rect = element.getBoundingClientRect();
-        if (rect.width < 100 || rect.height < 100) {
-          return resolve(null);
-        }
-        const img = new Image();
-        img.onload = () => {
-          try {
-            const naturalW = img.naturalWidth || window.innerWidth;
-            const naturalH = img.naturalHeight || window.innerHeight;
-            const scaleX = naturalW / window.innerWidth;
-            const scaleY = naturalH / window.innerHeight;
-
-            const padX = 8 * scaleX;
-            const padY = 12 * scaleY;
-
-            const sx = Math.max(0, rect.left * scaleX - padX);
-            const sy = Math.max(0, rect.top * scaleY - padY);
-            const sw = Math.min(naturalW - sx, rect.width * scaleX + padX * 2);
-            const sh = Math.min(naturalH - sy, rect.height * scaleY + padY * 2);
-
-            if (sw < 100 || sh < 100) return resolve(null);
-
-            const canvas = document.createElement("canvas");
-            canvas.width = Math.round(sw);
-            canvas.height = Math.round(sh);
-            const ctx = canvas.getContext("2d");
-            if (!ctx) return resolve(null);
-
-            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
-            const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.90);
-            resolve(croppedDataUrl);
-          } catch (e) {
-            console.warn("[TILIK Canvas Crop] Exception:", e);
-            resolve(null);
-          }
-        };
-        img.onerror = () => resolve(null);
-        img.src = dataUrl;
-      } catch (e) {
-        resolve(null);
-      }
-    });
-  }
-
   function extractSemanticArticleContainer() {
     const host = window.location.hostname.toLowerCase();
     const isTwitter = host.includes("twitter.com") || host.includes("x.com");
@@ -1054,15 +1004,8 @@
       existingModal.style.display = "none";
     }
 
-    // Auto-scroll ke container target jika ada agar berada di dalam viewport
-    if (extracted.container && typeof extracted.container.scrollIntoView === "function") {
-      try {
-        extracted.container.scrollIntoView({ behavior: "instant", block: "nearest" });
-      } catch (scrollErr) {}
-    }
-
-    // Jeda 140ms agar engine render browser selesai menggambar frame bersih tanpa tombol
-    await new Promise((r) => setTimeout(r, 140));
+    // Jeda 120ms sesuai PRD 4.0 FR-01.3 agar engine render browser selesai menggambar frame bersih tanpa tombol
+    await new Promise((r) => setTimeout(r, 120));
 
     try {
       const captureRes = await new Promise((resolve) => {
@@ -1095,18 +1038,6 @@
 
       if (captureRes && captureRes.ok && captureRes.dataUrl) {
         screenshotBase64 = captureRes.dataUrl;
-
-        // Auto-crop screenshot ke kontainer kartu postingan (potong menu sidebar & widget samping)
-        if (extracted.container) {
-          try {
-            const cropped = await cropScreenshotToElement(captureRes.dataUrl, extracted.container);
-            if (cropped) {
-              screenshotBase64 = cropped;
-            }
-          } catch (cropErr) {
-            console.warn("[TILIK Content Script] Auto-crop failed, using full tab:", cropErr);
-          }
-        }
       }
     } catch (e) {
       console.warn("[TILIK Content Script] Capture visible tab error:", e);
