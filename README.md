@@ -261,33 +261,31 @@ Content-Type: application/json
 
 ## 📊 Tolok Ukur Evaluasi & Benchmark
 
-Sistem dilengkapi skrip evaluasi kuantitatif mandiri untuk menguji performa klasifikasi AI pada 24 kasus nyata 8 bidang IPOLEKSOSBUDHANKAM:
+Sistem dilengkapi skrip evaluasi kuantitatif mandiri untuk menguji performa klasifikasi AI pada 24 kasus nyata 8 bidang IPOLEKSOSBUDHANKAM (Ollama `qwen2.5:3b` & `bge-m3`):
 ```bash
 python scripts/evaluate_tilik.py
 ```
 
-### Hasil Perbandingan Metrik (Evaluasi Nyata Ollama qwen2.5 & BGE-M3):
-| Metrik Pengujian | Mode Baseline (Zero-Shot) | Mode Adaptive (MemPrompt Few-Shot) | Peningkatan |
-|---|:---:|:---:|:---:|
-| **Akurasi Total** | **83.33%** (20/24) | **95.83%** (23/24) | **+12.50%** |
-| **Macro Precision** | **88.33%** | **96.88%** | **+8.55%** |
-| **Macro Recall** | **83.33%** | **95.83%** | **+12.50%** |
-| **Macro F1-Score** | **83.33%** | **95.71%** | **+12.38%** |
-| **Rerata Latensi Retrieval** | *0.00 ms* (Tidak Aktif) | **2.83 ms** | Presisi Tinggi |
-| **Rerata Latensi Pipeline** | *10,510.42 ms* | **11,842.15 ms** | Inferensi Lokal Penuh |
-
-#### Performa F1-Score per Kategori (Mode Adaptive):
-* **Ideologi:** 100.0% (3/3)
-* **Politik:** 100.0% (3/3)
-* **Ekonomi:** 85.7% (Kasus batas IPOLEKSOS)
-* **Sosial:** 100.0% (3/3)
-* **Budaya:** 100.0% (3/3)
-* **Pertahanan:** 100.0% (3/3)
-* **Keamanan:** 80.0% (Pemulihan kasus batas separatisme dari 0.0% pada baseline)
-* **Non-Isu:** 100.0% (3/3)
+### Profil Performa Sistem Aktual:
+| Parameter / Metrik Pengujian | Nilai Performa Aktual | Keterangan Operasional |
+|---|:---:|---|
+| **Akurasi Klasifikasi** | **95.83%** (23/24 kasus) | 23 dari 24 kasus uji teridentifikasi tepat sesuai *ground-truth* |
+| **Macro Precision** | **96.88%** | Rata-rata presisi prediksi antarseluruh 8 bidang isu |
+| **Macro Recall** | **95.83%** | Rata-rata sensitivitas penangkapan isu antarseluruh 8 bidang |
+| **Macro F1-Score** | **95.71%** | Keseimbangan harmonik presisi dan recall |
+| **Rerata Latensi Retrieval (BGE-M3)** | **2,505.12 ms** | Pencarian preseden semantik vektor *dense* 384-dimensi L2 |
+| **Rerata Latensi Pipeline (CPU 8-Thread)** | **158.84 s** | Inferensi lokal penuh tanpa ketergantungan koneksi internet eksternal |
+| **F1-Score Bidang Ideologi** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Politik** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Ekonomi** | **85.7%** | Sangat Kuat (Precision: 75.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Sosial** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Budaya** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Pertahanan** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Keamanan** | **80.0%** | Kuat (Precision: 100.0%, Recall: 66.7%, 2/3 kasus) |
+| **F1-Score Bidang Non-Isu** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
 
 *Berkas hasil pengujian tersimpan otomatis dalam:*
-* `storage/evaluation_results.json` (Detail metrik dan perbandingan per kasus).
+* `storage/evaluation_results.json` (Detail metrik dan profil per kasus).
 * `storage/evaluation_results.csv` (Tabel terstruktur untuk lampiran Bab IV Tugas Akhir).
 
 ---

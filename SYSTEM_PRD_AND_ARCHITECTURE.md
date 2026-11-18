@@ -783,35 +783,29 @@ Setiap temuan diklasifikasikan ke dalam salah satu dari 8 pilar ketahanan nasion
 
 ## 5.1 Hasil Pengujian Kuantitatif (Benchmark 24 Kasus IPOLEKSOSBUDHANKAM)
 
-Pengujian komparatif otomatis dijalankan menggunakan skrip `scripts/evaluate_tilik.py` pada 24 kasus uji ground-truth representatif dari 8 bidang strategis nasional:
+Evaluasi kuantitatif mandiri dijalankan menggunakan skrip `scripts/evaluate_tilik.py` pada 24 kasus uji *ground-truth* representatif 8 bidang IPOLEKSOSBUDHANKAM menggunakan model inferensi lokal Ollama `qwen2.5:3b` dan model *embedding* `bge-m3`:
 
-### Ringkasan Hasil Evaluasi Kuantitatif:
-```
-================================================================================
-                  RINGKASAN HASIL EVALUASI KOMPARATIF
-================================================================================
-Metrik Pengujian          | Mode BASELINE (Zero-Shot)  | Mode ADAPTIVE (MemPrompt)
---------------------------------------------------------------------------------
-Akurasi Total             |  83.33% (20/24)            |  95.83% (23/24)
-Macro Precision           |  88.33%                    |  96.88%
-Macro Recall              |  83.33%                    |  95.83%
-Macro F1-Score            |  83.33%                    |  95.71%
-Rerata Latensi Retrieval  | 0.00 ms (Tidak aktif)      | 2505.12 ms
-Rerata Latensi Pipeline   | 145388.97 ms               | 158844.38 ms
-================================================================================
-```
+### Profil Performa Sistem Aktual:
+| Parameter / Metrik Pengujian | Nilai Performa Aktual | Keterangan Operasional |
+|---|:---:|---|
+| **Akurasi Klasifikasi** | **95.83%** (23/24 kasus) | 23 dari 24 kasus uji teridentifikasi tepat sesuai *ground-truth* |
+| **Macro Precision** | **96.88%** | Rata-rata presisi prediksi antarseluruh 8 bidang isu |
+| **Macro Recall** | **95.83%** | Rata-rata sensitivitas penangkapan isu antarseluruh 8 bidang |
+| **Macro F1-Score** | **95.71%** | Keseimbangan harmonik presisi dan recall |
+| **Rerata Latensi Retrieval (BGE-M3)** | **2,505.12 ms** | Pencarian preseden semantik vektor *dense* 384-dimensi L2 |
+| **Rerata Latensi Pipeline (CPU 8-Thread)** | **158.84 s** | Inferensi lokal penuh tanpa ketergantungan koneksi internet eksternal |
+| **F1-Score Bidang Ideologi** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Politik** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Ekonomi** | **85.7%** | Sangat Kuat (Precision: 75.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Sosial** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Budaya** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Pertahanan** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
+| **F1-Score Bidang Keamanan** | **80.0%** | Kuat (Precision: 100.0%, Recall: 66.7%, 2/3 kasus) |
+| **F1-Score Bidang Non-Isu** | **100.0%** | Sempurna (Precision: 100.0%, Recall: 100.0%, 3/3 kasus) |
 
-### Rincian F1-Score per Kategori IPOLEKSOSBUDHANKAM:
-| Bidang Isu | Baseline Precision | Baseline F1 | Adaptive Precision | Adaptive F1 | Status Evaluasi |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Ideologi** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Politik** | 100.0% | 50.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Ekonomi** | 100.0% | 100.0% | 75.0% | 85.7% | Sangat Kuat (85.7%) |
-| **Sosial** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Budaya** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Pertahanan** | 100.0% | 100.0% | 100.0% | 100.0% | Sempurna (100%) |
-| **Keamanan** | 40.0% | 50.0% | 100.0% | 80.0% | Pulih Signifikan (80.0%) |
-| **Non-Isu** | 66.7% | 66.7% | 100.0% | 100.0% | Sempurna (100%) |
+*Berkas hasil pengujian tersimpan otomatis dalam:*
+* `storage/evaluation_results.json` (Detail metrik dan profil per kasus).
+* `storage/evaluation_results.csv` (Tabel terstruktur untuk lampiran Bab IV Tugas Akhir).
 
 ---
 
