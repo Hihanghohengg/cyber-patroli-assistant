@@ -417,7 +417,7 @@ export const TrendingTopicsPage: React.FC = () => {
               <span className="text-[10px] font-mono text-slate-400">Top 8</span>
             </div>
             <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono mb-2.5">
-              Klik nama untuk melihat temuan yang menyebut tokoh/lembaga
+              Klik nama untuk menyaring klaster isu, atau klik badge post untuk membuka bukti
             </p>
 
             {activeFilter?.type === 'ACTOR' && (
@@ -449,41 +449,52 @@ export const TrendingTopicsPage: React.FC = () => {
                   const isSelected = activeFilter?.type === 'ACTOR' && activeFilter.value === actor.name;
                   const percent = Math.min(100, Math.round((actor.mentions / maxActorMentions) * 100));
                   return (
-                    <button
+                    <div
                       key={idx}
-                      onClick={() => handleSelectActor(actor.name)}
-                      className={`w-full text-left p-1.5 px-2 rounded-lg border transition-colors group ${
+                      className={`w-full p-1.5 px-2 rounded-lg border transition-colors group flex items-center justify-between gap-2 ${
                         isSelected
                           ? 'bg-emerald-500/10 border-emerald-500'
                           : 'bg-slate-50 dark:bg-[#0A0D14] border-slate-200 dark:border-white/[0.06] hover:border-emerald-500/40'
                       }`}
                     >
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span
-                          className={`font-semibold transition-colors line-clamp-1 ${
-                            isSelected
-                              ? 'text-emerald-400'
-                              : 'text-slate-800 dark:text-slate-200 group-hover:text-emerald-400'
-                          }`}
-                        >
-                          {actor.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 shrink-0 font-mono">
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-200 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
-                            {actor.category}
-                          </span>
-                          <span className="text-[10px] font-bold text-emerald-500">
-                            {actor.mentions} post
+                      <button
+                        type="button"
+                        onClick={() => handleSelectActor(actor.name)}
+                        className="flex-1 text-left min-w-0"
+                      >
+                        <div className="flex items-center justify-between text-xs mb-1">
+                          <span
+                            className={`font-semibold transition-colors line-clamp-1 ${
+                              isSelected
+                                ? 'text-emerald-400'
+                                : 'text-slate-800 dark:text-slate-200 group-hover:text-emerald-400'
+                            }`}
+                          >
+                            {actor.name}
                           </span>
                         </div>
+                        <div className="w-full h-1 rounded-full bg-slate-200 dark:bg-white/[0.06] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </button>
+
+                      <div className="flex items-center gap-1.5 shrink-0 font-mono">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 dark:bg-white/[0.06] text-slate-600 dark:text-slate-400">
+                          {actor.category}
+                        </span>
+                        <Link
+                          to={`/contents?search=${encodeURIComponent(actor.name)}`}
+                          title={`Buka ${actor.mentions} post di Arsip Temuan`}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-300 px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors"
+                        >
+                          <span>{actor.mentions} post</span>
+                          <ExternalLink className="w-2.5 h-2.5" />
+                        </Link>
                       </div>
-                      <div className="w-full h-1 rounded-full bg-slate-200 dark:bg-white/[0.06] overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                          style={{ width: `${percent}%` }}
-                        />
-                      </div>
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -557,36 +568,53 @@ export const TrendingTopicsPage: React.FC = () => {
             <p className="text-rose-500 text-sm font-semibold">{error}</p>
           </div>
         ) : filteredTopics.length === 0 ? (
-          <div className="cyber-card rounded-xl p-10 sm:p-14 text-center border border-slate-200 dark:border-white/[0.06] space-y-3">
+          <div className="cyber-card rounded-xl p-8 sm:p-12 text-center border border-slate-200 dark:border-white/[0.06] space-y-3">
             <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 flex items-center justify-center mx-auto">
               <Flame className="w-6 h-6" />
             </div>
             <div className="space-y-1">
               <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 font-mono">
                 {activeFilter || selectedPillar !== 'ALL'
-                  ? 'Tidak Ada Isu yang Sesuai Filter'
+                  ? 'Tidak Ada Klaster Isu yang Sesuai Filter'
                   : 'Radar Isu Siap — Belum Ada Klaster Narasi'}
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-                {activeFilter || selectedPillar !== 'ALL'
-                  ? 'Coba ubah kata kunci atau tekan tombol reset untuk menampilkan seluruh klaster radar.'
+                {activeFilter?.type === 'ACTOR'
+                  ? `Tokoh "${activeFilter.value}" disebut dalam laporan patroli tetapi postingannya belum membentuk klaster isu strategis tersendiri.`
+                  : activeFilter?.type === 'KEYWORD'
+                  ? `Kata kunci "${activeFilter.value}" belum terkelompokkan ke dalam klaster isu aktif mana pun.`
+                  : activeFilter || selectedPillar !== 'ALL'
+                  ? 'Coba sesuaikan kata kunci atau tekan tombol reset untuk menampilkan seluruh klaster radar.'
                   : 'Klaster narasi strategis, HotScore, dan awan kata kunci akan terbentuk secara otonom saat patroli ruang siber mulai mengakuisisi data temuan.'}
               </p>
             </div>
-            {(activeFilter || selectedPillar !== 'ALL') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveFilter(null);
-                  setSelectedPillar('ALL');
-                  setSearchInput('');
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-xs"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset Seluruh Filter</span>
-              </button>
-            )}
+
+            <div className="flex items-center justify-center gap-2 flex-wrap pt-2">
+              {activeFilter && (
+                <Link
+                  to={`/contents?search=${encodeURIComponent(activeFilter.value)}`}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors shadow-xs"
+                >
+                  <Search className="w-3.5 h-3.5" />
+                  <span>Buka Temuan "{activeFilter.value}" di Arsip Temuan →</span>
+                </Link>
+              )}
+
+              {(activeFilter || selectedPillar !== 'ALL') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFilter(null);
+                    setSelectedPillar('ALL');
+                    setSearchInput('');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-mono font-semibold bg-slate-100 hover:bg-slate-200 dark:bg-white/[0.06] dark:hover:bg-white/[0.1] text-slate-700 dark:text-slate-300 transition-colors border border-slate-200 dark:border-white/[0.08]"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Filter</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="space-y-2.5">
