@@ -717,8 +717,54 @@
   btn.title = "Klik untuk Triase. Seret untuk memindahkan posisi.";
   btn.innerHTML = `
     <img class="cp-badge-icon" src="${tilikLogoUrl}" alt="TILIK" />
+    <span class="cp-badge-spinner" style="display:none;"></span>
     <span class="cp-badge-text">Triase</span>
   `;
+
+  // Restore saved position if exists in localStorage
+  try {
+    const savedPos = localStorage.getItem("tilik_badge_position");
+    if (savedPos) {
+      const parsed = JSON.parse(savedPos);
+      const maxLeft = Math.max(10, window.innerWidth - 140);
+      const maxTop = Math.max(10, window.innerHeight - 50);
+      if (typeof parsed.left === "number" && typeof parsed.top === "number" && parsed.left >= 5 && parsed.left <= maxLeft && parsed.top >= 5 && parsed.top <= maxTop) {
+        btn.style.left = `${parsed.left}px`;
+        btn.style.top = `${parsed.top}px`;
+        btn.style.right = "auto";
+        btn.style.bottom = "auto";
+      }
+    }
+  } catch (_) {}
+
+  // Helper untuk mengubah status & tampilan teks badge secara konsisten (anti-wrap)
+  const updateBadge = (status, text) => {
+    const icon = btn.querySelector(".cp-badge-icon");
+    const spinner = btn.querySelector(".cp-badge-spinner");
+    const textEl = btn.querySelector(".cp-badge-text");
+    if (textEl) textEl.textContent = text;
+
+    if (status === "loading") {
+      btn.classList.remove("cp-success", "cp-error");
+      btn.classList.add("cp-loading");
+      if (icon) icon.style.display = "none";
+      if (spinner) spinner.style.display = "inline-block";
+    } else if (status === "success") {
+      btn.classList.remove("cp-loading", "cp-error");
+      btn.classList.add("cp-success");
+      if (icon) icon.style.display = "block";
+      if (spinner) spinner.style.display = "none";
+    } else if (status === "error") {
+      btn.classList.remove("cp-loading", "cp-success");
+      btn.classList.add("cp-error");
+      if (icon) icon.style.display = "block";
+      if (spinner) spinner.style.display = "none";
+    } else {
+      btn.classList.remove("cp-loading", "cp-success", "cp-error");
+      if (icon) icon.style.display = "block";
+      if (spinner) spinner.style.display = "none";
+    }
+  };
 
   // Kemampuan Drag-and-Drop agar tidak bertabrakan dengan tombol/widget situs
   let isDragging = false;
@@ -760,6 +806,12 @@
   window.addEventListener("mouseup", () => {
     if (isDragging) {
       isDragging = false;
+      if (dragMoved) {
+        try {
+          const rect = btn.getBoundingClientRect();
+          localStorage.setItem("tilik_badge_position", JSON.stringify({ left: Math.round(rect.left), top: Math.round(rect.top) }));
+        } catch (_) {}
+      }
     }
   });
 
@@ -772,8 +824,7 @@
     if (btn.classList.contains("cp-loading") || btn.classList.contains("cp-capturing")) {
       return;
     }
-    btn.classList.add("cp-loading");
-    btn.querySelector(".cp-badge-text").textContent = "1/3 Mengamankan bukti...";
+    updateBadge("loading", "1/3 Mengamankan...");
 
     // 1. Jalankan Universal 3-Layer Content Acquisition
     const extracted = acquirePageContent();
@@ -788,7 +839,7 @@
       if (stored.server_url) serverBaseUrl = stored.server_url.trim().replace(/\/+$/, "");
     }
 
-    btn.querySelector(".cp-badge-text").textContent = "Merekam bukti...";
+    updateBadge("loading", "1/3 Merekam bukti...");
 
     // 3. Tangkap screenshot layar monitor aktif (Bersih Murni: Sembunyikan Tombol & Modal saat Screenshot)
     let screenshotBase64 = null;
@@ -874,15 +925,15 @@
       platform_hint: extracted.platform || undefined,
     };
 
-    btn.querySelector(".cp-badge-text").textContent = "1/3 Mengamankan bukti...";
+    updateBadge("loading", "1/3 Mengamankan...");
     const statusTextTimer1 = setTimeout(() => {
       if (btn.classList.contains("cp-loading")) {
-        btn.querySelector(".cp-badge-text").textContent = "2/3 Memahami konteks...";
+        updateBadge("loading", "2/3 Analisis konteks...");
       }
     }, 2800);
     const statusTextTimer2 = setTimeout(() => {
       if (btn.classList.contains("cp-loading")) {
-        btn.querySelector(".cp-badge-text").textContent = "3/3 Menyusun analisis...";
+        updateBadge("loading", "3/3 Menyusun dossier...");
       }
     }, 6000);
 
@@ -891,20 +942,15 @@
       clearTimeout(statusTextTimer1);
       clearTimeout(statusTextTimer2);
       if (ok && data && data.ticket_number) {
-        btn.querySelector(".cp-badge-text").textContent = `Tiket: ${data.ticket_number}`;
-        btn.classList.remove("cp-loading");
-        btn.classList.add("cp-success");
+        updateBadge("success", `Tiket: ${data.ticket_number}`);
 
         showTriageResultModal(data, extracted, operatorId);
 
         setTimeout(() => {
-          btn.classList.remove("cp-success");
-          btn.querySelector(".cp-badge-text").textContent = "Triase";
+          updateBadge("idle", "Triase");
         }, 6000);
       } else {
-        btn.classList.remove("cp-loading");
-        btn.classList.add("cp-error");
-        btn.querySelector(".cp-badge-text").textContent = "Gagal";
+        updateBadge("error", "Gagal");
 
         let errDetail = errorText || (data && (data.detail || data.message)) || `Server offline di ${serverBaseUrl}`;
         if (typeof errDetail === "string" && errDetail.includes("Extension context invalidated")) {
@@ -913,8 +959,7 @@
         showTriageErrorModal(typeof errDetail === "object" ? JSON.stringify(errDetail) : String(errDetail));
 
         setTimeout(() => {
-          btn.classList.remove("cp-error");
-          btn.querySelector(".cp-badge-text").textContent = "Triase";
+          updateBadge("idle", "Triase");
         }, 5000);
       }
     };
@@ -964,6 +1009,23 @@
   // ─────────────────────────────────────────────────────────────
   // MODAL HASIL TRIASE & INTEGRITAS KRIPTOGRAFI
   // ─────────────────────────────────────────────────────────────
+  function updateModalPosition(modal) {
+    try {
+      const rect = btn.getBoundingClientRect();
+      const modalWidth = 320;
+      const targetLeft = Math.min(Math.max(16, rect.right - modalWidth), window.innerWidth - modalWidth - 16);
+      if (rect.top > 320) {
+        modal.style.top = "auto";
+        modal.style.bottom = `${window.innerHeight - rect.top + 12}px`;
+      } else {
+        modal.style.bottom = "auto";
+        modal.style.top = `${rect.bottom + 12}px`;
+      }
+      modal.style.left = `${targetLeft}px`;
+      modal.style.right = "auto";
+    } catch (_) {}
+  }
+
   function showTriageResultModal(data, extracted, operatorId) {
     const existing = document.getElementById("cp-triage-modal");
     if (existing) existing.remove();
@@ -1002,6 +1064,7 @@
     `;
 
     document.body.appendChild(modal);
+    updateModalPosition(modal);
     document.getElementById("cp-modal-close").addEventListener("click", () => modal.remove());
   }
 
@@ -1025,6 +1088,7 @@
     `;
 
     document.body.appendChild(modal);
+    updateModalPosition(modal);
     document.getElementById("cp-modal-close").addEventListener("click", () => modal.remove());
     document.getElementById("cp-modal-dismiss").addEventListener("click", () => modal.remove());
   }
