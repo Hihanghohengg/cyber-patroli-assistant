@@ -127,6 +127,75 @@
   // ─────────────────────────────────────────────────────────────
   // LAYER 2: VIEWPORT SEMANTIC CONTAINER (<article>) EXTRACTOR
   // ─────────────────────────────────────────────────────────────
+  function isBoilerplateLoginText(text) {
+    if (!text || typeof text !== "string") return false;
+    const lower = text.toLowerCase();
+    return (
+      lower.includes("log in with your instagram") ||
+      lower.includes("masuk dengan akun instagram") ||
+      lower.includes("log in to see photos and videos") ||
+      lower.includes("login to see photos and videos") ||
+      lower.includes("masuk untuk melihat foto dan video") ||
+      lower.includes("create an account or log in") ||
+      lower.includes("buat akun atau masuk") ||
+      lower.includes("log in to threads") ||
+      lower.includes("masuk ke threads") ||
+      lower.includes("join groups, ask questions") ||
+      lower.includes("lihat lainnya dari threads") ||
+      lower.includes("see more from threads")
+    );
+  }
+
+  async function cropScreenshotToElement(dataUrl, element) {
+    return new Promise((resolve) => {
+      try {
+        if (!element || typeof element.getBoundingClientRect !== "function") {
+          return resolve(null);
+        }
+        const rect = element.getBoundingClientRect();
+        if (rect.width < 100 || rect.height < 100) {
+          return resolve(null);
+        }
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const naturalW = img.naturalWidth || window.innerWidth;
+            const naturalH = img.naturalHeight || window.innerHeight;
+            const scaleX = naturalW / window.innerWidth;
+            const scaleY = naturalH / window.innerHeight;
+
+            const padX = 8 * scaleX;
+            const padY = 12 * scaleY;
+
+            const sx = Math.max(0, rect.left * scaleX - padX);
+            const sy = Math.max(0, rect.top * scaleY - padY);
+            const sw = Math.min(naturalW - sx, rect.width * scaleX + padX * 2);
+            const sh = Math.min(naturalH - sy, rect.height * scaleY + padY * 2);
+
+            if (sw < 100 || sh < 100) return resolve(null);
+
+            const canvas = document.createElement("canvas");
+            canvas.width = Math.round(sw);
+            canvas.height = Math.round(sh);
+            const ctx = canvas.getContext("2d");
+            if (!ctx) return resolve(null);
+
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+            const croppedDataUrl = canvas.toDataURL("image/jpeg", 0.90);
+            resolve(croppedDataUrl);
+          } catch (e) {
+            console.warn("[TILIK Canvas Crop] Exception:", e);
+            resolve(null);
+          }
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      } catch (e) {
+        resolve(null);
+      }
+    });
+  }
+
   function extractSemanticArticleContainer() {
     const host = window.location.hostname.toLowerCase();
     const isTwitter = host.includes("twitter.com") || host.includes("x.com");
@@ -154,7 +223,38 @@
         }
       }
     } else if (isThreads) {
-      container = lastHoveredCard || document.querySelector("div[data-pressable-container='true']") || document.querySelector("article") || document.querySelector("main");
+      // 1. Jika URL adalah permalink postingan /post/<id>, cari postingan spesifik tersebut
+      const postMatch = window.location.pathname.match(/\/post\/([A-Za-z0-9_-]+)/);
+      if (postMatch) {
+        const postAnchor = document.querySelector(`a[href*="/post/${postMatch[1]}"]`);
+        if (postAnchor) {
+          container = postAnchor.closest("div[data-pressable-container='true']") || postAnchor.closest("article") || postAnchor.closest("div[role='article']");
+        }
+      }
+      // 2. Jika ada elemen yang sedang di-hover pengguna dan bukan nav/aside
+      if (!container && lastHoveredCard) {
+        const pressable = lastHoveredCard.closest("div[data-pressable-container='true']") || lastHoveredCard;
+        if (!pressable.closest("aside, nav, header, [role='navigation']")) {
+          container = pressable;
+        }
+      }
+      // 3. Kolom utama postingan [role="main"] atau main
+      if (!container) {
+        const mainEl = document.querySelector("[role='main']") || document.querySelector("main");
+        if (mainEl) {
+          container = mainEl.querySelector("div[data-pressable-container='true']") || mainEl.querySelector("article");
+        }
+      }
+      // 4. Fallback kartu postingan pertama di dokumen yang bukan nav/aside
+      if (!container) {
+        const allPressable = document.querySelectorAll("div[data-pressable-container='true']");
+        for (const p of allPressable) {
+          if (!p.closest("aside, nav, header, [role='navigation']")) {
+            container = p;
+            break;
+          }
+        }
+      }
     }
 
     if (!container) {
@@ -273,7 +373,10 @@
           const m = href.match(/@([a-zA-Z0-9_\.]+)/);
           if (m && !["post", "activity", "search"].includes(m[1].toLowerCase())) {
             authorHandle = m[1];
-            authorName = ua.textContent.trim() || `@${m[1]}`;
+            let cleanDisp = (ua.textContent || "").trim();
+            cleanDisp = cleanDisp.replace(/\s*[·•\s]+\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)$/i, "").trim();
+            cleanDisp = cleanDisp.replace(/\b(?:Verified|Threads)\b/gi, "").trim();
+            authorName = cleanDisp || `@${m[1]}`;
             break;
           }
         }
@@ -486,9 +589,9 @@
       }
     } else if (isThreads) {
       // 1. Selector naskah postingan Threads
-      // Threads menggunakan span[dir="auto"] atau div[dir="auto"] di dalam container postingan utama
+      // Cari elemen teks narasi di dalam container kartu postingan
       const textCandidateNodes = container.querySelectorAll(
-        'div[data-pressable-container="true"] span[dir="auto"], div[data-pressable-container="true"] div[dir="auto"], article span[dir="auto"], div[dir="auto"]'
+        'span[dir="auto"], div[dir="auto"], p'
       );
       const textParts = [];
       const seenTexts = new Set();
@@ -497,11 +600,12 @@
         const clone = node.cloneNode(true);
         clone.querySelectorAll("button, time, svg, a[role='link']").forEach(el => el.remove());
         const raw = (clone.innerText || clone.textContent || "").trim();
-        // Saring label UI Threads, angka metrik interaksi, dan tombol
+        // Saring label UI Threads, angka metrik interaksi, tombol, dan teks promosi login wall
         if (
           raw.length >= 3 &&
-          !/^(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Ikuti|Follow|Mengikuti|Following)$/i.test(raw) &&
-          !/^\d+\s*(?:suka|likes|balasan|replies|reposts|shares)$/i.test(raw) &&
+          !isBoilerplateLoginText(raw) &&
+          !/^(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Ikuti|Follow|Mengikuti|Following|Terjemahkan|Translate|Komentar|Comment)$/i.test(raw) &&
+          !/^\d+\s*(?:suka|likes|balasan|replies|reposts|shares|tayangan|views)$/i.test(raw) &&
           !/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)$/i.test(raw) &&
           !seenTexts.has(raw)
         ) {
@@ -533,17 +637,20 @@
         cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
       }
 
-      // Fallback ke OpenGraph description jika DOM belum menangkap teks
-      if (!cleanText || cleanText.length < 5) {
+      // Fallback ke OpenGraph description HANYA jika DOM belum menangkap teks dan BUKAN login wall
+      if (!cleanText || cleanText.length < 5 || isBoilerplateLoginText(cleanText)) {
         const ogDesc = document.querySelector('meta[property="og:description"]')?.content ||
                        document.querySelector('meta[name="description"]')?.content;
-        if (ogDesc) {
+        if (ogDesc && !isBoilerplateLoginText(ogDesc)) {
           const quoteMatch = ogDesc.match(/(?:Threads:\s*|:\s*)["“]([\s\S]+?)["”]\s*$/);
-          if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().length >= 8) {
+          if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().length >= 8 && !isBoilerplateLoginText(quoteMatch[1])) {
             cleanText = quoteMatch[1].trim();
-          } else if (ogDesc.length >= 10 && !ogDesc.includes("likes,") && !ogDesc.includes("comments -")) {
+          } else if (ogDesc.length >= 10 && !ogDesc.includes("likes,") && !ogDesc.includes("comments -") && !isBoilerplateLoginText(ogDesc)) {
             cleanText = ogDesc.trim();
           }
+        }
+        if (isBoilerplateLoginText(cleanText)) {
+          cleanText = "";
         }
       }
     } else if (host.includes("tiktok.com")) {
@@ -683,11 +790,13 @@
 
     // ── DOMAIN-AWARE ROUTING: SOCIAL MEDIA vs NEWS / YOUTUBE ──
     const isSocialMedia = ["x", "instagram", "facebook", "threads", "tiktok"].includes(platform);
+    let postContainer = null;
 
     if (isSocialMedia && extractionMethod !== "user_highlight") {
       // ── LAYER 2 (Primary for Social): Semantic <article> Container ──
       const articleData = extractSemanticArticleContainer();
       if (articleData && articleData.clean_text && articleData.clean_text.length >= 15) {
+        postContainer = articleData.container || null;
         extractionMethod = "semantic_article";
         domText = articleData.clean_text;
         // Bentuk judul bersih & informatif dari kalimat pertama (bersihkan bullet numbering)
@@ -769,10 +878,11 @@
     }
 
     // ── FALLBACK IF DOM TEXT STILL EMPTY ──
-    if (!domText || domText.length < 5) {
+    if (!domText || domText.length < 5 || isBoilerplateLoginText(domText)) {
       const ogLd = extractOpenGraphAndJsonLd();
-      domText = ogLd.description || document.title || "Tangkapan bukti digital TILIK.";
-      title = ogLd.title || document.title;
+      const rawDesc = ogLd.description && !isBoilerplateLoginText(ogLd.description) ? ogLd.description : "";
+      domText = rawDesc || document.title || "Tangkapan bukti digital TILIK.";
+      title = (ogLd.title && !isBoilerplateLoginText(ogLd.title) ? ogLd.title : document.title);
       extractionMethod = "fallback_dom";
     }
 
@@ -789,6 +899,7 @@
       transcript: transcript || undefined,
       likes_count: likesCount || undefined,
       has_media: hasMedia || undefined,
+      container: postContainer || undefined,
     };
   }
 
@@ -943,8 +1054,15 @@
       existingModal.style.display = "none";
     }
 
-    // Jeda 120ms agar engine render browser selesai menggambar frame bersih tanpa tombol
-    await new Promise((r) => setTimeout(r, 120));
+    // Auto-scroll ke container target jika ada agar berada di dalam viewport
+    if (extracted.container && typeof extracted.container.scrollIntoView === "function") {
+      try {
+        extracted.container.scrollIntoView({ behavior: "instant", block: "nearest" });
+      } catch (scrollErr) {}
+    }
+
+    // Jeda 140ms agar engine render browser selesai menggambar frame bersih tanpa tombol
+    await new Promise((r) => setTimeout(r, 140));
 
     try {
       const captureRes = await new Promise((resolve) => {
@@ -977,6 +1095,18 @@
 
       if (captureRes && captureRes.ok && captureRes.dataUrl) {
         screenshotBase64 = captureRes.dataUrl;
+
+        // Auto-crop screenshot ke kontainer kartu postingan (potong menu sidebar & widget samping)
+        if (extracted.container) {
+          try {
+            const cropped = await cropScreenshotToElement(captureRes.dataUrl, extracted.container);
+            if (cropped) {
+              screenshotBase64 = cropped;
+            }
+          } catch (cropErr) {
+            console.warn("[TILIK Content Script] Auto-crop failed, using full tab:", cropErr);
+          }
+        }
       }
     } catch (e) {
       console.warn("[TILIK Content Script] Capture visible tab error:", e);
@@ -1053,14 +1183,14 @@
       }
     };
 
-    // Kirim via Background Service Worker (dengan batas waktu 180s untuk inferensi AI lokal)
+    // Kirim via Background Service Worker (dengan batas waktu 240s untuk inferensi AI lokal)
     let messageDispatched = false;
     try {
       if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
         messageDispatched = true;
         const submitTimer = setTimeout(() => {
-          handleResult(false, null, "Permintaan triase melampaui batas waktu (timeout 180s). Pastikan server backend sedang aktif.");
-        }, 180000);
+          handleResult(false, null, "Permintaan triase melampaui batas waktu (timeout 240s). Pastikan server backend sedang aktif.");
+        }, 240000);
 
         chrome.runtime.sendMessage({ action: "submit_intake", payload }, (bgRes) => {
           clearTimeout(submitTimer);

@@ -123,9 +123,34 @@ def _safe_int(v) -> int:
         return 0
 
 
+def is_login_wall_boilerplate(text: Optional[str]) -> bool:
+    """Detect social media login wall / unauthenticated promotional boilerplate text."""
+    if not text or not isinstance(text, str):
+        return False
+    lower = text.lower()
+    boilerplate_patterns = [
+        "log in with your instagram",
+        "masuk dengan akun instagram",
+        "log in to see photos and videos",
+        "login to see photos and videos",
+        "masuk untuk melihat foto dan video",
+        "create an account or log in to instagram",
+        "buat akun atau masuk ke instagram",
+        "create an account or log in to threads",
+        "buat akun atau masuk ke threads",
+        "join groups, ask questions, or discover new people",
+        "join groups, ask questions",
+        "lihat lainnya dari threads",
+        "see more from threads",
+        "log in to threads",
+        "masuk ke threads",
+    ]
+    return any(p in lower for p in boilerplate_patterns)
+
+
 def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> str:
     """Filter out social media UI button text artifacts, follower comments, and glued handle headers."""
-    if not raw:
+    if not raw or is_login_wall_boilerplate(raw):
         return ""
     cleaned = raw.strip()
 
@@ -213,8 +238,10 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
     cleaned = re.sub(r"\.([A-Z])", r". \1", cleaned)
 
     cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
-    cleaned = re.sub(r"[ \t]+", " ", cleaned)
-    return cleaned.strip()
+    cleaned = re.sub(r"[ \t]+", " ", cleaned).strip()
+    if is_login_wall_boilerplate(cleaned):
+        return ""
+    return cleaned
 
 
 @router.get("/channels")
@@ -442,6 +469,10 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     active_ocr_text = (payload.ocr_text or "").strip()
 
     # Ekstraksi Pengunggah & Narasi Awal untuk Deduplikasi
+    if payload.caption and is_login_wall_boilerplate(payload.caption):
+        logger.warning(f"Menolak narasi boilerplate login-wall dari payload: {payload.caption[:80]}...")
+        payload.caption = None
+
     detected_user = _detect_author_username(clean_url, payload.username, payload.caption)
     account_username = detected_user
 
@@ -634,10 +665,12 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                     crawl_res = None
 
             if crawl_res:
-                if not payload.title and crawl_res.get("title"):
-                    payload.title = crawl_res["title"]
-                if not payload.caption and crawl_res.get("clean_text"):
-                    payload.caption = crawl_res["clean_text"]
+                cr_title = crawl_res.get("title")
+                cr_text = crawl_res.get("clean_text")
+                if cr_title and not is_login_wall_boilerplate(cr_title) and not payload.title:
+                    payload.title = cr_title
+                if cr_text and not is_login_wall_boilerplate(cr_text) and not payload.caption:
+                    payload.caption = cr_text
                 if not payload.username and crawl_res.get("author"):
                     payload.username = crawl_res["author"]
                 if not payload.display_name and crawl_res.get("display_name"):
@@ -654,11 +687,15 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             if server_meta:
                 # Jangan biarkan judul placeholder server menimpa judul/caption klien
                 srv_title = server_meta.get("title")
+                if srv_title and is_login_wall_boilerplate(srv_title):
+                    srv_title = None
                 if not payload.title and srv_title and not srv_title.startswith("Instagram Post"):
                     payload.title = srv_title
                 
-                # Jangan biarkan caption placeholder server menimpa caption hasil ekstraksi DOM asli klien
+                # Jangan biarkan caption placeholder / login-wall server menimpa caption hasil ekstraksi DOM asli klien
                 server_caption = server_meta.get("caption")
+                if server_caption and is_login_wall_boilerplate(server_caption):
+                    server_caption = None
                 if server_caption and not server_caption.startswith("Instagram public post"):
                     if not payload.caption or len(server_caption) > len(payload.caption):
                         payload.caption = server_caption
@@ -864,7 +901,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     # 4. Eksekusi Selective OCR & Adaptive Local Intelligence (Ollama + MemPrompt)
     # Dibungkus antrean tunggal non-blocking (async with _AI_PIPELINE_SEMAPHORE)
     ocr_res = None
-    has_media_flag = getattr(payload, "has_media", False) or (platform == "instagram")
+    has_media_flag = getattr(payload, "has_media", False) or (platform in ("instagram", "threads"))
 
     async with _get_ai_semaphore():
         # 4.1 Selective Local OCR (Smart Multimodal Gate: teks pendek, UI noise, atau Instagram poster)
@@ -928,10 +965,17 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                 account.display_name = account_display_name
             db.flush()
 
+        canonical_content_url = clean_url
+        if platform == "threads" and canonical_post_id:
+            if account_username and account_username != "Anonim":
+                canonical_content_url = f"https://www.threads.net/@{account_username}/post/{canonical_post_id}"
+            else:
+                canonical_content_url = f"https://www.threads.net/post/{canonical_post_id}"
+
         content = Content(
             account_id=account.account_id,
             platform=platform,
-            canonical_url=clean_url,
+            canonical_url=canonical_content_url,
             platform_content_id=canonical_post_id,
             title=content_title,
             caption_text=full_narrative,

@@ -34,6 +34,52 @@ VALID_CATEGORIES = [
 _GPU_INFERENCE_SEMAPHORE = threading.Semaphore(getattr(settings, "AI_CONCURRENCY", 1))
 
 
+def deduplicate_sentences(text: Optional[str]) -> str:
+    """Deduplicate identical or looping consecutive sentences produced by local LLMs."""
+    if not text or not isinstance(text, str):
+        return ""
+
+    paragraphs = text.split("\n")
+    cleaned_paras = []
+
+    for para in paragraphs:
+        para_clean = para.strip()
+        if not para_clean:
+            cleaned_paras.append("")
+            continue
+
+        sentences = re.split(r"(?<=[.!?])\s+", para_clean)
+        unique_sentences = []
+        seen_normalized = []
+
+        for s in sentences:
+            s_stripped = s.strip()
+            if not s_stripped:
+                continue
+            s_norm = re.sub(r"[^\w\s]", "", s_stripped.lower()).strip()
+            if not s_norm:
+                continue
+
+            is_duplicate = False
+            for prev_norm in seen_normalized:
+                if s_norm == prev_norm:
+                    is_duplicate = True
+                    break
+                if len(s_norm) > 20 and len(prev_norm) > 20:
+                    shorter, longer = (s_norm, prev_norm) if len(s_norm) < len(prev_norm) else (prev_norm, s_norm)
+                    if shorter in longer and len(shorter) / len(longer) > 0.85:
+                        is_duplicate = True
+                        break
+
+            if not is_duplicate:
+                seen_normalized.append(s_norm)
+                unique_sentences.append(s_stripped)
+
+        cleaned_paras.append(" ".join(unique_sentences))
+
+    return "\n".join(cleaned_paras).strip()
+
+
 class OllamaService:
     """Deterministic Local LLM Inference Engine via Ollama API."""
 
@@ -152,6 +198,8 @@ class OllamaService:
             "options": {
                 "temperature": 0.1,
                 "top_p": 0.9,
+                "repeat_penalty": 1.18,
+                "repeat_last_n": 128,
                 "num_predict": 400,
                 "num_ctx": 2048,
             },
@@ -354,6 +402,8 @@ class OllamaService:
             "options": {
                 "temperature": 0.0,
                 "top_p": 0.9,
+                "repeat_penalty": 1.18,
+                "repeat_last_n": 128,
                 "num_thread": 8,
                 "num_predict": 450,
                 "num_ctx": 2048,
@@ -484,6 +534,8 @@ class OllamaService:
             "options": {
                 "temperature": 0.0,
                 "top_p": 0.9,
+                "repeat_penalty": 1.18,
+                "repeat_last_n": 128,
                 "num_thread": 8,
                 "num_predict": 750,
                 "num_ctx": 2048,
@@ -597,10 +649,10 @@ class OllamaService:
             except Exception:
                 urgency = 2
 
-            exec_summary = (stage1_res.get("ringkasan_eksekutif") or "").strip()
+            exec_summary = deduplicate_sentences(stage1_res.get("ringkasan_eksekutif") or "").strip()
             summary_5w1h = stage2_res.get("summary_5w1h") or {}
             who_val = summary_5w1h.get("who") or author_clean
-            what_val = summary_5w1h.get("what") or exec_summary
+            what_val = deduplicate_sentences(summary_5w1h.get("what") or exec_summary).strip()
             when_val = summary_5w1h.get("when") or "Tidak disebutkan dalam konten"
             where_val = summary_5w1h.get("where") or "Tidak disebutkan dalam konten"
             why_val = summary_5w1h.get("why") or f"Berkaitan dengan isu {matched_cat}."
@@ -613,15 +665,16 @@ class OllamaService:
                     f"Penalaran Kausal (Karena-Maka): Karena terindikasi isu dalam ranah {matched_cat} dengan bobot urgensi {urgency}/5, maka diperlukan pemantauan situasi berkala untuk mencegah potensi eskalasi publik.\n\n"
                     f"Rekomendasi Verifikasi & Tindak Lanjut: Lakukan verifikasi silang bukti dengan instansi terkait dan simpan segel rantai bukti (Chain of Custody) NIST FIPS 198-1."
                 )
+            reasoning_val = deduplicate_sentences(reasoning_val).strip()
 
             # BLUF (Bottom Line Up Front) Tactical Intelligence Dossier
             bluf_raw = stage2_res.get("bluf_dossier") or {}
-            intisari_bluf = (bluf_raw.get("intisari_bluf") or exec_summary or what_val).strip()
-            fakta_vs_klaim = (
+            intisari_bluf = deduplicate_sentences(bluf_raw.get("intisari_bluf") or exec_summary or what_val).strip()
+            fakta_vs_klaim = deduplicate_sentences(
                 bluf_raw.get("fakta_vs_klaim")
                 or f"Fakta Teramati: {exec_summary}\nKlaim / Narasi Sepihak: Status klaim '{stage1_res.get('status_klaim', 'Fakta Terverifikasi')}' rujukan: \"{stage1_res.get('kutipan_bukti', '')}\""
             ).strip()
-            analisis_dampak = (
+            analisis_dampak = deduplicate_sentences(
                 bluf_raw.get("analisis_dampak")
                 or f"Potensi eskalasi isu pada ranah {matched_cat} dengan bobot urgensi {urgency}/5 yang membutuhkan pemantauan berkala."
             ).strip()
@@ -629,7 +682,7 @@ class OllamaService:
                 bluf_raw.get("aktor_dan_modus")
                 or f"Aktor: {who_val}. Kanal: {platform_clean.upper()}. Pola / Modus: {how_val}"
             ).strip()
-            rekomendasi_tl = (
+            rekomendasi_tl = deduplicate_sentences(
                 bluf_raw.get("rekomendasi_tindak_lanjut")
                 or "Lakukan verifikasi berkala dan koordinasi dengan satuan tugas pemantauan siber terkait."
             ).strip()
@@ -802,6 +855,8 @@ class OllamaService:
             "options": {
                 "temperature": 0.0,
                 "top_p": 0.9,
+                "repeat_penalty": 1.18,
+                "repeat_last_n": 128,
                 "num_thread": 8,
                 "num_predict": 400,
                 "num_ctx": 2048,
@@ -861,11 +916,11 @@ class OllamaService:
             how_t = summary.get("how") or summary.get("bagaimana") or ""
 
             if exec_summary and len(exec_summary) >= 20:
-                summary_clean = exec_summary
+                summary_clean = deduplicate_sentences(exec_summary)
             elif what_t and len(what_t) >= 20:
-                summary_clean = what_t if not why_t else f"{what_t}. {why_t}."
+                summary_clean = deduplicate_sentences(what_t if not why_t else f"{what_t}. {why_t}.")
             else:
-                summary_clean = why_t or "Analisis temuan patroli siber."
+                summary_clean = deduplicate_sentences(why_t or "Analisis temuan patroli siber.")
 
             reasoning_val = (
                 parsed.get("ai_reasoning")
@@ -887,7 +942,9 @@ class OllamaService:
                 base_r = str(reasoning_val).strip() if reasoning_val else ""
                 reasoning_val = (base_r + "\n\n" + "\n\n".join(extra_reasoning)).strip()
 
-            if not reasoning_val:
+            if reasoning_val:
+                reasoning_val = deduplicate_sentences(reasoning_val).strip()
+            else:
                 reasoning_val = (
                     f"Alasan Penilaian: Teridentifikasi isu strategis dalam ranah {matched_cat} dengan tingkat urgensi {urgency}/5 berdasarkan analisis fakta resmi.\n\n"
                     f"Analisis Dampak & Kerawanan: {summary_clean}\n\n"

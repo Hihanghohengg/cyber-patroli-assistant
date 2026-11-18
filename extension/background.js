@@ -46,7 +46,7 @@ async function fetchWithFallback(endpoint, options = {}) {
   for (const host of targetHosts) {
     try {
       const url = `${host}${endpoint}`;
-      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(180000) }); // 180s timeout for local AI inference
+      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(240000) }); // 240s timeout for local AI inference
       return res;
     } catch (err) {
       lastError = err;
