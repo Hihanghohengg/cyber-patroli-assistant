@@ -54,37 +54,49 @@ def get_dashboard_summary(
     koreksi_analis = base_all_q.filter(Report.status == "MODIFIED").count()
     bukan_pelanggaran = base_all_q.filter(Report.status == "REJECTED").count()
 
-    # Query temuan tervalidasi dengan filter kategori & risiko tambahan
-    val_q = base_all_q.filter(Report.status.in_(["VALIDATED", "MODIFIED"]))
+    # Query seluruh temuan aktif patroli (tidak ditolak) agar metrik live & langsung terlihat
+    active_q = base_all_q.filter(Report.status != "REJECTED")
     if category:
-        val_q = val_q.filter(Report.final_label.ilike(category))
+        active_q = active_q.filter(
+            or_(
+                Report.final_label.ilike(category),
+                Report.ai_predicted_label.ilike(category)
+            )
+        )
     if risk_level:
-        val_q = val_q.filter(Report.final_risk.ilike(risk_level))
+        active_q = active_q.filter(
+            or_(
+                Report.final_risk.ilike(risk_level),
+                Report.ai_risk_level.ilike(risk_level)
+            )
+        )
 
-    # Kategori
+    # Kategori (Gunakan final_label jika ada, atau fallback ke ai_predicted_label)
+    eff_label = func.coalesce(Report.final_label, Report.ai_predicted_label, "Non-Isu")
     kategori_rows = (
-        val_q.with_entities(Report.final_label, func.count(Report.report_id))
-        .group_by(Report.final_label)
+        active_q.with_entities(eff_label, func.count(Report.report_id))
+        .group_by(eff_label)
         .all()
     )
-    distribusi_kategori = {cat or "LAINNYA": count for cat, count in kategori_rows}
+    distribusi_kategori = {cat: count for cat, count in kategori_rows if cat}
 
-    # Risiko
+    # Risiko (Gunakan final_risk jika ada, atau fallback ke ai_risk_level)
+    eff_risk = func.coalesce(Report.final_risk, Report.ai_risk_level, "SEDANG")
     risiko_rows = (
-        val_q.with_entities(Report.final_risk, func.count(Report.report_id))
-        .group_by(Report.final_risk)
+        active_q.with_entities(eff_risk, func.count(Report.report_id))
+        .group_by(eff_risk)
         .all()
     )
-    distribusi_risiko = {rsk or "BELUM_DITENTUKAN": count for rsk, count in risiko_rows}
+    distribusi_risiko = {rsk: count for rsk, count in risiko_rows if rsk}
 
-    # Platform
+    # Platform (Dihitung dari seluruh temuan aktif postingan)
     platform_rows = (
-        val_q.with_entities(Content.platform, func.count(Report.report_id))
+        active_q.with_entities(Content.platform, func.count(Report.report_id))
         .group_by(Content.platform)
         .all()
     )
     distribusi_platform = {
-        (plt.upper() if plt else "MANUAL"): count for plt, count in platform_rows
+        (plt.upper() if plt else "WEB"): count for plt, count in platform_rows
     }
 
     # Putusan Evaluasi AI vs Analis (Visual 8)
@@ -303,7 +315,7 @@ def get_dashboard_top(
     items = []
 
     if dimension == "topics":
-        # Group by topic entity if linked, otherwise raw topic
+        # Group by topic entity if linked, otherwise fallback to cluster/raw
         rows = (
             db.query(
                 Entity.entity_id,
@@ -313,7 +325,7 @@ def get_dashboard_top(
                 func.count(Report.report_id).label("cnt"),
             )
             .join(Report, Report.topic_id == Entity.entity_id)
-            .filter(Report.status.in_(["VALIDATED", "MODIFIED"]))
+            .filter(Report.status != "REJECTED")
             .filter(Entity.entity_type == "TOPIC")
         )
         if date_from:
@@ -337,13 +349,42 @@ def get_dashboard_top(
                 "status": st,
             })
 
-        # Fallback if no canonical topics linked yet
+        # Fallback 1: IssueCluster from autonomous trending engine
         if not items:
+            try:
+                from app.models.intelligence import IssueCluster, IssueContent
+                cluster_rows = (
+                    db.query(
+                        IssueCluster.cluster_id,
+                        IssueCluster.canonical_name,
+                        IssueCluster.dominant_category,
+                        func.count(IssueContent.content_id).label("cnt"),
+                    )
+                    .join(IssueContent, IssueContent.cluster_id == IssueCluster.cluster_id)
+                    .group_by(IssueCluster.cluster_id, IssueCluster.canonical_name, IssueCluster.dominant_category)
+                    .order_by(desc("cnt"))
+                    .limit(limit)
+                    .all()
+                )
+                for c_id, c_name, c_cat, cnt in cluster_rows:
+                    items.append({
+                        "id": str(c_id),
+                        "name": c_name,
+                        "category": c_cat or "ISU",
+                        "count": cnt,
+                        "status": "CLUSTER",
+                    })
+            except Exception as e:
+                logger.debug(f"IssueCluster fallback skipped: {e}")
+
+        # Fallback 2: Raw / predicted topics from active reports
+        if not items:
+            eff_top = func.coalesce(Report.ai_topic_raw, Report.final_label, Report.ai_predicted_label)
             raw_rows = (
-                db.query(Report.ai_topic_raw, func.count(Report.report_id).label("cnt"))
-                .filter(Report.status.in_(["VALIDATED", "MODIFIED"]))
-                .filter(Report.ai_topic_raw.isnot(None))
-                .group_by(Report.ai_topic_raw)
+                db.query(eff_top, func.count(Report.report_id).label("cnt"))
+                .filter(Report.status != "REJECTED")
+                .filter(eff_top.isnot(None))
+                .group_by(eff_top)
                 .order_by(desc("cnt"))
                 .limit(limit)
                 .all()
@@ -353,7 +394,7 @@ def get_dashboard_top(
                     items.append({
                         "id": raw_name,
                         "name": raw_name,
-                        "category": "UMUM",
+                        "category": "ISU",
                         "count": cnt,
                         "status": "RAW",
                     })
@@ -369,7 +410,7 @@ def get_dashboard_top(
             )
             .join(ReportActor, ReportActor.entity_id == Entity.entity_id)
             .join(Report, ReportActor.report_id == Report.report_id)
-            .filter(Report.status.in_(["VALIDATED", "MODIFIED"]))
+            .filter(Report.status != "REJECTED")
             .filter(Entity.entity_type == "ACTOR")
         )
         if date_from:
@@ -392,6 +433,35 @@ def get_dashboard_top(
                 "count": cnt,
                 "status": st,
             })
+
+        # Fallback if no canonical actors linked via ReportActor: use Account and creators
+        if not items:
+            try:
+                act_rows = (
+                    db.query(
+                        func.coalesce(Account.display_name, Account.username, "Akun Patroli").label("act_name"),
+                        Content.platform,
+                        func.count(Report.report_id).label("cnt"),
+                    )
+                    .join(Content, Report.content_id == Content.content_id)
+                    .join(Account, Content.account_id == Account.account_id, isouter=True)
+                    .filter(Report.status != "REJECTED")
+                    .group_by("act_name", Content.platform)
+                    .order_by(desc("cnt"))
+                    .limit(limit)
+                    .all()
+                )
+                for act_name, plat, cnt in act_rows:
+                    if act_name:
+                        items.append({
+                            "id": act_name,
+                            "name": act_name,
+                            "category": (plat.upper() if plat else "SUMBER"),
+                            "count": cnt,
+                            "status": "ACCOUNT",
+                        })
+            except Exception as e:
+                logger.debug(f"Account fallback skipped: {e}")
 
     elif dimension == "sources":
         rows = (

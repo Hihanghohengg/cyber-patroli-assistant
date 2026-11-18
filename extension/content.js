@@ -33,7 +33,7 @@
     if (u.includes("twitter.com") || u.includes("x.com")) return "x";
     if (u.includes("instagram.com")) return "instagram";
     if (u.includes("facebook.com")) return "facebook";
-    if (u.includes("threads.net")) return "threads";
+    if (u.includes("threads.net") || u.includes("threads.com")) return "threads";
     if (u.includes("tiktok.com")) return "tiktok";
     if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
     return "news_web"; // National news portal or public website
@@ -131,7 +131,7 @@
     const host = window.location.hostname.toLowerCase();
     const isTwitter = host.includes("twitter.com") || host.includes("x.com");
     const isInstagram = host.includes("instagram.com");
-    const isThreads = host.includes("threads.net");
+    const isThreads = host.includes("threads.net") || host.includes("threads.com");
 
     // 1. Locate container dengan isolasi platform ketat
     let container = null;
@@ -256,10 +256,35 @@
         if (m) authorHandle = m[1];
       }
     } else if (isThreads) {
-      const thMatch = window.location.pathname.match(/@([a-zA-Z0-9_\.]+)/);
-      if (thMatch) {
-        authorHandle = thMatch[1];
-        authorName = `@${thMatch[1]}`;
+      // Prioritas 1: Ekstrak dari permalink anchor postingan di dalam container
+      const postAnchor = container.querySelector("a[href*='/@'][href*='/post/']");
+      if (postAnchor) {
+        const m = (postAnchor.getAttribute("href") || "").match(/@([a-zA-Z0-9_\.]+)/);
+        if (m) {
+          authorHandle = m[1];
+          authorName = `@${m[1]}`;
+        }
+      }
+      // Prioritas 2: Dari anchor profil di header container
+      if (!authorHandle) {
+        const userAnchors = container.querySelectorAll("a[href*='/@']");
+        for (const ua of userAnchors) {
+          const href = ua.getAttribute("href") || "";
+          const m = href.match(/@([a-zA-Z0-9_\.]+)/);
+          if (m && !["post", "activity", "search"].includes(m[1].toLowerCase())) {
+            authorHandle = m[1];
+            authorName = ua.textContent.trim() || `@${m[1]}`;
+            break;
+          }
+        }
+      }
+      // Prioritas 3: Dari URL pathname saat ini
+      if (!authorHandle) {
+        const thMatch = window.location.pathname.match(/@([a-zA-Z0-9_\.]+)/);
+        if (thMatch) {
+          authorHandle = thMatch[1];
+          authorName = `@${thMatch[1]}`;
+        }
       }
     } else if (host.includes("facebook.com")) {
       const fbAuthorEl = container.querySelector("h2 a, h3 a, strong a, [role='article'] h2, [role='article'] h3, strong span");
@@ -281,10 +306,10 @@
       }
     }
 
-    // Deteksi media gambar/video pada Instagram untuk pemicu OCR Multimodal
+    // Deteksi media gambar/video pada Instagram & Threads untuk pemicu OCR Multimodal
     let hasMedia = false;
-    if (isInstagram && container) {
-      const mediaEl = container.querySelector("img[srcset], img[src*='cdninstagram'], video");
+    if ((isInstagram || isThreads) && container) {
+      const mediaEl = container.querySelector("img[srcset], img[src*='cdninstagram'], img[src*='threads'], video");
       if (mediaEl) hasMedia = true;
     }
 
@@ -457,6 +482,68 @@
         if (ogDesc) {
           const qm = ogDesc.match(/^["“]([\s\S]+?)["”]$/);
           if (qm && qm[1]) cleanText = qm[1].trim();
+        }
+      }
+    } else if (isThreads) {
+      // 1. Selector naskah postingan Threads
+      // Threads menggunakan span[dir="auto"] atau div[dir="auto"] di dalam container postingan utama
+      const textCandidateNodes = container.querySelectorAll(
+        'div[data-pressable-container="true"] span[dir="auto"], div[data-pressable-container="true"] div[dir="auto"], article span[dir="auto"], div[dir="auto"]'
+      );
+      const textParts = [];
+      const seenTexts = new Set();
+      for (const node of textCandidateNodes) {
+        if (node.closest("button, [role='button'], nav, header, footer, a[role='link'], form")) continue;
+        const clone = node.cloneNode(true);
+        clone.querySelectorAll("button, time, svg, a[role='link']").forEach(el => el.remove());
+        const raw = (clone.innerText || clone.textContent || "").trim();
+        // Saring label UI Threads, angka metrik interaksi, dan tombol
+        if (
+          raw.length >= 3 &&
+          !/^(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Ikuti|Follow|Mengikuti|Following)$/i.test(raw) &&
+          !/^\d+\s*(?:suka|likes|balasan|replies|reposts|shares)$/i.test(raw) &&
+          !/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)$/i.test(raw) &&
+          !seenTexts.has(raw)
+        ) {
+          // Periksa apakah ini substring dari teks yang sudah ada
+          let isSub = false;
+          for (const st of seenTexts) {
+            if (st.includes(raw)) { isSub = true; break; }
+          }
+          if (!isSub) {
+            seenTexts.add(raw);
+            textParts.push(raw);
+          }
+        }
+      }
+      if (textParts.length > 0) {
+        cleanText = textParts.join("\n\n");
+      }
+
+      // Bersihkan artefak header, username, atau timestamp jika menempel
+      if (cleanText) {
+        cleanText = cleanText.replace(/^(?:Ikuti|Mengikuti|Follow|Following)\s*/i, "").trim();
+        if (authorHandle) {
+          cleanText = cleanText.replace(new RegExp(`^@?${authorHandle}\\s*`, "i"), "").trim();
+        }
+        cleanText = cleanText.replace(/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)\s*/i, "").trim();
+        // Hapus footer aksi interaksi Threads di akhir teks
+        cleanText = cleanText.replace(/\b(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share)\b.*$/gi, "").trim();
+        cleanText = cleanText.replace(/[ \t]+/g, " ");
+        cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
+      }
+
+      // Fallback ke OpenGraph description jika DOM belum menangkap teks
+      if (!cleanText || cleanText.length < 5) {
+        const ogDesc = document.querySelector('meta[property="og:description"]')?.content ||
+                       document.querySelector('meta[name="description"]')?.content;
+        if (ogDesc) {
+          const quoteMatch = ogDesc.match(/(?:Threads:\s*|:\s*)["“]([\s\S]+?)["”]\s*$/);
+          if (quoteMatch && quoteMatch[1] && quoteMatch[1].trim().length >= 8) {
+            cleanText = quoteMatch[1].trim();
+          } else if (ogDesc.length >= 10 && !ogDesc.includes("likes,") && !ogDesc.includes("comments -")) {
+            cleanText = ogDesc.trim();
+          }
         }
       }
     } else if (host.includes("tiktok.com")) {
@@ -721,14 +808,15 @@
     <span class="cp-badge-text">Triase</span>
   `;
 
-  // Restore saved position if exists in localStorage
+  // Restore saved position if exists in localStorage (clamped to viewport)
   try {
     const savedPos = localStorage.getItem("tilik_badge_position");
     if (savedPos) {
       const parsed = JSON.parse(savedPos);
-      const maxLeft = Math.max(10, window.innerWidth - 140);
-      const maxTop = Math.max(10, window.innerHeight - 50);
-      if (typeof parsed.left === "number" && typeof parsed.top === "number" && parsed.left >= 5 && parsed.left <= maxLeft && parsed.top >= 5 && parsed.top <= maxTop) {
+      const margin = 16;
+      const maxLeft = Math.max(margin, window.innerWidth - 140);
+      const maxTop = Math.max(margin, window.innerHeight - 50);
+      if (typeof parsed.left === "number" && typeof parsed.top === "number" && parsed.left >= margin && parsed.left <= maxLeft && parsed.top >= margin && parsed.top <= maxTop) {
         btn.style.left = `${parsed.left}px`;
         btn.style.top = `${parsed.top}px`;
         btn.style.right = "auto";
@@ -792,10 +880,11 @@
     if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
       dragMoved = true;
     }
-    const maxLeft = Math.max(10, window.innerWidth - btn.offsetWidth - 10);
-    const maxTop = Math.max(10, window.innerHeight - btn.offsetHeight - 10);
-    const newLeft = Math.min(Math.max(10, initialLeft + dx), maxLeft);
-    const newTop = Math.min(Math.max(10, initialTop + dy), maxTop);
+    const margin = 16;
+    const maxLeft = Math.max(margin, window.innerWidth - btn.offsetWidth - margin);
+    const maxTop = Math.max(margin, window.innerHeight - btn.offsetHeight - margin);
+    const newLeft = Math.min(Math.max(margin, initialLeft + dx), maxLeft);
+    const newTop = Math.min(Math.max(margin, initialTop + dy), maxTop);
 
     btn.style.left = `${newLeft}px`;
     btn.style.top = `${newTop}px`;
@@ -1012,19 +1101,57 @@
   function updateModalPosition(modal) {
     try {
       const rect = btn.getBoundingClientRect();
-      const modalWidth = 320;
-      const targetLeft = Math.min(Math.max(16, rect.right - modalWidth), window.innerWidth - modalWidth - 16);
-      if (rect.top > 320) {
-        modal.style.top = "auto";
-        modal.style.bottom = `${window.innerHeight - rect.top + 12}px`;
-      } else {
-        modal.style.bottom = "auto";
-        modal.style.top = `${rect.bottom + 12}px`;
+      const margin = 16;
+      const modalWidth = Math.min(320, window.innerWidth - (margin * 2));
+      modal.style.width = `${modalWidth}px`;
+      modal.style.maxWidth = `calc(100vw - ${margin * 2}px)`;
+
+      // Dynamic horizontal clamping (auto-align inward if near right edge)
+      let targetLeft = rect.right - modalWidth;
+      if (targetLeft + modalWidth > window.innerWidth - margin) {
+        targetLeft = window.innerWidth - modalWidth - margin;
+      }
+      if (targetLeft < margin) {
+        targetLeft = margin;
       }
       modal.style.left = `${targetLeft}px`;
       modal.style.right = "auto";
+
+      // Dynamic vertical clamping with auto-flip inward
+      const modalEstimatedHeight = 280;
+      if (rect.top >= modalEstimatedHeight + margin || window.innerHeight - rect.bottom < modalEstimatedHeight) {
+        // Cukup ruang di atas atau posisi badge mepet ke bawah layar: Muncul di atas badge
+        modal.style.top = "auto";
+        const bottomOffset = Math.max(margin, window.innerHeight - rect.top + 12);
+        modal.style.bottom = `${bottomOffset}px`;
+      } else {
+        // Muncul di bawah badge jika ruang atas tidak cukup
+        modal.style.bottom = "auto";
+        const topOffset = Math.min(window.innerHeight - modalEstimatedHeight - margin, Math.max(margin, rect.bottom + 12));
+        modal.style.top = `${topOffset}px`;
+      }
     } catch (_) {}
   }
+
+  // Viewport resize guard: clamp floating badge & modal on window resize or split-screen
+  window.addEventListener("resize", () => {
+    try {
+      const margin = 16;
+      const rect = btn.getBoundingClientRect();
+      const maxLeft = Math.max(margin, window.innerWidth - btn.offsetWidth - margin);
+      const maxTop = Math.max(margin, window.innerHeight - btn.offsetHeight - margin);
+      if (rect.left > maxLeft || rect.top > maxTop) {
+        btn.style.left = `${Math.min(rect.left, maxLeft)}px`;
+        btn.style.top = `${Math.min(rect.top, maxTop)}px`;
+        btn.style.right = "auto";
+        btn.style.bottom = "auto";
+      }
+      const activeModal = document.getElementById("cp-triage-modal");
+      if (activeModal) {
+        updateModalPosition(activeModal);
+      }
+    } catch (_) {}
+  }, { passive: true });
 
   function showTriageResultModal(data, extracted, operatorId) {
     const existing = document.getElementById("cp-triage-modal");

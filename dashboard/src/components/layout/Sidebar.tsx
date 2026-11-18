@@ -53,7 +53,7 @@ export const Sidebar: React.FC = () => {
     <aside
       className={`${
         isCollapsed ? 'w-[68px]' : 'w-60'
-      } border-r border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0A0D14] flex flex-col justify-between shrink-0 h-[calc(100vh-3rem)] sticky top-12 transition-all duration-200 ease-in-out z-30 select-none`}
+      } border-r border-slate-200 dark:border-white/[0.06] bg-white dark:bg-[#0A0D14] flex flex-col justify-between shrink-0 h-[calc(100dvh-3rem)] sticky top-12 transition-all duration-200 ease-in-out z-30 select-none`}
     >
       <div className="p-2.5 space-y-3">
         {/* Toggle Collapse & Brand Header */}

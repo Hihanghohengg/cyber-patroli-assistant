@@ -109,7 +109,7 @@ class BaseScraper(ABC):
         if "x.com" in url_lower or "twitter.com" in url_lower:
             return bool(re.search(r"\/status\/\d+", url_lower))
         # Threads: requires /post/
-        if "threads.net" in url_lower:
+        if "threads.net" in url_lower or "threads.com" in url_lower:
             return bool(re.search(r"\/post\/", url_lower))
         return True
 
@@ -130,7 +130,7 @@ class BaseScraper(ABC):
             return "x"
         elif re.search(r"(facebook\.com|fb\.watch)", url_lower):
             return "facebook"
-        elif re.search(r"threads\.net", url_lower):
+        elif re.search(r"threads\.(net|com)", url_lower):
             return "threads"
         elif url_lower.startswith("http://") or url_lower.startswith("https://"):
             return "web"

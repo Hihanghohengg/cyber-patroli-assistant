@@ -31,6 +31,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.classList.remove('dark');
       root.classList.add('light');
     }
+
+    // Sync native browser color-scheme for form controls, scrollbars, etc.
+    root.style.colorScheme = newTheme;
+    const metaColorScheme = document.querySelector('meta[name="color-scheme"]');
+    if (metaColorScheme) {
+      metaColorScheme.setAttribute('content', newTheme);
+    }
+
     localStorage.setItem('tilik_theme', newTheme);
     localStorage.setItem('cyber_patrol_theme', newTheme);
 

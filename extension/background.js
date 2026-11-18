@@ -30,10 +30,7 @@ async function fetchWithFallback(endpoint, options = {}) {
   let activeHost = null;
   for (const host of hosts) {
     try {
-      const pingCtrl = new AbortController();
-      const pingT = setTimeout(() => pingCtrl.abort(), 1200);
-      const pingRes = await fetch(`${host}/health`, { method: "GET", signal: pingCtrl.signal });
-      clearTimeout(pingT);
+      const pingRes = await fetch(`${host}/health`, { method: "GET", signal: AbortSignal.timeout(1200) });
       if (pingRes.ok) {
         activeHost = host;
         break;
@@ -48,11 +45,8 @@ async function fetchWithFallback(endpoint, options = {}) {
 
   for (const host of targetHosts) {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 180000); // 180s timeout for local AI inference
       const url = `${host}${endpoint}`;
-      const res = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await fetch(url, { ...options, signal: AbortSignal.timeout(180000) }); // 180s timeout for local AI inference
       return res;
     } catch (err) {
       lastError = err;

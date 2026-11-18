@@ -106,7 +106,9 @@ export const ContentExplorerPage: React.FC = () => {
             <option value="youtube">YouTube</option>
             <option value="tiktok">TikTok</option>
             <option value="instagram">Instagram</option>
+            <option value="threads">Threads</option>
             <option value="x">X (Twitter)</option>
+            <option value="facebook">Facebook</option>
             <option value="web">Web / Media</option>
           </select>
 

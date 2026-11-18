@@ -19,7 +19,10 @@
     "*://*.youtube.com/*",
     "*://*.instagram.com/*",
     "*://*.twitter.com/*",
-    "*://*.x.com/*"
+    "*://*.x.com/*",
+    "*://*.threads.net/*",
+    "*://*.threads.com/*",
+    "*://*.facebook.com/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -39,14 +42,22 @@
       "matches": [
         "<all_urls>"
       ],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ]
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*.png"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "icons/*.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {

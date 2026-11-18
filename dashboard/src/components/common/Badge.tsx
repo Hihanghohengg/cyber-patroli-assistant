@@ -108,8 +108,17 @@ export const PlatformBadge: React.FC<{ platform: string }> = ({ platform }) => {
   }
   if (norm === 'threads') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-800 border-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 border">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-500/10 dark:text-purple-300 dark:border-purple-500/20 border font-mono">
+        <span className="font-bold text-xs leading-none">@</span>
         Threads
+      </span>
+    );
+  }
+  if (norm === 'facebook') {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-500/10 dark:text-blue-300 dark:border-blue-500/20 border">
+        <span className="font-bold text-xs leading-none font-mono">f</span>
+        Facebook
       </span>
     );
   }

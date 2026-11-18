@@ -37,7 +37,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 flex items-center justify-center p-4 relative overflow-hidden selection:bg-blue-600/30 selection:text-blue-200 transition-colors duration-150">
+    <div className="min-h-dvh bg-slate-50 dark:bg-[#090A0F] text-slate-900 dark:text-slate-100 flex items-center justify-center p-4 relative overflow-hidden overflow-x-hidden selection:bg-blue-600/30 selection:text-blue-200 transition-colors duration-150">
       {/* Top Right Theme Toggle */}
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
@@ -88,6 +88,7 @@ export const LoginPage: React.FC = () => {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="cth: admin"
+                autoComplete="username"
                 className="w-full bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1.5 px-3 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono transition-colors"
               />
             </div>
@@ -103,6 +104,7 @@ export const LoginPage: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••••••"
+                autoComplete="current-password"
                 className="w-full bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg py-1.5 px-3 text-xs text-slate-800 dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-mono transition-colors"
               />
             </div>

@@ -19,7 +19,6 @@ import {
   Camera,
   Fingerprint,
   CheckCheck,
-  RefreshCw,
   Copy,
   Check,
   ChevronDown,
@@ -146,10 +145,6 @@ export const ContentDetailPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [imageError, setImageError] = useState<boolean>(false);
-  const [verifying, setVerifying] = useState<boolean>(false);
-  const [verificationResult, setVerificationResult] = useState<any | null>(null);
-  const [tampering, setTampering] = useState<boolean>(false);
-  const [tamperResult, setTamperResult] = useState<any | null>(null);
 
   // Progressive Disclosure: Raw evidence accordion
   const [showRawText, setShowRawText] = useState<boolean>(false);
@@ -221,39 +216,6 @@ export const ContentDetailPage: React.FC = () => {
       alert('Gagal menyimpan validasi: ' + (err.response?.data?.detail || err.message));
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleVerifyEvidence = async () => {
-    if (!detail) return;
-    setVerifying(true);
-    setTamperResult(null);
-    try {
-      const ticketOrId = detail.ai_patrol?.ticket_number || detail.content_id;
-      const data = await apiClient.integrity.verify(ticketOrId);
-      setVerificationResult(data);
-    } catch (err: any) {
-      alert('Gagal memverifikasi bukti digital: ' + (err.response?.data?.detail || err.message));
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const handleRunTamperTest = async (mode: string = 'IMAGE_BIT_FLIP') => {
-    if (!detail) return;
-    setTampering(true);
-    try {
-      const ticketOrId = detail.ai_patrol?.ticket_number || detail.content_id;
-      const data = await apiClient.integrity.tamperTest({
-        ticket_or_id: ticketOrId,
-        tamper_mode: mode,
-        dry_run: true,
-      });
-      setTamperResult(data);
-    } catch (err: any) {
-      alert('Gagal menjalankan simulasi tamper: ' + (err.response?.data?.detail || err.message));
-    } finally {
-      setTampering(false);
     }
   };
 
@@ -433,14 +395,23 @@ export const ContentDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* Monospace Pill Hashes (with Copy-to-Clipboard) */}
+            {/* Metadata Segel Kriptografi (Tracking & Hash Verification) */}
             {primaryEvidence && (
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-1.5 font-mono text-xs">
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.06] space-y-2 font-mono text-xs">
+                {/* Status Segel */}
+                <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 pb-1.5 border-b border-slate-200/60 dark:border-white/[0.04]">
+                  <span className="text-[10.5px] text-slate-400 uppercase tracking-wider">Status Integritas:</span>
+                  <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400 flex items-center gap-1.5">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>NIST FIPS 198-1 ({primaryEvidence.verification_status || 'VERIFIED'})</span>
+                  </span>
+                </div>
+
                 {/* SHA-256 Pill */}
                 <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                  <span className="text-[10.5px] text-slate-400 uppercase">SHA-256:</span>
+                  <span className="text-[10.5px] text-slate-400 uppercase tracking-wider">SHA-256:</span>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-semibold text-blue-500">{sha256Short}</span>
+                    <span className="text-[11px] font-semibold text-blue-500 dark:text-blue-400">{sha256Short}</span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(primaryEvidence.sha256, 'sha256')}
@@ -455,9 +426,9 @@ export const ContentDetailPage: React.FC = () => {
                 {/* HMAC Tag Pill */}
                 {primaryEvidence.hmac_tag && (
                   <div className="flex items-center justify-between text-slate-600 dark:text-slate-300">
-                    <span className="text-[10.5px] text-slate-400 uppercase">HMAC Tag:</span>
+                    <span className="text-[10.5px] text-slate-400 uppercase tracking-wider">HMAC Tag:</span>
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[11px] font-semibold text-emerald-500">{hmacShort}</span>
+                      <span className="text-[11px] font-semibold text-emerald-500 dark:text-emerald-400">{hmacShort}</span>
                       <button
                         type="button"
                         onClick={() => copyToClipboard(primaryEvidence.hmac_tag!, 'hmac')}
@@ -469,57 +440,6 @@ export const ContentDetailPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Cryptographic Action Buttons */}
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleVerifyEvidence}
-                disabled={verifying}
-                className="py-1.5 px-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors text-xs font-semibold font-mono flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {verifying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Fingerprint className="w-3.5 h-3.5" />}
-                <span>Verifikasi Hash</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleRunTamperTest('IMAGE_BIT_FLIP')}
-                disabled={tampering}
-                className="py-1.5 px-3 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors text-xs font-semibold font-mono flex items-center justify-center gap-1.5 disabled:opacity-50"
-              >
-                {tampering ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />}
-                <span>Uji Tamper</span>
-              </button>
-            </div>
-
-            {/* Verification / Tamper Alerts */}
-            {verificationResult && (
-              <div
-                className={`p-2.5 rounded-lg border font-mono text-xs flex items-center gap-2 ${
-                  verificationResult.verification_status === 'VERIFIED'
-                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                    : 'bg-rose-500/10 border-rose-500/20 text-rose-400'
-                }`}
-              >
-                <CheckCheck className="w-4 h-4 shrink-0" />
-                <span>
-                  Hasil: <strong>{verificationResult.verification_status}</strong> (Integritas Asli Terpenuhi dalam {verificationResult.latency_ms || 1.2} ms)
-                </span>
-              </div>
-            )}
-
-            {tamperResult && (
-              <div className="p-2.5 rounded-lg border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono text-xs space-y-1">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <AlertTriangle className="w-3.5 h-3.5" />
-                  <span>Uji Tamper 1-Bit: {tamperResult.status} ({tamperResult.latency_ms} ms)</span>
-                </div>
-                <p className="text-[11px] text-slate-300">
-                  Tag HMAC berubah seketika, membuktikan segel mendeteksi manipulasi sekecil apa pun.
-                </p>
               </div>
             )}
           </div>

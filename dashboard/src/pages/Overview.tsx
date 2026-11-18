@@ -160,32 +160,46 @@ export const OverviewPage: React.FC = () => {
       youtube: '#ef4444',
       tiktok: '#06b6d4',
       threads: '#8b5cf6',
+      twitter: '#1d9bf0',
+      x: '#1d9bf0',
+      facebook: '#1877f2',
       web: '#3b82f6',
     };
-    return Object.entries(summary.distribusi_platform).map(([plat, cnt]) => ({
-      label: plat.charAt(0).toUpperCase() + plat.slice(1),
-      count: Number(cnt) || 0,
-      color: colorMap[plat.toLowerCase()] || '#3b82f6',
-      key: plat,
-    }));
+    return Object.entries(summary.distribusi_platform).map(([plat, cnt]) => {
+      const pLower = plat.toLowerCase();
+      const displayLabel = pLower === 'x' ? 'X (Twitter)' : plat.charAt(0).toUpperCase() + plat.slice(1).toLowerCase();
+      return {
+        label: displayLabel,
+        count: Number(cnt) || 0,
+        color: colorMap[pLower] || '#3b82f6',
+        key: plat,
+      };
+    });
   }, [summary]);
 
-  // Visual: Horizontal Bar Distribusi Kategori
+  // Visual: Horizontal Bar Distribusi Kategori (IPOLEKSOSBUDHANKAM)
   const categoryBarItems = useMemo(() => {
     if (!summary?.distribusi_kategori) return [];
     const colorMap: Record<string, string> = {
-      HOAKS: '#ef4444',
-      DI_LUAR_KONTEKS: '#f59e0b',
-      UJARAN_KEBENCIAN: '#a855f7',
-      PROVOKASI_SARA: '#ec4899',
+      Ideologi: '#ef4444',
+      Politik: '#f97316',
+      Ekonomi: '#eab308',
+      Sosial: '#3b82f6',
+      Budaya: '#8b5cf6',
+      Pertahanan: '#06b6d4',
+      Keamanan: '#10b981',
+      'Non-Isu': '#64748b',
     };
-    const desired = ['HOAKS', 'DI_LUAR_KONTEKS', 'UJARAN_KEBENCIAN', 'PROVOKASI_SARA'];
-    return desired.map((cat) => ({
-      label: cat.replace(/_/g, ' '),
-      count: summary.distribusi_kategori[cat] || 0,
-      color: colorMap[cat] || '#3b82f6',
-      key: cat,
-    }));
+    const standardCategories = ['Ideologi', 'Politik', 'Ekonomi', 'Sosial', 'Budaya', 'Pertahanan', 'Keamanan', 'Non-Isu'];
+    const allKeys = Array.from(new Set([...standardCategories, ...Object.keys(summary.distribusi_kategori)]));
+    return allKeys
+      .map((cat) => ({
+        label: cat,
+        count: summary.distribusi_kategori[cat] || 0,
+        color: colorMap[cat] || '#3b82f6',
+        key: cat,
+      }))
+      .filter((item) => item.count > 0 || standardCategories.slice(0, 5).includes(item.label));
   }, [summary]);
 
   // Visual: Donut Distribusi Risiko
@@ -294,6 +308,9 @@ export const OverviewPage: React.FC = () => {
               <option value="Instagram">Instagram</option>
               <option value="YouTube">YouTube</option>
               <option value="TikTok">TikTok</option>
+              <option value="Threads">Threads</option>
+              <option value="X">X (Twitter)</option>
+              <option value="Facebook">Facebook</option>
             </select>
           </div>
 
@@ -307,10 +324,14 @@ export const OverviewPage: React.FC = () => {
               className="w-full bg-white dark:bg-[#0A0D14] border border-slate-200 dark:border-white/[0.08] rounded-lg px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-colors"
             >
               <option value="Semua">Semua Kategori</option>
-              <option value="HOAKS">HOAKS</option>
-              <option value="DI_LUAR_KONTEKS">DI LUAR KONTEKS</option>
-              <option value="UJARAN_KEBENCIAN">UJARAN KEBENCIAN</option>
-              <option value="PROVOKASI_SARA">PROVOKASI SARA</option>
+              <option value="Ideologi">Ideologi</option>
+              <option value="Politik">Politik</option>
+              <option value="Ekonomi">Ekonomi</option>
+              <option value="Sosial">Sosial</option>
+              <option value="Budaya">Budaya</option>
+              <option value="Pertahanan">Pertahanan</option>
+              <option value="Keamanan">Keamanan</option>
+              <option value="Non-Isu">Non-Isu</option>
             </select>
           </div>
 
@@ -752,7 +773,7 @@ export const OverviewPage: React.FC = () => {
       {/* ── Modal Filter Laporan PDF Analitis ── */}
       {showPdfModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-[#0E131F] border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden font-sans">
+          <div className="w-full max-w-md max-h-[90dvh] rounded-2xl bg-white dark:bg-[#0E131F] border border-slate-200 dark:border-white/[0.1] shadow-2xl overflow-hidden overflow-y-auto font-sans">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/[0.08]">
               <div className="flex items-center gap-2">

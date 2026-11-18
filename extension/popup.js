@@ -17,7 +17,7 @@ function detectPlatform(url) {
   if (lower.includes("youtube.com") || lower.includes("youtu.be")) return "youtube";
   if (lower.includes("instagram.com")) return "instagram";
   if (lower.includes("facebook.com")) return "facebook";
-  if (lower.includes("threads.net")) return "threads";
+  if (lower.includes("threads.net") || lower.includes("threads.com")) return "threads";
   if (lower.includes("twitter.com") || lower.includes("x.com")) return "x";
   return "news";
 }
@@ -38,6 +38,9 @@ function updatePlatformBadge(platform) {
   } else if (platform === "facebook") {
     badge.classList.add("platform-news");
     badge.textContent = "Facebook";
+  } else if (platform === "threads") {
+    badge.classList.add("platform-threads");
+    badge.textContent = "Threads";
   } else if (platform === "x") {
     badge.classList.add("platform-x");
     badge.textContent = "X (Twitter)";
@@ -56,10 +59,7 @@ async function checkServerHealth(serverUrl) {
   const target = (serverUrl || ACTIVE_SERVER_URL).replace(/\/+$/, "");
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2500);
-    const res = await fetch(`${target}/health`, { method: "GET", signal: controller.signal });
-    clearTimeout(timeoutId);
+    const res = await fetch(`${target}/health`, { method: "GET", signal: AbortSignal.timeout(2500) });
     if (res.ok) {
       ACTIVE_SERVER_URL = target;
       if (indicator) indicator.className = "conn-status";

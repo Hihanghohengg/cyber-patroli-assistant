@@ -274,7 +274,7 @@ def _clean_url_tracking(url: str) -> str:
         qs = parse_qs(parsed.query)
         tracking_params = {
             "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-            "fbclid", "igshid", "si", "ref", "share_id", "is_from_webapp",
+            "fbclid", "igshid", "xmt", "si", "ref", "share_id", "is_from_webapp",
             "sender_device", "feature", "tracking_id"
         }
         cleaned_qs = {k: v for k, v in qs.items() if k.lower() not in tracking_params}
@@ -348,6 +348,12 @@ def _extract_post_identity(url: str) -> Tuple[str, Optional[str]]:
         m = re.search(r"(?:v=|youtu\.be/|shorts/)([A-Za-z0-9_-]{11})", clean_url)
         return ("youtube", m.group(1)) if m else ("youtube", None)
 
+    if any(d in netloc for d in ["threads.net", "threads.com"]):
+        if path in ["", "/", "/home"]:
+            return ("threads", None)
+        m = re.search(r"/post/([A-Za-z0-9_-]+)", clean_url)
+        return ("threads", m.group(1)) if m else ("threads", None)
+
     # Web umum
     if path in ["", "/", "/home", "/feed"]:
         return ("web", None)
@@ -357,7 +363,7 @@ def _extract_post_identity(url: str) -> Tuple[str, Optional[str]]:
 
 def _detect_author_username(url: str, username_param: Optional[str] = None, caption: Optional[str] = None) -> str:
     """Extract and normalize author username from payload, URL pattern, or caption context."""
-    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com"}
+    invalid_usernames = {"instagram.com", "x.com", "twitter.com", "tiktok.com", "facebook.com", "youtube.com", "threads.net", "threads.com"}
     detected_user = username_param
 
     if detected_user and (any(detected_user.lower().endswith(dom) for dom in [".com", ".id", ".org", ".net"]) or detected_user.lower() in invalid_usernames):
@@ -374,6 +380,12 @@ def _detect_author_username(url: str, username_param: Optional[str] = None, capt
             ig_match = re.search(r"instagram\.com/([a-zA-Z0-9_\.]{1,30})/(?:p|reel|reels)/", url, re.IGNORECASE)
             if ig_match and ig_match.group(1).lower() not in ["p", "reel", "reels", "stories", "explore", "direct"]:
                 detected_user = ig_match.group(1)
+
+        # Pola 2b: Threads URL -> https://threads.net/@akun/post/...
+        if not detected_user:
+            th_match = re.search(r"threads\.(?:net|com)/@?([a-zA-Z0-9_\.]+)", url, re.IGNORECASE)
+            if th_match and th_match.group(1).lower() not in ["post", "search", "activity"]:
+                detected_user = th_match.group(1)
 
         # Pola 3: TikTok URL -> https://tiktok.com/@username
         if not detected_user:
