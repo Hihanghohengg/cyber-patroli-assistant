@@ -177,9 +177,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         screenshotBase64 = await new Promise((resolve) => {
-          chrome.tabs.captureVisibleTab(null, { format: "jpeg", quality: 85 }, (dataUrl) => {
-            if (chrome.runtime.lastError || !dataUrl) {
-              console.warn("[TILIK Popup] captureVisibleTab warning:", chrome.runtime.lastError?.message);
+          chrome.tabs.captureVisibleTab({ format: "jpeg", quality: 85 }, (dataUrl) => {
+            const err = chrome.runtime.lastError;
+            if (err || !dataUrl) {
+              console.warn("[TILIK Popup] captureVisibleTab warning:", err?.message || "empty dataUrl");
               resolve(null);
             } else {
               resolve(dataUrl);
@@ -356,15 +357,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const domText = inPageMeta.dom_text || notes || targetUrl;
     const method = inPageMeta.extraction_method || "fallback_dom";
 
+    let targetCleanUrl = inPageMeta.source_url || targetUrl;
+    if (targetCleanUrl.includes("instagram.com")) {
+      const igMatch = targetCleanUrl.match(/(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+)/i);
+      if (igMatch) {
+        targetCleanUrl = igMatch[1] + "/";
+      }
+    }
+
     const payload = {
-      url: inPageMeta.source_url || targetUrl,
+      url: targetCleanUrl,
       source_channel: "BROWSER_EXTENSION",
       reporter_identifier: operatorId,
       operator_id: operatorId,
       captured_at_utc: capturedAtUtc,
       ocr_text: "",
       notes: `[AKUISISI: ${method.toUpperCase()}] ${notes ? notes + ' | ' : ''}${domText.slice(0, 150)}...`,
-      screenshot_base64: screenshotBase64 || undefined,
+      screenshot_base64: screenshotBase64 || null,
+      screenshotBase64: screenshotBase64 || null,
       media_image_url: inPageMeta.media_image_url || undefined,
       title: inPageMeta.title || undefined,
       caption: domText || undefined,

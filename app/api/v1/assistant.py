@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Tuple
 from urllib.parse import urlparse, parse_qs, urlunparse, urlencode, unquote
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, AliasChoices, ConfigDict
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 
@@ -51,12 +51,24 @@ def _get_ai_semaphore() -> asyncio.Semaphore:
 
 class ChannelIntakeRequest(BaseModel):
     """Payload for submitting a patrol intake from browser extension or web console."""
+    model_config = ConfigDict(populate_by_name=True)
+
     url: str = Field(..., description="URL konten media sosial (TikTok, YouTube, Instagram).")
     source_channel: str = Field(default="BROWSER_EXTENSION", description="Kanal pengirim: BROWSER_EXTENSION, WEB_DASHBOARD, API.")
     reporter_identifier: Optional[str] = Field(default="Analyst-Browser", description="Pengenal pengirim (username analis, extension ID).")
     reporter_telegram_id: Optional[int] = Field(default=None, description="Deprecated / Nullable legacy identifier.")
     notes: Optional[str] = Field(default=None, description="Catatan opsional dari analis atau pelapor.")
-    screenshot_base64: Optional[str] = Field(default=None, description="Tangkapan layar base64 langsung dari klien/browser.")
+    screenshot_base64: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "screenshot_base64",
+            "screenshotBase64",
+            "screenshot",
+            "image_base64",
+            "imageBase64",
+        ),
+        description="Tangkapan layar base64 langsung dari klien/browser."
+    )
     media_image_url: Optional[str] = Field(default=None, description="URL gambar media langsung dari halaman postingan (og:image / article img).")
     
     # Operator & Local Integrity (Pilar RPLK)
@@ -293,7 +305,7 @@ def get_supported_channels(db: Session = Depends(get_db)) -> Dict[str, Any]:
 
 
 def _clean_url_tracking(url: str) -> str:
-    """Strip social tracking parameters and trailing slashes from URL."""
+    """Strip social tracking parameters, modal suffixes, and trailing slashes from URL."""
     if not url:
         return ""
     try:
@@ -302,14 +314,26 @@ def _clean_url_tracking(url: str) -> str:
         tracking_params = {
             "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
             "fbclid", "igshid", "xmt", "si", "ref", "share_id", "is_from_webapp",
-            "sender_device", "feature", "tracking_id"
+            "sender_device", "feature", "tracking_id", "img_index"
         }
         cleaned_qs = {k: v for k, v in qs.items() if k.lower() not in tracking_params}
         new_query = urlencode(cleaned_qs, doseq=True)
         new_path = parsed.path.rstrip("/") if len(parsed.path) > 1 else parsed.path
+
+        # Bersihkan suffix modal/dialog Instagram (e.g. /liked_by, /comments, /embed)
+        if "instagram.com" in parsed.netloc.lower():
+            ig_post_match = re.search(r"/(p|reel|reels|tv)/([A-Za-z0-9_-]+)", new_path, re.IGNORECASE)
+            if ig_post_match:
+                new_path = f"/{ig_post_match.group(1).lower()}/{ig_post_match.group(2)}"
+
         return urlunparse((parsed.scheme, parsed.netloc, new_path, parsed.params, new_query, ""))
     except Exception:
-        return url.strip().rstrip("/")
+        clean = url.strip().rstrip("/")
+        if "instagram.com" in clean.lower():
+            ig_m = re.search(r"(https?://(?:www\.)?instagram\.com/(?:p|reel|reels|tv)/[A-Za-z0-9_-]+)", clean, re.IGNORECASE)
+            if ig_m:
+                return ig_m.group(1)
+        return clean
 
 
 def _normalize_text_for_hash(text: str) -> str:
@@ -817,6 +841,9 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
                 raw_b64 += "=" * (4 - missing_padding)
             img_bytes = base64.b64decode(raw_b64)
             if img_bytes and len(img_bytes) > 100:
+                ext = ".jpg" if img_bytes.startswith(b"\xff\xd8\xff") else ".png"
+                evidence_filename = f"{ticket_number}_post{ext}"
+                target_path = os.path.join(settings.EVIDENCE_DIR, evidence_filename)
                 with open(target_path, "wb") as f:
                     f.write(img_bytes)
                 evidence_storage_path = target_path

@@ -146,12 +146,74 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // Handler for tab screenshot capture and background API proxy
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "submit_intake") {
-    fetchWithFallback("/api/v1/assistant/intake", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request.payload)
-    })
-      .then(async (res) => {
+    (async () => {
+      const payload = { ...(request.payload || {}) };
+
+      // 1. Sanitasi URL Instagram: Hapus segmen ekor modal (/liked_by, /comments, dll.)
+      if (payload.url && payload.url.includes("instagram.com")) {
+        const igMatch = payload.url.match(/(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+)/i);
+        if (igMatch) {
+          payload.url = igMatch[1] + "/";
+        }
+      }
+
+      // 2. Auto-capture screenshot layar aktif jika klien belum menyediakannya
+      if (!payload.screenshot_base64 && !payload.screenshotBase64) {
+        const winId = typeof sender?.tab?.windowId === "number" ? sender.tab.windowId : null;
+        try {
+          const capturedDataUrl = await new Promise((resolve) => {
+            const doCaptureNoWin = () => {
+              try {
+                chrome.tabs.captureVisibleTab({ format: "jpeg", quality: 85 }, (dataUrl) => {
+                  const err = chrome.runtime.lastError;
+                  if (err || !dataUrl) {
+                    console.warn("[TILIK SW intake] captureVisibleTab active window warning:", err?.message || "empty dataUrl");
+                    resolve(null);
+                  } else {
+                    resolve(dataUrl);
+                  }
+                });
+              } catch (e) {
+                console.warn("[TILIK SW intake] captureVisibleTab exception:", e);
+                resolve(null);
+              }
+            };
+
+            if (typeof winId === "number") {
+              try {
+                chrome.tabs.captureVisibleTab(winId, { format: "jpeg", quality: 85 }, (dataUrl) => {
+                  const err = chrome.runtime.lastError;
+                  if (!err && dataUrl) {
+                    resolve(dataUrl);
+                  } else {
+                    doCaptureNoWin();
+                  }
+                });
+              } catch (_) {
+                doCaptureNoWin();
+              }
+            } else {
+              doCaptureNoWin();
+            }
+          });
+
+          if (capturedDataUrl) {
+            payload.screenshot_base64 = capturedDataUrl;
+            payload.screenshotBase64 = capturedDataUrl;
+            console.log("[TILIK SW intake] Berhasil auto-capture screenshot tab aktif sebelum relay ke backend");
+          }
+        } catch (capErr) {
+          console.warn("[TILIK SW intake] Auto-capture tab error:", capErr);
+        }
+      }
+
+      try {
+        const res = await fetchWithFallback("/api/v1/assistant/intake", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
         let data = {};
         try {
           data = await res.json();
@@ -160,15 +222,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           data = { detail: rawText || `Server HTTP ${res.status}: ${res.statusText || "Internal Error"}` };
         }
         sendResponse({ ok: res.ok, status: res.status, data: data });
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Background submit_intake fetch failed:", err);
         let msg = "Gagal menghubungi server TILIK. Pastikan server backend sedang aktif di IP/Port yang sesuai.";
         if (err.name === "AbortError") {
           msg = "Batas waktu permintaan habis (timeout). Pipeline AI lokal membutuhkan waktu lebih lama.";
         }
         sendResponse({ ok: false, error: msg });
-      });
+      }
+    })();
     return true; // Keep asynchronous message channel open
   }
 

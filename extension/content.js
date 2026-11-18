@@ -848,6 +848,14 @@
       extractionMethod = "fallback_dom";
     }
 
+    // Bersihkan suffix modal/dialog Instagram (e.g. /liked_by, /comments)
+    if (targetUrl && (platform === "instagram" || targetUrl.includes("instagram.com"))) {
+      const igMatch = targetUrl.match(/(https?:\/\/(?:www\.)?instagram\.com\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+)/i);
+      if (igMatch) {
+        targetUrl = igMatch[1] + "/";
+      }
+    }
+
     return {
       platform,
       source_url: targetUrl,
@@ -1074,7 +1082,8 @@
       captured_at_utc: capturedAtUtc,
       ocr_text: "",
       notes: `[AKUISISI: ${extracted.extraction_method.toUpperCase()}] ${extracted.dom_text.slice(0, 150)}...`,
-      screenshot_base64: screenshotBase64 || undefined,
+      screenshot_base64: screenshotBase64 || null,
+      screenshotBase64: screenshotBase64 || null,
       media_image_url: extracted.media_image_url || undefined,
       username: extracted.username || undefined,
       display_name: extracted.display_name || undefined,
