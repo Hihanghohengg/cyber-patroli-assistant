@@ -223,6 +223,16 @@ def get_content_detail(
             kutipan_bukti_val = content.extra_metadata.get("kutipan_bukti")
             tipe_konteks_val = content.extra_metadata.get("tipe_konteks")
 
+        # Sanitize kutipan bukti: remove technical OCR prefix tags, outer quotes, and fix unspaced commas
+        if kutipan_bukti_val:
+            import re
+            cleaned_quote = re.sub(r"^\[(?:HASIL\s+)?OCR[^\]]*\]:?\s*", "", str(kutipan_bukti_val).strip(), flags=re.IGNORECASE)
+            cleaned_quote = re.sub(r"^\[(?:TEKS\s+)?(?:GAMBAR|POSTER)[^\]]*\]:?\s*", "", cleaned_quote.strip(), flags=re.IGNORECASE)
+            cleaned_quote = re.sub(r"^\[TRANSKRIP\s+AUDIO[^\]]*\]:?\s*", "", cleaned_quote.strip(), flags=re.IGNORECASE)
+            cleaned_quote = re.sub(r"^[\"\'“”‘’]+|[\"\'“”‘’]+$", "", cleaned_quote.strip()).strip()
+            cleaned_quote = re.sub(r",([^\s0-9])", r", \1", cleaned_quote)
+            kutipan_bukti_val = cleaned_quote
+
         ai_patrol_dict = {
             "status": report.ai_status,
             "predicted_label": report.ai_predicted_label,

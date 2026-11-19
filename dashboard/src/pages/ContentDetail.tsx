@@ -121,6 +121,20 @@ const parseAIReasoning = (rawReasoning: any): ReasoningSection[] => {
   return parseAIReasoningString(String(rawReasoning));
 };
 
+const cleanKutipanBukti = (text?: string | null): string => {
+  if (!text || !text.trim()) return '';
+  let cleaned = text.trim();
+  // Strip metadata tags like [HASIL OCR...], [TEKS GAMBAR...], [TRANSKRIP AUDIO...]
+  cleaned = cleaned.replace(/^\[(?:HASIL\s+)?OCR[^\]]*\]:?\s*/i, '');
+  cleaned = cleaned.replace(/^\[(?:TEKS\s+)?(?:GAMBAR|POSTER)[^\]]*\]:?\s*/i, '');
+  cleaned = cleaned.replace(/^\[TRANSKRIP\s+AUDIO[^\]]*\]:?\s*/i, '');
+  // Strip surrounding quotes
+  cleaned = cleaned.replace(/^["'“”‘’]+|["'“”‘’]+$/g, '').trim();
+  // Auto-space commas missing space
+  cleaned = cleaned.replace(/,([^\s0-9])/g, ', $1');
+  return cleaned;
+};
+
 const formatNarrativeParagraphs = (rawText: string): string[] => {
   if (!rawText || !rawText.trim()) return [];
   let clean = rawText.trim();
@@ -642,14 +656,14 @@ export const ContentDetailPage: React.FC = () => {
             </div>
 
             {/* Kutipan Bukti Sumber Verbatim (Placed cleanly under Ringkasan Eksekutif) */}
-            {ai_patrol?.kutipan_bukti && (
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-blue-500/25 space-y-1">
+            {ai_patrol?.kutipan_bukti && cleanKutipanBukti(ai_patrol.kutipan_bukti) && (
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] border border-blue-500/25 space-y-1.5 overflow-hidden">
                 <div className="flex items-center gap-1.5 text-blue-500 dark:text-blue-400 text-[10px] font-mono uppercase tracking-wider font-bold">
-                  <Fingerprint className="w-3.5 h-3.5" />
+                  <Fingerprint className="w-3.5 h-3.5 flex-shrink-0" />
                   <span>Kutipan Bukti Sumber</span>
                 </div>
-                <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed font-sans select-text">
-                  "{ai_patrol.kutipan_bukti}"
+                <p className="text-xs text-slate-700 dark:text-slate-300 italic leading-relaxed font-sans select-text break-words [overflow-wrap:anywhere]">
+                  "{cleanKutipanBukti(ai_patrol.kutipan_bukti)}"
                 </p>
               </div>
             )}
