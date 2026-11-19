@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -18,6 +18,7 @@ from sqlalchemy import or_
 from app.database import get_db
 from app.models.report import Report, Content
 from app.models.evidence import Evidence
+from app.models.audit import AuditLog
 from app.services.crypto_service import CryptoService
 
 logger = logging.getLogger(__name__)
@@ -173,6 +174,7 @@ def verify_evidence_integrity(
 @router.post("/tamper-test")
 def simulate_tamper_test(
     request: TamperTestRequest,
+    raw_request: Request = None,
     db: Session = Depends(get_db),
 ) -> Dict[str, Any]:
     """Simulate single-bit image manipulation, text mutation, or metadata spoofing.
@@ -260,6 +262,31 @@ def simulate_tamper_test(
         evidence.verification_status = "TAMPERED"
         evidence.last_verified_at = datetime.utcnow()
         db.commit()
+
+    # Immutable audit record of tamper simulation
+    try:
+        client_ip = raw_request.client.host if (raw_request and raw_request.client) else "127.0.0.1"
+        audit = AuditLog(
+            action="INTEGRITY_TAMPER_TEST_EXECUTED",
+            actor_username="analyst_operator",
+            entity_type="Evidence",
+            entity_id=request.ticket_or_id or "SYNTHETIC_TEST_PACKAGE",
+            details={
+                "ticket_tested": request.ticket_or_id or "SYNTHETIC_TEST_PACKAGE",
+                "tamper_type": request.tamper_type,
+                "dry_run": request.dry_run,
+                "tamper_detected": result["is_tampered_detected"],
+                "simulated_status": result["detection_status"],
+                "latency_ms": result["latency_ms"],
+            },
+            ip_address=client_ip,
+            timestamp=datetime.utcnow(),
+        )
+        db.add(audit)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to record audit log for tamper test: {e}")
+        db.rollback()
 
     return {
         "status": "SUCCESS",

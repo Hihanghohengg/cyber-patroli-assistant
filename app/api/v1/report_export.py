@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, HTTPException, Response
+from fastapi import APIRouter, Depends, Query, HTTPException, Response, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
@@ -20,6 +20,7 @@ from app.database import get_db
 from app.models.report import Report, Content
 from app.models.evidence import Evidence
 from app.models.intelligence import ContentAnalysis
+from app.models.audit import AuditLog
 from app.services.pdf_report_service import PDFReportService
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/reports", tags=["Executive Report Export"])
 
 
+def _log_audit_safe(
+    db: Session,
+    action: str,
+    actor_username: Optional[str] = "system_operator",
+    entity_type: Optional[str] = "Report",
+    entity_id: Optional[str] = None,
+    details: Optional[Dict[str, Any]] = None,
+    ip_address: Optional[str] = "127.0.0.1",
+):
+    """Safely record an immutable audit log without interrupting the calling workflow."""
+    try:
+        log = AuditLog(
+            action=action,
+            actor_username=actor_username or "system_operator",
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details or {},
+            ip_address=ip_address or "127.0.0.1",
+            timestamp=datetime.utcnow(),
+        )
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to record audit log for {action}: {e}")
+        db.rollback()
+
+
 @router.get("/daily-export")
 def export_daily_patrol_report(
+    request: Request,
     date: Optional[str] = Query(None, description="Tanggal laporan dalam format YYYY-MM-DD. Default: hari ini."),
     format: str = Query("md", pattern="^(md|pdf)$", description="Format dokumen: 'md' (Markdown) atau 'pdf' (PDF Resmi)."),
     include_all: bool = Query(False, description="Jika true, sertakan temuan yang belum divalidasi."),
@@ -155,6 +184,14 @@ def export_daily_patrol_report(
 
         md_content = "\n".join(md_lines)
         filename = f"Laporan_Harian_Patroli_{target_date_str}.md"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="ReportDossier",
+            entity_id=f"daily-{target_date_str}",
+            details={"type": "daily_patrol_report", "format": "md", "date": target_date_str, "findings_count": total_findings},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=md_content,
             media_type="text/markdown; charset=utf-8",
@@ -168,6 +205,14 @@ def export_daily_patrol_report(
         subtitle = f"Direktorat Operasi Siber • Sintesis Intelijen IPOLEKSOSBUDHANKAM & Segel Integritas Kriptografis"
         pdf_bytes = pdf_service.build_pdf_report(reports, title=title, subtitle=subtitle)
         filename = f"Laporan_Harian_Patroli_{target_date_str}.pdf"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="ReportDossier",
+            entity_id=f"daily-{target_date_str}",
+            details={"type": "daily_patrol_report", "format": "pdf", "date": target_date_str, "findings_count": total_findings},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -177,6 +222,7 @@ def export_daily_patrol_report(
 
 @router.get("/analytical-pdf")
 def export_analytical_patrol_report(
+    request: Request,
     period: str = Query("daily", pattern="^(daily|weekly|custom)$", description="Periode: daily, weekly, custom"),
     date: Optional[str] = Query(None, description="Tanggal spesifik YYYY-MM-DD untuk periode daily"),
     start_date: Optional[str] = Query(None, description="Tanggal awal YYYY-MM-DD untuk periode custom"),
@@ -265,6 +311,15 @@ def export_analytical_patrol_report(
     timestamp_str = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
     filename = f"Laporan_Analisis_Siber_{clean_period_name}_{timestamp_str}.pdf"
 
+    _log_audit_safe(
+        db=db,
+        action="REPORT_DOSSIER_EXPORTED",
+        entity_type="AnalyticalReport",
+        entity_id=f"analytical-{clean_period_name}",
+        details={"type": "analytical_pdf", "period": period, "date": date, "category": category, "count": len(reports)},
+        ip_address=request.client.host if request and request.client else "127.0.0.1",
+    )
+
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -285,6 +340,7 @@ class DalkontenStatusRequest(BaseModel):
 def update_report_dalkonten_status(
     report_id: str,
     payload: DalkontenStatusRequest,
+    request: Request,
     db: Session = Depends(get_db),
 ):
     """Perbarui status penerusan berkas ke Tim Dalkonten (Pengendalian Konten)."""
@@ -319,6 +375,20 @@ def update_report_dalkonten_status(
     db.commit()
     db.refresh(report)
 
+    _log_audit_safe(
+        db=db,
+        action="REPORT_DALKONTEN_FORWARDED",
+        actor_username=report.dalkonten_forwarded_by or payload.operator_id or "op_analis_01",
+        entity_type="Report",
+        entity_id=str(report.report_id),
+        details={
+            "ticket_number": report.ticket_number,
+            "dalkonten_status": target_status,
+            "forwarded_by": report.dalkonten_forwarded_by,
+        },
+        ip_address=request.client.host if request and request.client else "127.0.0.1",
+    )
+
     return {
         "ok": True,
         "report_id": str(report.report_id),
@@ -331,6 +401,7 @@ def update_report_dalkonten_status(
 
 @router.get("/weekly-lhm-export")
 def export_weekly_lhm_report(
+    request: Request,
     start_date: Optional[str] = Query(None, description="Tanggal awal YYYY-MM-DD. Default: 7 hari lalu."),
     end_date: Optional[str] = Query(None, description="Tanggal akhir YYYY-MM-DD. Default: hari ini."),
     format: str = Query("md", pattern="^(md|pdf)$", description="Format laporan: 'md' atau 'pdf'"),
@@ -446,6 +517,14 @@ def export_weekly_lhm_report(
 
         md_content = "\n".join(md)
         filename = f"Laporan_Mingguan_LHM_{s_date}_{e_date}.md"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="WeeklyLHM",
+            entity_id=f"lhm-{s_date}-{e_date}",
+            details={"type": "weekly_lhm_report", "format": "md", "start_date": str(s_date), "end_date": str(e_date), "count": len(reports)},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=md_content,
             media_type="text/markdown; charset=utf-8",
@@ -459,6 +538,14 @@ def export_weekly_lhm_report(
         subtitle = "Penyelarasan 6 Topik Prioritas Penanganan Konten Ilegal & Rantai Bukti Forensik NIST FIPS 198-1"
         pdf_bytes = pdf_service.build_pdf_report(reports, title=title, subtitle=subtitle)
         filename = f"Laporan_Mingguan_LHM_{s_date}_{e_date}.pdf"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="WeeklyLHM",
+            entity_id=f"lhm-{s_date}-{e_date}",
+            details={"type": "weekly_lhm_report", "format": "pdf", "start_date": str(s_date), "end_date": str(e_date), "count": len(reports)},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
@@ -468,6 +555,7 @@ def export_weekly_lhm_report(
 
 @router.get("/dalkonten-package-export")
 def export_dalkonten_package(
+    request: Request,
     format: str = Query("md", pattern="^(md|pdf)$", description="Format dokumen: 'md' atau 'pdf'"),
     status: Optional[str] = Query(None, description="Status Dalkonten spesifik. Default: SIAP DITERUSKAN & SUDAH DITERUSKAN"),
     db: Session = Depends(get_db),
@@ -530,6 +618,14 @@ def export_dalkonten_package(
 
         md_content = "\n".join(md)
         filename = f"Paket_Dossier_Dalkonten_{today_str}.md"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="DalkontenPackage",
+            entity_id=f"dalkonten-pkg-{today_str}",
+            details={"type": "dalkonten_package_export", "format": "md", "status_filter": status, "count": len(reports)},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=md_content,
             media_type="text/markdown; charset=utf-8",
@@ -543,6 +639,14 @@ def export_dalkonten_package(
         subtitle = "Dossier Penanganan Pemblokiran Konten Ilegal & Pengamanan Rantai Bukti Forensik NIST FIPS 198-1"
         pdf_bytes = pdf_service.build_pdf_report(reports, title=title, subtitle=subtitle)
         filename = f"Paket_Dossier_Dalkonten_{today_str}.pdf"
+        _log_audit_safe(
+            db=db,
+            action="REPORT_DOSSIER_EXPORTED",
+            entity_type="DalkontenPackage",
+            entity_id=f"dalkonten-pkg-{today_str}",
+            details={"type": "dalkonten_package_export", "format": "pdf", "status_filter": status, "count": len(reports)},
+            ip_address=request.client.host if request and request.client else "127.0.0.1",
+        )
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",

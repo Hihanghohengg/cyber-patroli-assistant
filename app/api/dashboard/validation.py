@@ -155,6 +155,7 @@ def validate_content_finding(
 def reclassify_content_topic(
     content_id: UUID,
     payload: ReclassifyRequest,
+    request: Request,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
@@ -163,15 +164,22 @@ def reclassify_content_topic(
     if not content:
         raise HTTPException(status_code=404, detail="Konten tidak ditemukan")
 
+    report = db.query(Report).filter(Report.content_id == content_id).first()
     analysis = db.query(ContentAnalysis).filter(ContentAnalysis.content_id == content_id).first()
+    old_category = analysis.category if analysis else (report.final_label if report else None)
+
     if payload.category and analysis:
         analysis.category = payload.category
+    if payload.category and report:
+        report.final_label = payload.category
 
+    target_issue_name = None
     # Reassign issue if specified
     if payload.issue_id:
         target_issue = db.query(IssueCluster).filter(IssueCluster.issue_id == payload.issue_id).first()
         if not target_issue:
             raise HTTPException(status_code=404, detail="Topik tujuan tidak ditemukan")
+        target_issue_name = target_issue.title
 
         # Delete old junction
         db.query(IssueContent).filter(IssueContent.content_id == content_id).delete()
@@ -185,5 +193,25 @@ def reclassify_content_topic(
         )
         db.add(new_link)
 
+    # Create immutable audit log
+    client_ip = request.client.host if request.client else "unknown"
+    audit = AuditLog(
+        action="DASHBOARD_RECLASSIFY_TOPIC",
+        actor_telegram_id=getattr(current_user, "telegram_id", None),
+        actor_username=current_user.username,
+        entity_type="Content",
+        entity_id=str(content_id),
+        details={
+            "analyst_username": current_user.username,
+            "old_category": old_category,
+            "new_category": payload.category,
+            "target_issue_id": str(payload.issue_id) if payload.issue_id else None,
+            "target_issue_title": target_issue_name,
+            "ticket_number": report.ticket_number if report else None,
+        },
+        ip_address=client_ip,
+        timestamp=datetime.utcnow(),
+    )
+    db.add(audit)
     db.commit()
     return {"status": "success", "message": "Klasifikasi konten berhasil diperbarui"}

@@ -17,6 +17,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse, RedirectResponse
 from starlette.datastructures import MutableHeaders
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
@@ -125,6 +126,19 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     clean_msg = "; ".join(messages)
     logger.warning(f"Request validation error on {request.url}: {clean_msg}")
     return JSONResponse(status_code=422, content={"detail": clean_msg})
+
+@api.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # Pass through standard HTTP exceptions
+    if isinstance(exc, (HTTPException, StarletteHTTPException)):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+    # Log full technical traceback securely in local server logs only
+    logger.exception(f"Unhandled server error at {request.method} {request.url.path}: {exc}")
+    # Anti-leakage: return sanitized message without exposing Python stack traces or DB details (CWE-209)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Terjadi kesalahan internal pada server. Silakan hubungi administrator."},
+    )
 
 # Mount Dashboard API
 api.include_router(dashboard_router)

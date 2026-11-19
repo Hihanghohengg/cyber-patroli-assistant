@@ -15,6 +15,13 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class RegisterUserRequest(BaseModel):
+    username: str
+    password: str
+    full_name: Optional[str] = ""
+    role: Optional[str] = "ANALYST"
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

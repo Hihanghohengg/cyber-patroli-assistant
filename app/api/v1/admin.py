@@ -448,6 +448,17 @@ def create_dashboard_user(
     db.commit()
     db.refresh(user)
 
+    audit = AuditLog(
+        action="ADMIN_USER_CREATED",
+        actor_username=admin.username,
+        entity_type="DashboardUser",
+        entity_id=str(user.user_id),
+        details={"created_username": user.username, "role": user.role},
+        timestamp=datetime.utcnow(),
+    )
+    db.add(audit)
+    db.commit()
+
     return {
         "user_id": str(user.user_id),
         "username": user.username,
@@ -475,7 +486,17 @@ def update_dashboard_user(
     if payload.full_name is not None:
         user.full_name = payload.full_name
 
+    audit = AuditLog(
+        action="ADMIN_USER_UPDATED",
+        actor_username=admin.username,
+        entity_type="DashboardUser",
+        entity_id=str(user.user_id),
+        details={"updated_username": user.username, "role": user.role, "is_active": user.is_active},
+        timestamp=datetime.utcnow(),
+    )
+    db.add(audit)
     db.commit()
+
     return {"user_id": str(user.user_id), "status": "updated"}
 
 
@@ -505,9 +526,11 @@ def list_audit_logs(
                 "log_id": str(l.log_id),
                 "action": l.action,
                 "actor_telegram_id": l.actor_telegram_id,
+                "actor_username": l.actor_username,
                 "entity_type": l.entity_type,
                 "entity_id": l.entity_id,
                 "details": l.details,
+                "ip_address": l.ip_address,
                 "timestamp": l.timestamp.isoformat() if l.timestamp else None,
             }
             for l in logs
