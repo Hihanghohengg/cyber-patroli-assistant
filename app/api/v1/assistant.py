@@ -235,8 +235,14 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
     # 4. Strip duplicate leading username repetition & glued profile headers (even without spaces)
     # e.g. 'Sumatera Adil & Federal@indepenSumateraPRABOWO...' -> 'PRABOWO...'
     # e.g. 'Ganjar Pranowo@ganjarpranowo1. Umumkan...' -> '1. Umumkan...'
+    # e.g. 'inilah.com (@inilahcom): “Dinamika...' -> 'Dinamika...'
     if username:
+        cleaned = re.sub(r"^(?:[^\n@:]{0,50})?\(@?" + re.escape(username) + r"\)\s*:\s*", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"^(?:[^\n@:]{0,50})?@?" + re.escape(username) + r"\s*:\s*", "", cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"^(?:[^\n@]{0,50})?@?" + re.escape(username) + r"\s*", "", cleaned, flags=re.IGNORECASE)
+
+    # General TikTok/Instagram author prefix: e.g. 'inilah.com (@inilahcom): '
+    cleaned = re.sub(r"^[^\n:]{1,60}\(@[a-zA-Z0-9_\.]+\)\s*:\s*", "", cleaned)
 
     # General unspaced glued handle detection (Twitter handles max 15 chars, ending before capital letter/digit)
     cleaned = re.sub(r"^(?:[^\n@]{0,50})?@[a-zA-Z0-9_\.]*?[a-z0-9](?=[A-Z]{2,}|\d+\.)\s*", "", cleaned)
@@ -245,6 +251,11 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
     cleaned = re.sub(r"^[A-Z][a-zA-Z0-9\s._-]+@[a-zA-Z0-9_]+\s*", "", cleaned)
     cleaned = re.sub(r"^(?:[a-z0-9_\.]{3,30}\s*)+(?=[A-Z])", "", cleaned)
     cleaned = re.sub(r"^[a-zA-Z0-9_\.]{3,30}\s*:\s*", "", cleaned)
+
+    # Clean any dangling leading punctuation (e.g. '): “', '): ', '- ', ': ', etc.)
+    cleaned = re.sub(r"^[\s\)\:\.\,\-\–—·•\|\/]+", "", cleaned).strip()
+    if cleaned.startswith(('"', "'", "“", "”", "‘", "’")) and not cleaned.endswith(('"', "'", "“", "”", "‘", "’")):
+        cleaned = re.sub(r"^[\"'“”‘’]+", "", cleaned).strip()
 
     # 5. Normalisasi spasi setelah tanda baca titik yang langsung diikuti huruf kapital
     # Contoh: 'setempat.Besarnya' -> 'setempat. Besarnya'
@@ -939,7 +950,8 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
 
     if payload.title and payload.title.strip():
         content_title = clean_caption_noise(payload.title.strip(), username=account_username)
-        if not content_title:
+        # Tolak judul jika murni angka metrik (misal: '248' likes/comments)
+        if not content_title or re.match(r"^[\d.,\s]+[KkMmBbTt]?$", content_title):
             content_title = clean_caption[:70] + "..." if len(clean_caption) > 70 else clean_caption
     elif len(clean_caption) > 70:
         content_title = clean_caption[:70] + "..."

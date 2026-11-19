@@ -17,6 +17,17 @@
     return isNaN(num) ? 0 : Math.round(num * mult);
   }
 
+  function isValidDescription(text) {
+    if (!text || typeof text !== "string") return false;
+    const trimmed = text.trim();
+    if (trimmed.length < 5) return false;
+    // Reject pure numbers or metrics (e.g. "248", "12.5K", "1.2M")
+    if (/^[\d.,\s]+[KkMmBbTt]?$/i.test(trimmed)) return false;
+    // Reject standalone UI button words
+    if (/^(?:Like|Likes|Suka|Komentar|Comments|Share|Bagikan|Follow|Following|Ikuti|Translate|Terjemahkan)$/i.test(trimmed)) return false;
+    return true;
+  }
+
   function extractTikTok() {
     const pathname = window.location.pathname;
     const href = window.location.href;
@@ -28,11 +39,19 @@
     let authorHandle = userMatch ? userMatch[1] : "";
     let videoId = videoMatch ? videoMatch[1] : "";
 
-    // 2. Tentukan Container Utama (Modal / Detail Player / Feed Item aktif)
+    // 2. Tentukan Container Utama (Prioritaskan Video Player & Bounding Container)
     const modalContainer = document.querySelector('[data-e2e="browse-video-container"]') ||
                            document.querySelector('[data-e2e="modal-content"]') ||
                            document.querySelector('div[role="dialog"]');
     const container = modalContainer || document.querySelector("main") || document.body;
+
+    // Video Player spesifik untuk cropping bukti visual murni tanpa sidebar desktop
+    const videoTarget = container.querySelector('[data-e2e="browse-video-container"]') ||
+                        container.querySelector('div[class*="DivVideoContainer"]') ||
+                        container.querySelector('div[class*="DivPlayerContainer"]') ||
+                        container.querySelector('div[class*="VideoWrapper"]') ||
+                        container.querySelector('video')?.parentElement ||
+                        container;
 
     // 3. Auto-expand teks caption jika terpotong ('selengkapnya' / 'more')
     try {
@@ -60,13 +79,14 @@
       }
     }
 
-    // 5. Ekstraksi Naskah Caption / Deskripsi Video & Hashtag
+    // 5. Ekstraksi Naskah Caption / Deskripsi Video & Hashtag (Abaikan counter angka)
     let cleanText = "";
     const descSelectors = [
+      'span[data-e2e="new-desc-span"]',
       '[data-e2e="browse-video-desc"]',
       'h1[data-e2e="video-desc"]',
-      '[data-e2e="user-post-item-desc"]',
       'div[data-e2e="video-desc"]',
+      '[data-e2e="user-post-item-desc"]',
       'h1[class*="H1VideoDesc"]',
       'div[class*="DivDescriptionContainer"]'
     ];
@@ -75,18 +95,25 @@
       const descEl = container.querySelector(sel);
       if (descEl) {
         const raw = (descEl.innerText || descEl.textContent || "").trim();
-        if (raw.length >= 3) {
+        if (isValidDescription(raw)) {
           cleanText = raw;
           break;
         }
       }
     }
 
-    // Fallback: meta tag description jika DOM kosong
+    // Fallback: meta tag og:description jika DOM kosong
     if (!cleanText || cleanText.length < 5) {
       const metaOg = document.querySelector('meta[property="og:description"], meta[name="description"]');
       if (metaOg) {
-        cleanText = (metaOg.getAttribute("content") || "").trim();
+        let rawOg = (metaOg.getAttribute("content") || "").trim();
+        // TikTok sering memformat og:description sebagai: "Nama (@handle): “Isi caption...”"
+        const quoteMatch = rawOg.match(/:\s*[“"']([\s\S]+?)[”"']?\s*$/);
+        if (quoteMatch && isValidDescription(quoteMatch[1])) {
+          cleanText = quoteMatch[1].trim();
+        } else {
+          cleanText = rawOg.replace(/^[^\n:]{1,60}\(@?[a-zA-Z0-9_\.]+\)\s*:\s*/i, "").trim();
+        }
       }
     }
 
@@ -99,6 +126,8 @@
       for (let i = 0; i < 3; i++) {
         cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Bagikan|Share|Komentar|Comment)\b[\s]*$/gi, "").trim();
       }
+      // Bersihkan sisa tanda kurung ganjil di awal naskah
+      cleanText = cleanText.replace(/^[\s\)\:\.\,\-\–—·•\|\/\"'“”‘’]+/, "").trim();
       cleanText = cleanText.replace(/[ \t]+/g, " ");
       cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
     }
@@ -123,12 +152,16 @@
       canonicalUrl = `https://www.tiktok.com/@${authorHandle}/video/${videoId}`;
     }
 
-    // 8. Bentuk Judul Informatif
+    // 8. Bentuk Judul Informatif (Anti-Angka Acak)
     let title = "";
-    if (cleanText) {
-      const firstLine = cleanText.split("\n")[0].split(/[.!?]/)[0].trim();
-      title = firstLine.length > 80 ? (firstLine.slice(0, 77) + "...") : firstLine;
-    } else {
+    if (cleanText && isValidDescription(cleanText)) {
+      const strippedText = cleanText.replace(/^[\s\)\:\.\,\-\–—·•\|\/\"'“”‘’]+/, "").trim();
+      const firstSentence = strippedText.split("\n")[0].split(/[.!?]/)[0].trim();
+      if (firstSentence && firstSentence.length >= 10 && !/^[\d.,\s]+$/.test(firstSentence)) {
+        title = firstSentence.length > 80 ? (firstSentence.slice(0, 77) + "...") : firstSentence;
+      }
+    }
+    if (!title || /^[\d.,\s]+$/.test(title)) {
       title = authorHandle ? `TikTok Video oleh @${authorHandle}` : "TikTok Post Video";
     }
 
@@ -144,7 +177,7 @@
       shares_count: sharesCount,
       has_media: true,
       extraction_method: "tiktok_dom_post",
-      container: container
+      container: videoTarget
     };
   }
 

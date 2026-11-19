@@ -1255,6 +1255,50 @@
     }
   });
 
+  async function cropScreenshotToTarget(dataUrl, targetEl) {
+    if (!dataUrl || !targetEl || typeof document === "undefined") return dataUrl;
+    try {
+      const rect = targetEl.getBoundingClientRect();
+      // Validasi ukuran elemen di viewport aktif
+      if (rect.width < 160 || rect.height < 160) return dataUrl;
+
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const dpr = window.devicePixelRatio || 1;
+            const sx = Math.max(0, rect.left * dpr);
+            const sy = Math.max(0, rect.top * dpr);
+            const sw = Math.min(img.width - sx, rect.width * dpr);
+            const sh = Math.min(img.height - sy, rect.height * dpr);
+
+            if (sw < 150 || sh < 150) {
+              resolve(dataUrl);
+              return;
+            }
+
+            const canvas = document.createElement("canvas");
+            canvas.width = sw;
+            canvas.height = sh;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              resolve(dataUrl);
+              return;
+            }
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+            resolve(canvas.toDataURL("image/jpeg", 0.88));
+          } catch (_) {
+            resolve(dataUrl);
+          }
+        };
+        img.onerror = () => resolve(dataUrl);
+        img.src = dataUrl;
+      });
+    } catch (_) {
+      return dataUrl;
+    }
+  }
+
   btn.addEventListener("click", async (e) => {
     if (dragMoved) {
       // Jika digeser/dragged oleh pengguna, jangan picu triase
@@ -1328,6 +1372,12 @@
 
       if (captureRes && captureRes.ok && captureRes.dataUrl) {
         screenshotBase64 = captureRes.dataUrl;
+        // Smart crop ke container target jika tersedia (fokuskan bukti visual, buang noise sidebar)
+        if (extracted && extracted.container && extracted.container !== document.body) {
+          try {
+            screenshotBase64 = await cropScreenshotToTarget(screenshotBase64, extracted.container);
+          } catch (_) {}
+        }
       }
     } catch (e) {
       console.warn("[TILIK Content Script] Capture visible tab error:", e);
@@ -1405,42 +1455,40 @@
       }
     };
 
-    // Kirim via Background Service Worker (dengan batas waktu 300s untuk inferensi AI lokal)
-    let messageDispatched = false;
+    // 5. Kirim ke Backend API (Prioritaskan Direct Fetch untuk menghindari batas waktu 30s Chrome MV3 Worker)
+    let dispatchedDirect = false;
     try {
-      if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
-        messageDispatched = true;
-        const submitTimer = setTimeout(() => {
-          handleResult(false, null, "Permintaan triase melampaui batas waktu (timeout 300s). Pastikan server backend sedang aktif.");
-        }, 300000);
+      const controller = new AbortController();
+      const submitTimer = setTimeout(() => {
+        controller.abort();
+      }, 300000); // 300 detik untuk pipeline AI lokal
 
-        chrome.runtime.sendMessage({ action: "submit_intake", payload }, (bgRes) => {
-          clearTimeout(submitTimer);
-          if (chrome.runtime.lastError) {
-            handleResult(false, null, chrome.runtime.lastError.message);
-          } else if (bgRes) {
-            handleResult(bgRes.ok, bgRes.data, bgRes.error);
-          } else {
-            handleResult(false, null, "Tidak ada respon dari service worker. Coba buka kembali ekstensi dari toolbar.");
-          }
-        });
-      }
-    } catch (sendErr) {
-      console.warn("[TILIK Content Script] sendMessage exception:", sendErr);
-      messageDispatched = false;
-    }
-
-    if (!messageDispatched) {
-      try {
-        const res = await fetch(`${serverBaseUrl}/api/v1/assistant/intake`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const d = await res.json().catch(() => ({}));
-        handleResult(res.ok, d, res.ok ? null : (d.detail || res.statusText));
-      } catch (err) {
-        handleResult(false, null, err.message);
+      const res = await fetch(`${serverBaseUrl}/api/v1/assistant/intake`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(submitTimer);
+      dispatchedDirect = true;
+      const d = await res.json().catch(() => ({}));
+      handleResult(res.ok, d, res.ok ? null : (d.detail || res.statusText));
+    } catch (fetchErr) {
+      console.warn("[TILIK Content Script] Direct fetch failed or restricted, fallback to service worker:", fetchErr);
+      if (!dispatchedDirect) {
+        if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+          chrome.runtime.sendMessage({ action: "submit_intake", payload }, (bgRes) => {
+            if (chrome.runtime.lastError) {
+              handleResult(false, null, chrome.runtime.lastError.message);
+            } else if (bgRes) {
+              handleResult(bgRes.ok, bgRes.data, bgRes.error);
+            } else {
+              handleResult(false, null, fetchErr.message || "Gagal menghubungi backend TILIK.");
+            }
+          });
+        } else {
+          handleResult(false, null, fetchErr.message || "Gagal menghubungi backend TILIK.");
+        }
       }
     }
   });
