@@ -250,6 +250,19 @@ def clean_caption_noise(raw: Optional[str], username: Optional[str] = None) -> s
     # Contoh: 'setempat.Besarnya' -> 'setempat. Besarnya'
     cleaned = re.sub(r"\.([A-Z])", r". \1", cleaned)
 
+    # 6. Normalisasi non-breaking spaces dan zero-width artifacts
+    cleaned = cleaned.replace("\u00a0", " ").replace("\u200b", "").replace("&nbsp;", " ")
+
+    # 7. Strip trailing action buttons & translation markers across all platforms (Threads, IG, X, TikTok, FB)
+    # e.g. '...Translate', '...Terjemahkan', '...Lihat terjemahan', '...Suka Balas Bagikan'
+    for _ in range(3):
+        cleaned = re.sub(
+            r"[\s·•\u00b7\u2022\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Posting ulang|Repost|Retweet|Bagikan|Share|Komentar|Comment|Quotes|Top View activity|New thread|Lihat lainnya)\b[\s]*$",
+            "",
+            cleaned,
+            flags=re.IGNORECASE
+        ).strip()
+
     cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
     cleaned = re.sub(r"[ \t]+", " ", cleaned).strip()
     if is_login_wall_boilerplate(cleaned):
@@ -944,28 +957,32 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
     has_media_flag = getattr(payload, "has_media", False) or (platform in ("instagram", "threads"))
 
     async with _get_ai_semaphore():
-        # 4.1 Selective Local OCR (Smart Multimodal Gate: teks pendek, UI noise, atau Instagram poster)
+        # 4.1 Selective Local OCR (Smart Multimodal Gate: teks pendek < 60 chars atau UI noise)
         if evidence_storage_path and os.path.exists(evidence_storage_path):
             try:
                 ocr_res = await asyncio.to_thread(
                     OCRService.process_selective_ocr,
                     image_path=evidence_storage_path,
-                    dom_text=full_narrative,
+                    dom_text=clean_caption,
                     platform=platform,
                     has_media=has_media_flag,
                 )
                 if ocr_res.get("ocr_performed") and ocr_res.get("ocr_text"):
-                    active_ocr_text = ocr_res["ocr_text"]
-                    full_narrative = f"{full_narrative}\n\n[HASIL OCR TEKS GAMBAR / POSTER]:\n{active_ocr_text}".strip()
+                    active_ocr_text = ocr_res["ocr_text"].strip()
                     logger.info(f"Selective OCR berhasil mengekstrak {len(active_ocr_text)} karakter via {ocr_res.get('engine_used')}.")
             except Exception as ocr_err:
                 logger.warning(f"Selective OCR warning: {ocr_err}")
+
+        # Tentukan teks yang diproses LLM: jika caption minim/kosong, sertakan OCR teks sebagai naskah analisis
+        llm_input_text = clean_caption
+        if len(clean_caption) < 60 and active_ocr_text:
+            llm_input_text = f"{clean_caption}\n\n[TEKS GAMBAR/POSTER]:\n{active_ocr_text}".strip()
 
         # 4.2 Ollama Local LLM Inference with Integrated MemPrompt Retrieval (Single Embedding Pass)
         ollama_svc = OllamaService()
         ollama_res = await asyncio.to_thread(
             ollama_svc.classify_and_summarize,
-            text=full_narrative,
+            text=llm_input_text or content_title,
             title=content_title,
             source_url=payload.url,
             author=account_username,
@@ -1018,7 +1035,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             canonical_url=canonical_content_url,
             platform_content_id=canonical_post_id,
             title=content_title,
-            caption_text=full_narrative,
+            caption_text=clean_caption or active_ocr_text or content_title,
             ocr_text=active_ocr_text,
             likes_count=_safe_int(payload.likes_count),
             views_count=_safe_int(payload.views_count),
@@ -1103,6 +1120,18 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
         llm_lat = round(float(ollama_res.get("llm_latency_ms") or ollama_res.get("latency_ms", 0.0)), 1)
         total_lat = round(ocr_lat + retrieval_lat + llm_lat, 1)
 
+        # Pastikan indonesian_content selalu berisi naskah editorial bersih tanpa dump OCR
+        final_indonesian_content = (
+            ollama_res.get("indonesian_content")
+            if ollama_res.get("original_language") != "id" and ollama_res.get("indonesian_content")
+            else clean_caption
+        )
+        if not final_indonesian_content or len(final_indonesian_content) < 10:
+            final_indonesian_content = clean_caption or summary_text or active_ocr_text
+
+        if "[HASIL OCR" in str(final_indonesian_content):
+            final_indonesian_content = str(final_indonesian_content).split("[HASIL OCR")[0].strip()
+
         report = Report(
             ticket_number=ticket_number,
             content_id=content.content_id,
@@ -1112,7 +1141,7 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
             operator_id=active_operator_id,
             status=Report.STATUS_WAITING_VALIDATION,
             original_language=ollama_res.get("original_language", "id"),
-            indonesian_content=ollama_res.get("indonesian_content", summary_text),
+            indonesian_content=final_indonesian_content,
             classification_mode=getattr(payload, "classification_mode", "adaptive"),
             execution_latencies={
                 "ocr_ms": ocr_lat,

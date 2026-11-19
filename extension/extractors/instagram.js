@@ -59,14 +59,18 @@
 
     // Bersihkan artefak Instagram
     if (cleanText) {
+      cleanText = cleanText.replace(/[\u00a0\u200b]/g, " ");
       cleanText = cleanText.replace(/^(?:[a-zA-Z0-9_\.]{2,30})?(?:Ikuti|Mengikuti|Follow|Following)\s*(?:[a-zA-Z0-9_\.]{2,30})?\s*\d+\s*(?:jam|hari|menit|detik|m|h|d|w|minggu)?\s*/i, "").trim();
       cleanText = cleanText.replace(/^(?:Ikuti|Mengikuti|Follow|Following)\s*/i, "").trim();
       if (authorHandle) {
         cleanText = cleanText.replace(new RegExp(`^${authorHandle}\\s*`, "i"), "").trim();
       }
       cleanText = cleanText.replace(/^\d+\s*(?:menit|jam|hari|minggu|detik|m|h|d|w)\s*/i, "").trim();
-      for (const marker of ["Lihat terjemahan", "See translation", "View translation", "Lihat semua komentar", "View all comments"]) {
+      for (const marker of ["Lihat terjemahan", "See translation", "View translation", "Terjemahkan", "Translate", "Lihat semua komentar", "View all comments"]) {
         if (cleanText.includes(marker)) cleanText = cleanText.split(marker)[0].trim();
+      }
+      for (let i = 0; i < 3; i++) {
+        cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Bagikan|Share|Komentar|Comment)\b[\s]*$/gi, "").trim();
       }
       cleanText = cleanText.replace(/Disukai oleh.*?lainnya/gi, " ");
       cleanText = cleanText.replace(/Liked by.*?others/gi, " ");

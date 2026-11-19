@@ -90,8 +90,16 @@
       }
     }
 
-    // Bersihkan spasi berlebih
+    // Bersihkan spasi berlebih dan tombol UI
     if (cleanText) {
+      cleanText = cleanText.replace(/[\u00a0\u200b]/g, " ");
+      for (const marker of ["Lihat terjemahan", "See translation", "View translation", "Terjemahkan", "Translate"]) {
+        if (cleanText.includes(marker)) cleanText = cleanText.split(marker)[0].trim();
+      }
+      for (let i = 0; i < 3; i++) {
+        cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Bagikan|Share|Komentar|Comment)\b[\s]*$/gi, "").trim();
+      }
+      cleanText = cleanText.replace(/[ \t]+/g, " ");
       cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
     }
 

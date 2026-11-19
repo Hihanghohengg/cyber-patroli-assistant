@@ -47,11 +47,15 @@
     }
 
     if (cleanText) {
+      cleanText = cleanText.replace(/[\u00a0\u200b]/g, " ");
       if (authorHandle) {
         cleanText = cleanText.replace(new RegExp(`^(?:[^\n@]{0,40}@${authorHandle}\\s*(?:·\\s*\\d+[a-zA-Z\\s]*)?)+`, "i"), "").trim();
         cleanText = cleanText.replace(new RegExp(`^@?${authorHandle}\\s*`, "i"), "").trim();
       }
       cleanText = cleanText.replace(/Terjemahkan postingan|Translate post/gi, "").trim();
+      for (let i = 0; i < 3; i++) {
+        cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Retweet|Repost|Bookmark)\b[\s]*$/gi, "").trim();
+      }
       cleanText = cleanText.replace(/\d{1,2}:\d{2}\s*[\/|\\]\s*\d{1,2}:\d{2}/g, " ");
       cleanText = cleanText.replace(/\d{1,2}:\d{2}\s*(?:AM|PM|am|pm)\s*[·•\u00b7\u2022]\s*[A-Za-z]{3}\s*\d{1,2},\s*\d{4}/g, " ");
       cleanText = cleanText.replace(/[·•\u00b7\u2022\s]*\d+[\d\.,]*[KkMm]?\s*(?:Views|View quotes|views|quotes|suka|likes|Retweets|reposts|Bookmarks|bookmarked)(?=[^a-zA-Z]|$)/gi, " ");

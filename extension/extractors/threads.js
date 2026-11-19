@@ -170,12 +170,15 @@
 
     let cleanText = textParts.join("\n\n").trim();
     if (cleanText) {
+      cleanText = cleanText.replace(/[\u00a0\u200b]/g, " ");
       cleanText = cleanText.replace(/^(?:Ikuti|Mengikuti|Follow|Following)\s*/i, "").trim();
       if (authorHandle) {
         cleanText = cleanText.replace(new RegExp(`^@?${authorHandle}\\s*`, "i"), "").trim();
       }
       cleanText = cleanText.replace(/^\d+\s*(?:j|jam|h|m|menit|d|hari|w|minggu|detik)\s*/i, "").trim();
-      cleanText = cleanText.replace(/\b(?:Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share)\b.*$/gi, "").trim();
+      for (let i = 0; i < 3; i++) {
+        cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Balas|Posting ulang|Bagikan|Like|Reply|Repost|Share|Komentar|Comment|Quotes|Top View activity|New thread|Lihat lainnya)\b[\s]*$/gi, "").trim();
+      }
       cleanText = cleanText.replace(/[ \t]+/g, " ");
       cleanText = cleanText.replace(/\n\s*\n\s*\n+/g, "\n\n").trim();
     }

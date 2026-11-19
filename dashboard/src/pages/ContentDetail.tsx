@@ -123,7 +123,29 @@ const parseAIReasoning = (rawReasoning: any): ReasoningSection[] => {
 
 const formatNarrativeParagraphs = (rawText: string): string[] => {
   if (!rawText || !rawText.trim()) return [];
-  const clean = rawText.trim();
+  let clean = rawText.trim();
+
+  // 1. Bersihkan pemisah artefak OCR & audio dari tampilan narasi editorial utama
+  if (clean.includes('[HASIL OCR')) {
+    clean = clean.split(/\[HASIL OCR/i)[0].trim();
+  }
+  if (clean.includes('[TRANSKRIP AUDIO')) {
+    clean = clean.split(/\[TRANSKRIP AUDIO/i)[0].trim();
+  }
+
+  // 2. Bersihkan non-breaking spaces dan zero-width artifacts
+  clean = clean.replace(/[\u00a0\u200b]/g, ' ');
+
+  // 3. Bersihkan tombol aksi di ekor naskah (Translate, Terjemahkan, Suka, dll.)
+  for (let i = 0; i < 3; i++) {
+    clean = clean
+      .replace(
+        /[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Bagikan|Share|Komentar|Comment|Quotes|Top View activity|New thread|Lihat lainnya)\b[\s]*$/gi,
+        ''
+      )
+      .trim();
+  }
+
   if (clean.includes('\n\n')) {
     return clean.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   }
@@ -497,28 +519,41 @@ export const ContentDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Accordion: Bukti Teks Mentah Asli */}
-          <div className="cyber-card rounded-xl overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowRawText(!showRawText)}
-              className="w-full p-3.5 flex items-center justify-between text-xs font-mono font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
-            >
-              <span className="flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-blue-500" />
-                Bukti Teks Mentah OCR ({detail.caption ? detail.caption.length : 0} Karakter)
-              </span>
-              {showRawText ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
+          {/* Accordion: Bukti Teks Mentah / OCR */}
+          {(() => {
+            const rawOcr = detail.evidences?.find((e) => e.ocr_text && e.ocr_text.trim())?.ocr_text?.trim() || '';
+            const rawCaption = detail.caption || '';
+            const isOcr = Boolean(rawOcr);
+            const displaySnippet = isOcr ? rawOcr : rawCaption;
+            const charCount = displaySnippet.length;
+            const titleLabel = isOcr
+              ? `Bukti Teks Mentah OCR (${charCount} Karakter)`
+              : `Naskah Asli Peramban (${charCount} Karakter)`;
 
-            {showRawText && (
-              <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-white/[0.06]">
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] text-xs font-mono text-slate-600 dark:text-slate-400 max-h-48 overflow-y-auto whitespace-pre-wrap select-text leading-relaxed">
-                  {detail.caption || '(Tidak ada teks mentah)'}
-                </div>
+            return (
+              <div className="cyber-card rounded-xl overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowRawText(!showRawText)}
+                  className="w-full p-3.5 flex items-center justify-between text-xs font-mono font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Lock className="w-3.5 h-3.5 text-blue-500" />
+                    {titleLabel}
+                  </span>
+                  {showRawText ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                {showRawText && (
+                  <div className="p-3.5 pt-0 border-t border-slate-100 dark:border-white/[0.06]">
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#0A0D14] text-xs font-mono text-slate-600 dark:text-slate-400 max-h-48 overflow-y-auto whitespace-pre-wrap select-text leading-relaxed">
+                      {displaySnippet || '(Tidak ada teks mentah / OCR dilewati karena naskah DOM memadai)'}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            );
+          })()}
 
           {/* Transkrip Percakapan Audio (Jika Ada) */}
           {detail.transcript && (

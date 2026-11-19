@@ -892,12 +892,18 @@
 
     // 7. Filter Teks Pembersih (Hapus penanda terjemahan, batas komentar, dan banner 'Disukai oleh')
     if (cleanText) {
+      cleanText = cleanText.replace(/[\u00a0\u200b]/g, " ");
       // Potong komentar yang menempel setelah teks "Lihat terjemahan" / "See translation"
-      const translationMarkers = ["Lihat terjemahan", "See translation", "View translation", "Lihat semua komentar", "View all comments"];
+      const translationMarkers = ["Lihat terjemahan", "See translation", "View translation", "Terjemahkan", "Translate", "Lihat semua komentar", "View all comments"];
       for (const m of translationMarkers) {
         if (cleanText.includes(m)) {
           cleanText = cleanText.split(m)[0].trim();
         }
+      }
+
+      // Hapus tombol aksi di ekor naskah (misal: "Translate", "Terjemahkan", "Suka", "Balas")
+      for (let i = 0; i < 3; i++) {
+        cleanText = cleanText.replace(/[\s·•\-_|/]*\b(?:Translate|Terjemahkan|Lihat terjemahan|See translation|View translation|Suka|Like|Balas|Reply|Posting ulang|Repost|Retweet|Bagikan|Share|Komentar|Comment)\b[\s]*$/gi, "").trim();
       }
 
       // Hapus banner likes: "Disukai oleh ... dan ... lainnya"
