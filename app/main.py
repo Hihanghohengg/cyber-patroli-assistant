@@ -187,6 +187,10 @@ if os.path.exists(dist_dir):
         raise HTTPException(status_code=404, detail="Favicon not found")
 
     # Seamless URL aliases for browser extension and direct browser navigation
+    @api.get("/login")
+    async def redirect_login():
+        return RedirectResponse(url="/dashboard/#/login")
+
     @api.get("/contents")
     @api.get("/contents/{content_id}")
     async def redirect_contents(content_id: str = ""):
