@@ -52,6 +52,7 @@
       "js": [
         "extractors/threads.js",
         "extractors/instagram.js",
+        "extractors/tiktok.js",
         "extractors/twitter_x.js",
         "extractors/facebook.js",
         "extractors/youtube.js",

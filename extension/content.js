@@ -976,6 +976,7 @@
     let modularExtractor = null;
     if (platform === "threads") modularExtractor = extractors.threads;
     else if (platform === "instagram") modularExtractor = extractors.instagram;
+    else if (platform === "tiktok") modularExtractor = extractors.tiktok;
     else if (platform === "x") modularExtractor = extractors.x;
     else if (platform === "facebook") modularExtractor = extractors.facebook;
     else if (platform === "youtube") modularExtractor = extractors.youtube;

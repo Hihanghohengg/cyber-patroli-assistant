@@ -879,8 +879,8 @@ async def submit_channel_intake(payload: ChannelIntakeRequest, db: Session = Dep
 
     # Scrape visual via Playwright jika belum ada, BUKAN platform yang mewajibkan login (IG/FB/X), dan Playwright terpasang
     if not evidence_storage_path or not os.path.exists(evidence_storage_path):
-        if platform in ("instagram", "facebook", "threads", "x", "twitter"):
-            logger.info(f"Platform {platform} membatasi bot headless dengan login wall; Playwright server dilewati untuk menghindari rekaman layar login palsu.")
+        if platform in ("instagram", "facebook", "threads", "x", "twitter", "tiktok"):
+            logger.info(f"Platform {platform} membatasi bot headless dengan login wall / proteksi anti-bot; Playwright server dilewati untuk menghindari rekaman layar login palsu.")
         else:
             try:
                 from app.services.scraper.youtube import is_playwright_installed

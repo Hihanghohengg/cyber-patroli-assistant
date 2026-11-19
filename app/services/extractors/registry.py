@@ -6,6 +6,7 @@ from typing import Optional, Dict, Any, List, Type
 from app.services.extractors.base import BasePlatformExtractor, ExtractedPost
 from app.services.extractors.threads import ThreadsExtractor
 from app.services.extractors.instagram import InstagramExtractor
+from app.services.extractors.tiktok import TikTokExtractor
 from app.services.extractors.twitter_x import TwitterXExtractor
 from app.services.extractors.facebook import FacebookExtractor
 from app.services.extractors.youtube import YouTubeExtractor
@@ -20,6 +21,7 @@ class ExtractorRegistry:
     _EXTRACTORS: List[Type[BasePlatformExtractor]] = [
         ThreadsExtractor,
         InstagramExtractor,
+        TikTokExtractor,
         TwitterXExtractor,
         FacebookExtractor,
         YouTubeExtractor,

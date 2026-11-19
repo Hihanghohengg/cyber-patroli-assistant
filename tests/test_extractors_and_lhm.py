@@ -12,6 +12,8 @@ def test_extractors():
         ("https://www.threads.net/@suarapembaruan/post/DG24_68SZqE", "threads"),
         ("https://www.threads.com/@someone/post/12345", "threads"),
         ("https://www.instagram.com/p/Df1lENWhdQq/liked_by", "instagram"),
+        ("https://www.tiktok.com/@kompascom/video/7345678901234567890?is_from_webapp=1&sender_device=pc", "tiktok"),
+        ("https://tiktok.com/@official_news/video/9876543210123456789", "tiktok"),
         ("https://x.com/Kemkominfo/status/1888000000000000000", "x"),
         ("https://twitter.com/jokowi/status/12345", "x"),
         ("https://www.facebook.com/kompascom/posts/10161400000000000", "facebook"),
